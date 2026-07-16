@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Every command Sentinel supports — searchable reference." />
+  <title>Commands · Sentinel</title>
+  <link rel="icon" href="favicon.ico" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="legal-page">
+  <div class="bg-orbs" aria-hidden="true"><span class="orb orb-1"></span><span class="orb orb-2"></span><span class="orb orb-3"></span></div>
+
+  <header class="lp-nav">
+    <a href="/" class="lp-brand"><span class="lp-logo" id="lp-logo">🎴</span><span class="lp-brand-name" id="lp-brand-name">Sentinel</span></a>
+    <nav class="lp-links"><a href="/">Home</a><a href="/dashboard">Dashboard</a><a href="/status">Status</a></nav>
+  </header>
+
+  <main class="cmd-page">
+    <a href="/" class="legal-back">← Back to home</a>
+    <header class="lp-head reveal in" style="margin-bottom:24px">
+      <h2>📖 Command Reference</h2>
+      <p>All <b id="cmd-total">—</b> commands, grouped by category. Search to find what you need.</p>
+    </header>
+
+    <div class="cmd-toolbar card">
+      <input type="search" id="cmd-search" class="input" placeholder="Search commands…" aria-label="Search commands" />
+      <div class="cmd-cats" id="cmd-cats"></div>
+    </div>
+
+    <div id="cmd-list" class="cmd-list"><p class="muted">Loading commands…</p></div>
+  </main>
+
+  <footer class="lp-footer">
+    <div class="lp-footer-bottom">
+      <span class="muted">© <span id="lp-year">2026</span> Sentinel</span>
+      <span class="muted"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/status">Status</a></span>
+    </div>
+  </footer>
+
+  <script src="commands.js"></script>
+</body>
+</html>

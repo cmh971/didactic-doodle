@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Discord bot dashboard — manage economy, modules, leveling, moderation, shop, and live status." />
+  <title data-i18n="title_full">Bot Control Center · Dashboard</title>
+
+  <link rel="icon" href="favicon.ico" />
+  <meta name="theme-color" content="#111827" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+</head>
+<body>
+  <!-- Accessibility: skip links -->
+  <a href="#main" class="skip-link">Skip to main content</a>
+  <a href="#nav" class="skip-link">Skip to navigation</a>
+
+  <!-- Ambient animated background blobs -->
+  <div class="bg-orbs" aria-hidden="true">
+    <span class="orb orb-1"></span>
+    <span class="orb orb-2"></span>
+    <span class="orb orb-3"></span>
+  </div>
+
+  <!-- Global status bar -->
+  <header class="topbar" role="banner">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">🎴</span>
+      <div class="brand-text">
+        <h1 id="title" data-i18n="title">Bot Dashboard</h1>
+        <p class="subtitle" id="subtitle" data-i18n="subtitle">
+          Manage your server, economy &amp; modules
+        </p>
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <!-- Command palette trigger -->
+      <button type="button" class="btn ghost cmdk-trigger" id="cmdk-open" aria-label="Open command palette">
+        <span aria-hidden="true">⌘</span>
+        <span class="cmdk-hint">Search</span>
+        <kbd class="kbd">Ctrl</kbd><kbd class="kbd">K</kbd>
+      </button>
+
+      <!-- Theme toggle -->
+      <div class="theme-toggle" aria-label="Theme" role="group">
+        <button type="button" class="btn icon" id="theme-auto" data-theme-value="auto" aria-pressed="true">
+          <span aria-hidden="true">🌓</span>
+          <span class="sr-only" data-i18n="theme_auto">Auto theme</span>
+        </button>
+        <button type="button" class="btn icon" id="theme-light" data-theme-value="light" aria-pressed="false">
+          <span aria-hidden="true">🌤️</span>
+          <span class="sr-only" data-i18n="theme_light">Light theme</span>
+        </button>
+        <button type="button" class="btn icon" id="theme-dark" data-theme-value="dark" aria-pressed="false">
+          <span aria-hidden="true">🌙</span>
+          <span class="sr-only" data-i18n="theme_dark">Dark theme</span>
+        </button>
+      </div>
+
+      <label class="lang-wrap">
+        <span class="sr-only" data-i18n="language">Language</span>
+        <select id="lang" aria-label="Language" class="lang-select"></select>
+      </label>
+
+      <div id="auth-area" class="auth-area" aria-live="polite"></div>
+    </div>
+  </header>
+
+  <!-- Primary navigation -->
+  <nav id="nav" class="nav" aria-label="Primary">
+    <ul class="nav-list">
+      <li><button class="nav-link active" data-view="overview" aria-current="page"><span class="nav-ic" aria-hidden="true">📊</span><span data-i18n="nav_overview">Overview</span></button></li>
+      <li><button class="nav-link" data-view="servers"><span class="nav-ic" aria-hidden="true">🧩</span><span data-i18n="nav_servers">Servers &amp; Modules</span></button></li>
+      <li><button class="nav-link" data-view="leaderboards"><span class="nav-ic" aria-hidden="true">🏆</span><span data-i18n="nav_leaderboards">Leaderboards</span></button></li>
+      <li><button class="nav-link" data-view="shop"><span class="nav-ic" aria-hidden="true">🛒</span><span>Shop</span></button></li>
+      <li><button class="nav-link" data-view="notes"><span class="nav-ic" aria-hidden="true">📝</span><span>Notes</span></button></li>
+      <li class="auth-nav" hidden><button class="nav-link" data-view="tickets"><span class="nav-ic" aria-hidden="true">🎫</span><span>Tickets</span></button></li>
+      <li class="auth-nav" hidden><button class="nav-link" data-view="announce"><span class="nav-ic" aria-hidden="true">📢</span><span>Announce</span></button></li>
+      <li class="auth-nav" hidden><button class="nav-link" data-view="analytics"><span class="nav-ic" aria-hidden="true">📈</span><span>Analytics</span></button></li>
+      <li class="auth-nav" hidden><button class="nav-link" data-view="members"><span class="nav-ic" aria-hidden="true">👮</span><span>Warnings</span></button></li>
+      <li class="auth-nav" hidden><button class="nav-link" data-view="giveaways"><span class="nav-ic" aria-hidden="true">🎉</span><span>Giveaways</span></button></li>
+      <li class="auth-nav" hidden><button class="nav-link" data-view="reactionroles"><span class="nav-ic" aria-hidden="true">🎭</span><span>Reaction Roles</span></button></li>
+      <li class="auth-nav" hidden><button class="nav-link" data-view="automod"><span class="nav-ic" aria-hidden="true">🤖</span><span>Automod</span></button></li>
+      <li class="owner-nav" hidden><button class="nav-link" data-view="owner"><span class="nav-ic" aria-hidden="true">🛠️</span><span data-i18n="nav_owner">Owner Tools</span></button></li>
+      <li class="owner-nav" hidden><button class="nav-link" data-view="transactions"><span class="nav-ic" aria-hidden="true">💸</span><span>Transactions</span></button></li>
+      <li class="owner-nav" hidden><button class="nav-link" data-view="logs"><span class="nav-ic" aria-hidden="true">📜</span><span data-i18n="nav_logs">Live Logs</span></button></li>
+    </ul>
+  </nav>
+
+  <main id="main" role="main" tabindex="-1">
+
+    <!-- ============ OVERVIEW ============ -->
+    <section aria-labelledby="stats-h" class="view view-overview" data-view-id="overview">
+      <div class="hero card glass">
+        <div class="hero-text">
+          <h2 id="stats-h" data-i18n="stats_title">Bot statistics</h2>
+          <p class="muted" data-i18n="stats_desc">Live overview of your bot’s presence and health.</p>
+        </div>
+        <div class="status-row" aria-label="Bot status">
+          <div class="status-pill" id="status-pill">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span id="status-text" data-i18n="status_unknown">Status: Unknown</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-grid" id="stats" role="list">
+        <article class="stat card" role="listitem" data-accent="blue">
+          <div class="stat-top"><span class="stat-ic" aria-hidden="true">🌐</span><h3 class="stat-label" data-i18n="stats_guilds">Servers</h3></div>
+          <p class="stat-num" id="st-guilds" data-count>—</p>
+          <p class="stat-sub" data-i18n="stats_guilds_sub">Guilds where the bot is present.</p>
+        </article>
+        <article class="stat card" role="listitem" data-accent="green">
+          <div class="stat-top"><span class="stat-ic" aria-hidden="true">👥</span><h3 class="stat-label" data-i18n="stats_users">Users</h3></div>
+          <p class="stat-num" id="st-users" data-count>—</p>
+          <p class="stat-sub" data-i18n="stats_users_sub">Tracked users across all servers.</p>
+        </article>
+        <article class="stat card" role="listitem" data-accent="orange">
+          <div class="stat-top"><span class="stat-ic" aria-hidden="true">📶</span><h3 class="stat-label" data-i18n="stats_ping">Ping</h3></div>
+          <p class="stat-num" id="st-ping">—</p>
+          <p class="stat-sub" data-i18n="stats_ping_sub">Current API latency.</p>
+        </article>
+        <article class="stat card" role="listitem" data-accent="gold">
+          <div class="stat-top"><span class="stat-ic" aria-hidden="true">⏱️</span><h3 class="stat-label" data-i18n="stats_uptime">Uptime</h3></div>
+          <p class="stat-num" id="st-uptime">—</p>
+          <p class="stat-sub" data-i18n="stats_uptime_sub">Time since last restart.</p>
+        </article>
+      </div>
+
+      <div class="overview-grid">
+        <section class="card" aria-labelledby="ping-h">
+          <header class="card-header row">
+            <div><h3 id="ping-h">Latency history</h3><p class="muted">Live API ping, sampled every 5s.</p></div>
+            <span class="chip" id="ping-now">— ms</span>
+          </header>
+          <canvas id="ping-chart" class="chart" height="160" aria-label="Ping history chart"></canvas>
+        </section>
+
+        <section class="card" aria-labelledby="feed-h">
+          <header class="card-header"><h3 id="feed-h">Activity feed</h3><p class="muted">Recent dashboard &amp; bot events.</p></header>
+          <ul class="feed" id="activity-feed" aria-live="polite">
+            <li class="feed-empty muted">Waiting for events…</li>
+          </ul>
+        </section>
+      </div>
+
+      <section class="card" aria-labelledby="weather-h">
+        <header class="card-header"><h3 id="weather-h">🌤️ Weather</h3><p class="muted">Check the current conditions anywhere in the world.</p></header>
+        <div class="inline">
+          <input id="weather-input" class="input" placeholder="City, e.g. London or New York, US" aria-label="Weather location" />
+          <button class="btn primary" id="weather-btn">Check</button>
+        </div>
+        <div id="weather-result" class="weather-result"></div>
+      </section>
+    </section>
+
+    <!-- ============ SERVERS & MODULES ============ -->
+    <section aria-labelledby="srv-h" class="view view-servers" data-view-id="servers" hidden>
+      <header class="card-header page-head">
+        <h2 id="srv-h" data-i18n="modules">Modules</h2>
+        <p class="muted" data-i18n="modules_desc">Enable or disable features per server, and configure auto-roles.</p>
+      </header>
+
+      <p id="login-hint" class="muted notice" data-i18n="not_logged_in">Log in to manage your servers.</p>
+
+      <div class="server-select-row card glass">
+        <label class="field" hidden id="guild-field">
+          <span data-i18n="select_server">Select a server</span>
+          <select id="guild-select" class="select" aria-label="Server selection"></select>
+        </label>
+        <div class="server-meta" id="guild-meta" aria-live="polite"></div>
+      </div>
+
+      <section class="modules-section card">
+        <header class="modules-header row">
+          <div><h3 data-i18n="modules_header">Server modules</h3><p class="muted" data-i18n="modules_hint">Toggle features like leveling, economy, moderation, and games.</p></div>
+          <input type="search" id="module-search" class="input small-search" placeholder="Filter…" aria-label="Filter modules" />
+        </header>
+        <div id="modules" class="modules" role="group" aria-label="Module toggles"></div>
+      </section>
+
+      <section id="autorole-box" hidden class="autorole-section card">
+        <header><h3 data-i18n="autoroles_title">Auto-roles</h3><p class="muted" data-i18n="autoroles_desc">Map a level to a role ID. Roles are granted automatically on level-up.</p></header>
+        <form class="inline" id="ar-form" autocomplete="off">
+          <div class="field-inline">
+            <label class="sr-only" for="ar-level" data-i18n="level">Level</label>
+            <input id="ar-level" type="number" min="1" placeholder="Level" aria-label="Level" class="input small" required />
+          </div>
+          <div class="field-inline">
+            <label class="sr-only" for="ar-role" data-i18n="role_id">Role ID</label>
+            <input id="ar-role" type="text" placeholder="Role ID" aria-label="Role ID" class="input" required />
+          </div>
+          <button id="ar-save" class="btn primary" type="button" data-i18n="add">Add</button>
+        </form>
+        <ul id="ar-list" class="list" aria-label="Auto-role mappings"></ul>
+      </section>
+
+      <section class="card">
+        <h3>💾 Backup &amp; Restore</h3>
+        <p class="muted">Export this server's full configuration as a file, or import a saved one.</p>
+        <div class="inline">
+          <button class="btn" id="cfg-export">⬇️ Export settings</button>
+          <label class="btn" for="cfg-import-file">⬆️ Import settings</label>
+          <input type="file" id="cfg-import-file" accept="application/json,.json" hidden />
+        </div>
+        <p id="cfg-msg" class="muted" aria-live="polite"></p>
+      </section>
+
+      <section class="card">
+        <h3>🖼️ Welcome Card Preview</h3>
+        <p class="muted">See what new members see when they join (uses your avatar as a sample).</p>
+        <button class="btn" id="wc-preview-btn">✨ Generate preview</button>
+        <div id="wc-preview" style="margin-top:12px"></div>
+      </section>
+    </section>
+
+    <!-- ============ LEADERBOARDS ============ -->
+    <section aria-labelledby="lb-h" class="view view-leaderboards" data-view-id="leaderboards" hidden>
+      <header class="card-header page-head row">
+        <div><h2 id="lb-h" data-i18n="leaderboard">Richest Players</h2><p class="muted" data-i18n="leaderboard_desc">Global economy leaderboard and per-server XP rankings.</p></div>
+        <input type="search" id="lb-search" class="input small-search" placeholder="Search players…" aria-label="Search leaderboard" />
+      </header>
+
+      <div class="leaderboard-grid">
+        <section aria-labelledby="lb-global-h" class="leaderboard-card card">
+          <h3 id="lb-global-h" data-i18n="global_leaderboard">Global Economy</h3>
+          <canvas id="lb-chart" class="chart" height="150" aria-label="Top players chart"></canvas>
+          <ol id="leaderboard" class="leaderboard" aria-live="polite"></ol>
+        </section>
+        <section aria-labelledby="xp-h" class="leaderboard-card card">
+          <h3 data-i18n="xp_leaderboard" id="xp-h" hidden>XP Leaderboard</h3>
+          <ol id="xp-leaderboard" class="leaderboard" aria-live="polite"></ol>
+        </section>
+      </div>
+    </section>
+
+    <!-- ============ SHOP ============ -->
+    <section aria-labelledby="shop-h" class="view view-shop" data-view-id="shop" hidden>
+      <header class="card-header page-head row">
+        <div><h2 id="shop-h">Item Shop</h2><p class="muted">Everything members can buy with their coins.</p></div>
+        <input type="search" id="shop-search" class="input small-search" placeholder="Search items…" aria-label="Search shop" />
+      </header>
+      <div class="shop-grid" id="shop-grid" role="list"></div>
+
+      <section id="shop-add-card" class="card" hidden>
+        <h3>Add a shop item <span class="badge">Owner</span></h3>
+        <p class="muted">Create a custom item members can purchase.</p>
+        <form class="grid form-grid" id="shop-form" autocomplete="off">
+          <label class="field"><span>ID</span><input id="si-id" class="input" placeholder="cool_hat" /></label>
+          <label class="field"><span>Name</span><input id="si-name" class="input" placeholder="Cool Hat" /></label>
+          <label class="field"><span>Price</span><input id="si-price" type="number" class="input" placeholder="1000" /></label>
+          <label class="field"><span>Category</span><input id="si-category" class="input" placeholder="cosmetic" /></label>
+          <label class="field"><span>Rarity</span>
+            <select id="si-rarity" class="select">
+              <option value="common">Common</option>
+              <option value="uncommon">Uncommon</option>
+              <option value="rare">Rare</option>
+              <option value="epic">Epic</option>
+              <option value="legendary">Legendary</option>
+            </select>
+          </label>
+          <label class="field wide"><span>Description</span><input id="si-desc" class="input" placeholder="A very cool hat." /></label>
+          <button type="button" id="si-save" class="btn primary">Create item</button>
+        </form>
+        <p id="si-msg" class="muted" aria-live="polite"></p>
+      </section>
+    </section>
+
+    <!-- ============ NOTES ============ -->
+    <section aria-labelledby="notes-h" class="view view-notes" data-view-id="notes" hidden>
+      <header class="card-header page-head row">
+        <div><h2 id="notes-h">📝 My Notes</h2><p class="muted">A private scratchpad — saved right in your browser, only you can see it.</p></div>
+        <span class="chip" id="notes-count">0 notes</span>
+      </header>
+      <div class="card">
+        <div class="note-compose">
+          <textarea id="note-input" class="input" rows="3" placeholder="Jot something down… (Ctrl+Enter to save)"></textarea>
+          <div class="row">
+            <div class="note-colors" id="note-colors" role="group" aria-label="Note color">
+              <button class="note-swatch on" data-color="#5865f2" style="background:#5865f2" aria-label="Blurple"></button>
+              <button class="note-swatch" data-color="#2ecc71" style="background:#2ecc71" aria-label="Green"></button>
+              <button class="note-swatch" data-color="#f1c40f" style="background:#f1c40f" aria-label="Gold"></button>
+              <button class="note-swatch" data-color="#e74c3c" style="background:#e74c3c" aria-label="Red"></button>
+              <button class="note-swatch" data-color="#a855f7" style="background:#a855f7" aria-label="Purple"></button>
+            </div>
+            <button class="btn primary" id="note-add">➕ Add note</button>
+          </div>
+        </div>
+      </div>
+      <div class="notes-grid" id="notes-grid"></div>
+    </section>
+
+    <!-- ============ TICKETS ============ -->
+    <section aria-labelledby="tk-h" class="view view-tickets" data-view-id="tickets" hidden>
+      <header class="card-header page-head row">
+        <div><h2 id="tk-h">🎫 Ticket Studio</h2><p class="muted">Design and configure your ticket system right from the browser.</p></div>
+        <select class="select guild-picker" data-picker="tickets" aria-label="Server"></select>
+      </header>
+      <p class="notice muted guild-empty" data-empty="tickets">Log in and select a server to configure tickets.</p>
+      <div class="split-layout" data-body="tickets" hidden>
+        <div class="card" id="tk-form"></div>
+        <div class="tk-side">
+          <div class="card preview-card">
+            <h3>Live preview</h3>
+            <div id="tk-preview" class="embed-preview"></div>
+          </div>
+          <div class="card">
+            <button class="btn primary block" id="tk-save">💾 Save configuration</button>
+            <button class="btn block" id="tk-deploy-note" disabled>Deploy from Discord: <code>/setup ▸ Tickets ▸ Deploy</code></button>
+            <p id="tk-msg" class="muted" aria-live="polite"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ANNOUNCE ============ -->
+    <section aria-labelledby="an-h" class="view view-announce" data-view-id="announce" hidden>
+      <header class="card-header page-head row">
+        <div><h2 id="an-h">📢 Announcement Composer</h2><p class="muted">Design an embed and the bot posts it to any channel — no tokens, no code.</p></div>
+        <select class="select guild-picker" data-picker="announce" aria-label="Server"></select>
+      </header>
+      <p class="notice muted guild-empty" data-empty="announce">Log in and select a server to compose an announcement.</p>
+      <div class="split-layout" data-body="announce" hidden>
+        <div class="card">
+          <button class="btn block" id="an-templates" style="margin-bottom:12px">📚 Browse 120 embed templates</button>
+          <label class="field"><span>Target channel</span><select id="an-channel" class="select"></select></label>
+          <label class="field"><span>Plain text (optional — appears above the embed)</span><input id="an-content" class="input" maxlength="2000" placeholder="@everyone …" /></label>
+          <label class="check big"><input type="checkbox" id="an-useembed" checked /> <span>Include a rich embed</span></label>
+          <div class="embed-fields">
+            <label class="field"><span>Title</span><input id="an-title" class="input" maxlength="256" placeholder="Big news!" /></label>
+            <label class="field"><span>Description</span><textarea id="an-desc" class="input" rows="6" maxlength="4096" placeholder="Write your announcement… **markdown** works."></textarea></label>
+            <div class="two-col">
+              <label class="field"><span>Accent color</span><input id="an-color" type="color" value="#5865f2" class="input color-input" /></label>
+              <label class="field"><span>Footer</span><input id="an-footer" class="input" maxlength="2048" placeholder="Posted via dashboard" /></label>
+            </div>
+            <label class="field"><span>Image URL (optional)</span><input id="an-image" class="input" placeholder="https://…" /></label>
+          </div>
+          <button class="btn primary block" id="an-send">🚀 Send announcement</button>
+          <p id="an-msg" class="muted" aria-live="polite"></p>
+        </div>
+        <div class="card preview-card">
+          <h3>Live preview</h3>
+          <div id="an-content-preview" class="content-preview"></div>
+          <div id="an-preview" class="embed-preview"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ANALYTICS ============ -->
+    <section aria-labelledby="ana-h" class="view view-analytics" data-view-id="analytics" hidden>
+      <header class="card-header page-head row">
+        <div><h2 id="ana-h">📈 Server Analytics</h2><p class="muted">Joins, leaves &amp; message volume over the last two weeks.</p></div>
+        <select class="select guild-picker" data-picker="analytics" aria-label="Server"></select>
+      </header>
+      <p class="notice muted guild-empty" data-empty="analytics">Log in and select a server to view analytics.</p>
+      <div data-body="analytics" hidden>
+        <div class="stats-grid">
+          <article class="stat card" data-accent="green"><div class="stat-top"><span class="stat-ic">📥</span><h3 class="stat-label">Joins (14d)</h3></div><p class="stat-num" id="ana-joins">—</p><p class="stat-sub">New members.</p></article>
+          <article class="stat card" data-accent="orange"><div class="stat-top"><span class="stat-ic">📤</span><h3 class="stat-label">Leaves (14d)</h3></div><p class="stat-num" id="ana-leaves">—</p><p class="stat-sub">Members who left.</p></article>
+          <article class="stat card" data-accent="blue"><div class="stat-top"><span class="stat-ic">💬</span><h3 class="stat-label">Messages (14d)</h3></div><p class="stat-num" id="ana-messages">—</p><p class="stat-sub">Human messages sent.</p></article>
+          <article class="stat card" data-accent="gold"><div class="stat-top"><span class="stat-ic">📊</span><h3 class="stat-label">Net growth</h3></div><p class="stat-num" id="ana-net">—</p><p class="stat-sub">Joins minus leaves.</p></article>
+        </div>
+        <div class="card">
+          <header class="card-header row"><h3>Daily activity</h3>
+            <div class="chart-legend">
+              <span class="lg-item"><i class="dot dot-join"></i>Joins</span>
+              <span class="lg-item"><i class="dot dot-leave"></i>Leaves</span>
+              <span class="lg-item"><i class="dot dot-msg"></i>Messages</span>
+            </div>
+          </header>
+          <canvas id="analytics-chart" class="chart" height="240" aria-label="Daily activity chart"></canvas>
+          <p class="muted" id="ana-note">Message counts started being recorded when this feature went live — the graph fills in over time.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ WARNINGS / MEMBERS ============ -->
+    <section aria-labelledby="warn-h" class="view view-members" data-view-id="members" hidden>
+      <header class="card-header page-head row">
+        <div><h2 id="warn-h">👮 Warnings Browser</h2><p class="muted">Search and review infractions across your server.</p></div>
+        <select class="select guild-picker" data-picker="members" aria-label="Server"></select>
+      </header>
+      <p class="notice muted guild-empty" data-empty="members">Log in and select a server to browse warnings.</p>
+      <div data-body="members" hidden>
+        <div class="card">
+          <div class="row">
+            <input id="warn-search" class="input" placeholder="Filter by user ID…" aria-label="Search warnings" />
+            <span class="chip" id="warn-count">0 records</span>
+          </div>
+          <div class="table-wrap">
+            <table class="tbl" aria-label="Infractions">
+              <thead><tr><th>User</th><th>Type</th><th>Reason</th><th>Moderator</th><th>When</th></tr></thead>
+              <tbody id="warn-body"><tr><td colspan="5" class="muted">Select a server…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ AUTOMOD ============ -->
+    <section aria-labelledby="am-h" class="view view-automod" data-view-id="automod" hidden>
+      <header class="card-header page-head row">
+        <div><h2 id="am-h">🤖 Auto-Moderation</h2><p class="muted">Automatic filters that run on every message — no commands needed.</p></div>
+        <select class="select guild-picker" data-picker="automod" aria-label="Server"></select>
+      </header>
+      <p class="notice muted guild-empty" data-empty="automod">Log in and select a server to configure automod.</p>
+      <div class="split-layout" data-body="automod" hidden>
+        <div class="card">
+          <h3>Filters</h3>
+          <div class="tk-flags" id="am-flags">
+            <label class="flag-chip" id="am-invites-chip"><input type="checkbox" id="am-invites" /> 🔗 Block invites</label>
+            <label class="flag-chip" id="am-spam-chip"><input type="checkbox" id="am-spam" /> 💬 Anti-spam (&gt;5/3s)</label>
+            <label class="flag-chip" id="am-badwords-chip"><input type="checkbox" id="am-badwords" /> 🤬 Bad-word filter</label>
+          </div>
+          <label class="field" style="margin-top:14px"><span>Max mentions per message (0 = off)</span><input id="am-maxmentions" type="number" class="input" min="0" /></label>
+          <button class="btn primary block" id="am-save">💾 Save automod rules</button>
+          <p id="am-msg" class="muted" aria-live="polite"></p>
+        </div>
+        <div class="card">
+          <h3>Logging</h3>
+          <label class="field"><span>Automod log channel</span><select id="am-logchannel" class="select"></select></label>
+          <p class="muted">Deletions, warnings, and filter actions get logged here.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ GIVEAWAYS ============ -->
+    <section aria-labelledby="gw-h" class="view view-giveaways" data-view-id="giveaways" hidden>
+      <header class="card-header page-head row">
+        <div><h2 id="gw-h">🎉 Giveaway Manager</h2><p class="muted">Launch and manage giveaways without leaving your browser.</p></div>
+        <select class="select guild-picker" data-picker="giveaways" aria-label="Server"></select>
+      </header>
+      <p class="notice muted guild-empty" data-empty="giveaways">Log in and select a server to manage giveaways.</p>
+      <div class="split-layout" data-body="giveaways" hidden>
+        <div class="card">
+          <h3>Create a giveaway</h3>
+          <label class="field"><span>Channel</span><select id="gw-channel" class="select"></select></label>
+          <label class="field"><span>Prize</span><input id="gw-prize" class="input" placeholder="Discord Nitro" maxlength="200" /></label>
+          <div class="two-col">
+            <label class="field"><span>Duration (minutes)</span><input id="gw-minutes" type="number" class="input" value="60" min="1" /></label>
+            <label class="field"><span>Winners</span><input id="gw-winners" type="number" class="input" value="1" min="1" /></label>
+          </div>
+          <button class="btn primary block" id="gw-create">🎉 Launch giveaway</button>
+          <p id="gw-msg" class="muted" aria-live="polite"></p>
+        </div>
+        <div class="card">
+          <h3>Recent giveaways</h3>
+          <ul class="gw-list" id="gw-list"><li class="muted">Loading…</li></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ REACTION ROLES ============ -->
+    <section aria-labelledby="rr-h" class="view view-reactionroles" data-view-id="reactionroles" hidden>
+      <header class="card-header page-head row">
+        <div><h2 id="rr-h">🎭 Reaction Roles</h2><p class="muted">React to a message → get a role. Set them up here.</p></div>
+        <select class="select guild-picker" data-picker="reactionroles" aria-label="Server"></select>
+      </header>
+      <p class="notice muted guild-empty" data-empty="reactionroles">Log in and select a server to manage reaction roles.</p>
+      <div class="split-layout" data-body="reactionroles" hidden>
+        <div class="card">
+          <h3>Add a reaction role</h3>
+          <label class="field"><span>Channel (where the message is)</span><select id="rr-channel" class="select"></select></label>
+          <label class="field"><span>Message ID</span><input id="rr-message" class="input" placeholder="Right-click a message → Copy Message ID" /></label>
+          <div class="two-col">
+            <label class="field"><span>Emoji</span><input id="rr-emoji" class="input" placeholder="🎮 or :custom:" /></label>
+            <label class="field"><span>Role</span><select id="rr-role" class="select"></select></label>
+          </div>
+          <button class="btn primary block" id="rr-add">🎭 Add reaction role</button>
+          <p id="rr-msg" class="muted" aria-live="polite"></p>
+          <p class="muted" style="font-size:0.8rem">💡 Enable <b>Developer Mode</b> in Discord (Settings → Advanced) to copy message IDs.</p>
+        </div>
+        <div class="card">
+          <h3>Active reaction roles</h3>
+          <ul class="rr-list" id="rr-list"><li class="muted">Loading…</li></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ OWNER TOOLS ============ -->
+    <section aria-labelledby="owner-h" class="view view-owner" data-view-id="owner" hidden>
+      <header class="card-header page-head">
+        <h2 id="owner-h" data-i18n="owner_tools">Owner Tools <span class="badge" data-i18n="owner_only">Owner only</span></h2>
+        <p class="muted" data-i18n="owner_desc">Economy editor and advanced controls. Visible only to the bot owner.</p>
+      </header>
+
+      <div class="grid owner-grid">
+        <section aria-labelledby="eco-h" class="card inner-card" id="eco-card" hidden>
+          <h3 id="eco-h" data-i18n="economy_editor">Economy Editor</h3>
+          <p class="muted" data-i18n="economy_editor_desc">Inspect and adjust a user’s wallet and bank balance.</p>
+          <div class="inline">
+            <label class="sr-only" for="eco-user" data-i18n="user_id">User ID</label>
+            <input id="eco-user" type="text" placeholder="User ID" aria-label="User ID" class="input" />
+            <button id="eco-load" class="btn" data-i18n="load">Load</button>
+          </div>
+          <div class="eco-readout" id="eco-readout" hidden>
+            <div class="mini-stat"><span class="muted">Wallet</span><b id="eco-r-wallet">—</b></div>
+            <div class="mini-stat"><span class="muted">Bank</span><b id="eco-r-bank">—</b></div>
+            <div class="mini-stat"><span class="muted">Wins</span><b id="eco-r-wins">—</b></div>
+            <div class="mini-stat"><span class="muted">Losses</span><b id="eco-r-losses">—</b></div>
+          </div>
+          <label class="field"><span data-i18n="wallet">Wallet</span><input id="eco-wallet" type="number" class="input" aria-label="Wallet balance" /></label>
+          <button id="eco-save" class="btn primary" data-i18n="save">Save</button>
+          <p id="eco-msg" class="muted" aria-live="polite"></p>
+        </section>
+
+        <section aria-labelledby="owner-ctrl-h" class="card inner-card owner-ctrl" id="owner-ctrl-card" hidden style="grid-column:1/-1">
+          <h3 id="owner-ctrl-h">😈 Owner Control Center <span class="badge">You only</span></h3>
+          <p class="muted">Prank tools &amp; the kill switch. Everyone sees these — you always have the ✕ escape bar.</p>
+
+          <div class="ctrl-danger">
+            <label class="flag-chip big-flag" id="ctrl-maintenance-chip"><input type="checkbox" id="ctrl-maintenance" /> 🛠️ <b>Kill switch</b> — everyone gets 503 (except you)</label>
+          </div>
+
+          <div class="ctrl-grid" id="ctrl-effects">
+            <label class="flag-chip"><input type="checkbox" data-fx="upsideDown" /> 🙃 Upside-down</label>
+            <label class="flag-chip"><input type="checkbox" data-fx="comicSans" /> ✍️ Comic Sans</label>
+            <label class="flag-chip"><input type="checkbox" data-fx="snow" /> ❄️ Snow</label>
+            <label class="flag-chip"><input type="checkbox" data-fx="disco" /> 🪩 Disco</label>
+            <label class="flag-chip"><input type="checkbox" data-fx="crt" /> 📺 CRT scanlines</label>
+            <label class="flag-chip"><input type="checkbox" data-fx="grayscale" /> 🌑 Grayscale</label>
+            <label class="flag-chip"><input type="checkbox" data-fx="blur" /> 🌫️ Blur</label>
+            <label class="flag-chip"><input type="checkbox" data-fx="spooky" /> 👻 Spooky shake</label>
+            <label class="flag-chip"><input type="checkbox" data-fx="fakeCounter" /> 🎉 Fake visitor #</label>
+            <label class="flag-chip"><input type="checkbox" data-fx="creditSteal" /> 💸 Credit steal</label>
+          </div>
+
+          <div class="two-col" style="margin-top:12px">
+            <label class="field"><span>📢 Site banner (empty = off)</span><input id="ctrl-banner" class="input" placeholder="⚠️ Under new management" maxlength="200" /></label>
+            <label class="field"><span>🌧️ Emoji rain (one emoji, empty = off)</span><input id="ctrl-emoji" class="input" placeholder="🐛" maxlength="8" /></label>
+          </div>
+
+          <div class="ctrl-ban">
+            <h4>⛔ Ban list <span class="muted">(Google emails — they get the ban page)</span></h4>
+            <div class="inline">
+              <input id="ctrl-ban-input" class="input" type="email" placeholder="friend@gmail.com" />
+              <button class="btn danger" id="ctrl-ban-add">Ban 'em</button>
+            </div>
+            <ul class="list" id="ctrl-ban-list"></ul>
+          </div>
+
+          <div class="inline" style="margin-top:14px">
+            <button class="btn" id="ctrl-preview-503">👁️ Preview 503 page</button>
+            <button class="btn" id="ctrl-undo">↩️ Undo last change</button>
+            <button class="btn danger" id="ctrl-clear-all">✕ Clear ALL effects</button>
+          </div>
+          <p id="ctrl-msg" class="muted" aria-live="polite"></p>
+
+          <div class="ctrl-ban" style="margin-top:18px">
+            <h4>👁️ Who's Online <span class="chip" id="presence-count">0</span> <button class="btn" id="msg-all" style="float:right">📢 Message everyone</button></h4>
+            <div class="table-wrap">
+              <table class="tbl" aria-label="Live viewers">
+                <thead><tr><th>Who</th><th>On page</th><th>Seen</th><th>Actions</th></tr></thead>
+                <tbody id="presence-body"><tr><td colspan="4" class="muted">Watching…</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section aria-labelledby="site-config-h" class="card inner-card" id="site-config-card" hidden>
+          <h3 id="site-config-h">🛡️ Landing Bot-Check</h3>
+          <p class="muted">The "are you a bot?" human check on the public homepage. Only you can flip this.</p>
+          <label class="flag-chip" id="hc-toggle-chip"><input type="checkbox" id="hc-toggle" /> Human check enabled</label>
+          <p id="hc-toggle-msg" class="muted" aria-live="polite"></p>
+        </section>
+
+        <section aria-labelledby="owner-quick-h" class="card inner-card">
+          <h3 id="owner-quick-h" data-i18n="owner_quick">Quick Actions</h3>
+          <p class="muted" data-i18n="owner_quick_desc">Handy shortcuts and diagnostics.</p>
+          <div class="quick-actions">
+            <button class="btn" data-cmd="refresh">🔄 Refresh all data</button>
+            <button class="btn" data-cmd="copy-invite">🔗 Copy bot invite</button>
+            <button class="btn" data-cmd="scroll-logs">📜 Jump to logs</button>
+            <button class="btn" data-cmd="shortcuts">⌨️ Keyboard shortcuts</button>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- ============ TRANSACTIONS ============ -->
+    <section aria-labelledby="tx-h" class="view view-transactions" data-view-id="transactions" hidden>
+      <header class="card-header page-head"><h2 id="tx-h">Transactions <span class="badge">Owner</span></h2><p class="muted">The most recent economy movements across all servers.</p></header>
+      <div class="card table-wrap">
+        <table class="tbl" aria-label="Recent transactions">
+          <thead><tr><th>User</th><th>Type</th><th class="num">Amount</th><th class="num">Balance</th><th>When</th></tr></thead>
+          <tbody id="tx-body"><tr><td colspan="5" class="muted">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ LOGS ============ -->
+    <section aria-labelledby="log-h" class="view view-logs" data-view-id="logs" hidden>
+      <header class="card-header page-head row">
+        <div><h2 id="log-h" data-i18n="live_logs">Live Logs <span class="badge">Owner</span></h2><p class="muted" data-i18n="live_logs_desc">Stream of recent bot events. Useful for debugging and monitoring.</p></div>
+        <div class="log-controls">
+          <input type="search" id="log-filter" class="input small-search" placeholder="Filter logs…" aria-label="Filter logs" />
+          <button class="btn" id="log-clear">Clear</button>
+          <label class="check"><input type="checkbox" id="log-autoscroll" checked /> <span>Auto-scroll</span></label>
+        </div>
+      </header>
+      <div class="logs-wrapper card">
+        <pre id="logs" class="logs" aria-live="polite" tabindex="0" aria-label="Live log output"></pre>
+        <div class="logs-footer"><p class="muted" data-i18n="logs_hint">Logs update automatically every few seconds. Levels are color-coded.</p></div>
+      </div>
+    </section>
+  </main>
+
+  <footer role="contentinfo" class="footer">
+    <div class="footer-inner">
+      <p>Built with <span class="tech">Discord.js</span> · <span class="tech">SQLite</span> · <span class="tech">Express</span>. <span id="oauth-note"></span></p>
+      <p class="muted"><span data-i18n="footer_hint">Use this dashboard to safely manage your bot without exposing tokens.</span></p>
+      <p class="muted footer-legal"><a href="/">🏠 Home</a> · <a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a></p>
+    </div>
+  </footer>
+
+  <!-- Command palette -->
+  <div class="cmdk-overlay" id="cmdk" hidden>
+    <div class="cmdk-panel card" role="dialog" aria-modal="true" aria-label="Command palette">
+      <input type="text" id="cmdk-input" class="cmdk-input" placeholder="Type a command or search…" aria-label="Command search" autocomplete="off" />
+      <ul class="cmdk-results" id="cmdk-results" role="listbox"></ul>
+      <div class="cmdk-foot muted"><kbd class="kbd">↑</kbd><kbd class="kbd">↓</kbd> to navigate · <kbd class="kbd">Enter</kbd> to run · <kbd class="kbd">Esc</kbd> to close</div>
+    </div>
+  </div>
+
+  <!-- Keyboard shortcuts modal -->
+  <div class="modal-overlay" id="help-modal" hidden>
+    <div class="modal card" role="dialog" aria-modal="true" aria-labelledby="help-title">
+      <header class="modal-head"><h3 id="help-title">⌨️ Keyboard Shortcuts</h3><button class="btn icon" data-close-modal aria-label="Close">✕</button></header>
+      <ul class="shortcut-list">
+        <li><span>Command palette</span><span><kbd class="kbd">Ctrl</kbd><kbd class="kbd">K</kbd></span></li>
+        <li><span>Go to Overview</span><span><kbd class="kbd">G</kbd> <kbd class="kbd">O</kbd></span></li>
+        <li><span>Go to Servers</span><span><kbd class="kbd">G</kbd> <kbd class="kbd">S</kbd></span></li>
+        <li><span>Go to Leaderboards</span><span><kbd class="kbd">G</kbd> <kbd class="kbd">L</kbd></span></li>
+        <li><span>Toggle theme</span><span><kbd class="kbd">T</kbd></span></li>
+        <li><span>This help</span><span><kbd class="kbd">?</kbd></span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Confirm modal -->
+  <div class="modal-overlay" id="confirm-modal" hidden>
+    <div class="modal card" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+      <header class="modal-head"><h3 id="confirm-title">Are you sure?</h3></header>
+      <p id="confirm-body" class="muted">This action cannot be undone.</p>
+      <div class="modal-actions">
+        <button class="btn" data-close-modal>Cancel</button>
+        <button class="btn danger" id="confirm-ok">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Multi-step login gate: email/Google → then Discord -->
+  <div class="modal-overlay gate-overlay" id="login-gate" hidden>
+    <div class="modal gate card" role="dialog" aria-modal="true" aria-labelledby="gate-title">
+      <button class="btn icon gate-close" data-close-modal aria-label="Close">✕</button>
+      <div class="gate-logo" aria-hidden="true">🎴</div>
+      <h3 id="gate-title">Welcome back</h3>
+
+      <!-- Step 1 -->
+      <div class="gate-step" data-step="1">
+        <p class="muted">Choose how you'd like to continue.</p>
+        <button class="btn gate-btn google" id="gate-google"><span class="g-mark">G</span> Continue with Google</button>
+        <div class="gate-or"><span>or</span></div>
+        <label class="field"><span>Continue with email</span>
+          <input type="email" id="gate-email" class="input" placeholder="you@example.com" autocomplete="email" />
+        </label>
+        <button class="btn primary block" id="gate-email-next">Continue →</button>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="gate-step" data-step="2" hidden>
+        <p class="muted">One last step, <b id="gate-who">friend</b> — connect your Discord account to manage your servers.</p>
+        <a class="btn discord block" id="gate-discord" href="/login"><span aria-hidden="true">🎮</span> Continue with Discord</a>
+        <button class="btn ghost block" id="gate-back">← Back</button>
+      </div>
+
+      <p class="gate-legal muted">🔒 Discord is the only real sign-in. Email is remembered on this device via a cookie.</p>
+    </div>
+  </div>
+
+  <!-- Cookie consent banner -->
+  <div class="cookie-banner" id="cookie-banner" hidden>
+    <span class="cookie-ic" aria-hidden="true">🍪</span>
+    <p>We use cookies to remember your theme, notes, and login preference. No tracking, no selling — just to make the dashboard nicer.</p>
+    <div class="cookie-actions">
+      <button class="btn" id="cookie-decline">Decline</button>
+      <button class="btn primary" id="cookie-accept">Accept</button>
+    </div>
+  </div>
+
+  <!-- Embed template library modal -->
+  <div class="modal-overlay" id="tpl-modal" hidden>
+    <div class="modal card tpl-panel" role="dialog" aria-modal="true" aria-label="Embed templates">
+      <header class="modal-head"><h3>📚 Embed Templates <span class="badge">120</span></h3><button class="btn icon" data-close-modal aria-label="Close">✕</button></header>
+      <input type="search" id="tpl-search" class="input" placeholder="Search 120 templates…" aria-label="Search templates" />
+      <div class="tpl-cats" id="tpl-cats"></div>
+      <div class="tpl-grid" id="tpl-grid"></div>
+    </div>
+  </div>
+
+  <!-- Owner ↔ viewer chat -->
+  <div class="modal-overlay" id="owner-chat-modal" hidden>
+    <div class="modal card" role="dialog" aria-modal="true" aria-label="Chat with viewer">
+      <header class="modal-head"><h3 id="oc-title">💬 Chat</h3><button class="btn icon" data-close-modal aria-label="Close">✕</button></header>
+      <div class="oc-body" id="oc-body"></div>
+      <form class="oc-input" id="oc-form"><input id="oc-input" class="input" placeholder="Type a message…" maxlength="500" autocomplete="off" /><button class="btn primary" type="submit">Send</button></form>
+    </div>
+  </div>
+
+  <div id="toast-root" aria-live="polite" aria-atomic="true"></div>
+
+  <script src="site-effects.js"></script>
+  <script src="embed-templates.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

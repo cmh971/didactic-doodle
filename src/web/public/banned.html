@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Access denied · Sentinel</title>
+  <link rel="icon" href="favicon.ico" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="legal-page">
+  <div class="bg-orbs" aria-hidden="true"><span class="orb orb-2"></span></div>
+  <main class="err-page">
+    <div class="err-code" style="background:linear-gradient(120deg,#e74c3c,#c0392b);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">⛔</div>
+    <h1>You've been banned.</h1>
+    <p class="muted">Your access to Sentinel has been revoked. If you think this is a mistake… well, it's probably not. 😏</p>
+    <div class="err-actions">
+      <a href="/" class="btn big ghost">↻ Refresh</a>
+    </div>
+    <div class="err-links"><a href="/">✕ Exit preview</a></div>
+  </main>
+  <script>
+    (function () {
+      var t = localStorage.getItem('theme') || 'dark';
+      if (t !== 'light' && t !== 'dark') t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+</body>
+</html>

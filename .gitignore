@@ -1,0 +1,25 @@
+# ===== Secrets (NEVER commit) =====
+.env
+.env.local
+.env.*.local
+
+# ===== Dependencies =====
+node_modules/
+
+# ===== Databases & data =====
+data/
+*.db
+*.sqlite
+*.sqlite3
+titan_memory.db
+bot.db
+
+# ===== Binaries / large files =====
+cloudflared.exe
+*.exe
+
+# ===== Logs & OS junk =====
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db

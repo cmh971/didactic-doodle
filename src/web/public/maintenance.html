@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Be right back · Sentinel</title>
+  <link rel="icon" href="favicon.ico" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="legal-page">
+  <div class="bg-orbs" aria-hidden="true"><span class="orb orb-1"></span><span class="orb orb-2"></span><span class="orb orb-3"></span></div>
+  <main class="err-page">
+    <div class="err-code">🛠️</div>
+    <h1>We'll be right back.</h1>
+    <p class="muted">Sentinel is down for a quick bit of maintenance. Hang tight — we're on it.</p>
+    <div class="err-actions">
+      <a href="/" class="btn primary big">↻ Try again</a>
+    </div>
+    <div class="err-links">
+      <a href="/auth/google">Owner? Sign in →</a> · <a href="/">✕ Exit preview</a>
+    </div>
+  </main>
+  <script>
+    (function () {
+      var t = localStorage.getItem('theme') || 'dark';
+      if (t !== 'light' && t !== 'dark') t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+</body>
+</html>

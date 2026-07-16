@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="The all-in-one Discord bot — economy, moderation, tickets, leveling, AI, and a jaw-dropping web dashboard." />
+  <title>Sentinel · The all-in-one Discord bot</title>
+  <link rel="icon" href="favicon.ico" />
+  <meta name="theme-color" content="#0e1117" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+</head>
+<body class="landing">
+  <a href="#features" class="skip-link">Skip to content</a>
+
+  <!-- Bot-check gate (shows before anything else) -->
+  <div class="botcheck-overlay" id="botcheck" hidden>
+    <div class="botcheck-card card">
+      <div class="botcheck-shield" aria-hidden="true">🛡️</div>
+      <h2>Hold on — are you a bot? 🤖</h2>
+      <p class="muted">Quick human check — tap the emoji shown below to continue.</p>
+      <div class="hc-prompt">Tap this one → <span id="hc-target" class="hc-target-emoji">❓</span></div>
+      <div class="hc-options" id="hc-options"></div>
+      <p class="botcheck-status muted" id="botcheck-status"></p>
+      <p class="botcheck-legal muted">Human check by Sentinel · no CAPTCHAs, no tracking.</p>
+    </div>
+  </div>
+
+  <!-- Ambient background -->
+  <div class="bg-orbs" aria-hidden="true">
+    <span class="orb orb-1"></span><span class="orb orb-2"></span><span class="orb orb-3"></span>
+  </div>
+
+  <!-- ===== NAV ===== -->
+  <header class="lp-nav" role="banner">
+    <a href="/" class="lp-brand">
+      <span class="lp-logo" id="lp-logo" aria-hidden="true">🎴</span>
+      <span class="lp-brand-name" id="lp-brand-name">Sentinel</span>
+    </a>
+    <nav class="lp-links" aria-label="Primary">
+      <a href="#features">Features</a>
+      <a href="/commands">Commands</a>
+      <a href="/docs">Docs</a>
+      <a href="#faq">FAQ</a>
+      <a href="/status">Status</a>
+      <a href="/dashboard">Dashboard</a>
+    </nav>
+    <div class="lp-nav-actions">
+      <button class="btn icon" id="lp-theme" aria-label="Toggle theme">🌓</button>
+      <a href="/dashboard" class="btn primary">Open Dashboard →</a>
+    </div>
+    <button class="lp-burger btn icon" id="lp-burger" aria-label="Menu" aria-expanded="false">☰</button>
+  </header>
+  <div class="lp-mobile-menu" id="lp-mobile" hidden>
+    <a href="#features">Features</a><a href="#stats">Stats</a><a href="#modules">Modules</a>
+    <a href="/dashboard">Dashboard</a><a href="/dashboard" class="btn primary block">Open Dashboard →</a>
+  </div>
+
+  <!-- ===== HERO ===== -->
+  <section class="lp-hero">
+    <div class="lp-hero-inner reveal">
+      <span class="lp-eyebrow">⚡ 336 commands · 12-page dashboard · live analytics</span>
+      <h1 class="lp-title">The Discord bot that does <span class="grad">absolutely everything.</span></h1>
+      <p class="lp-sub">Economy, moderation, tickets, leveling, games, AI chat, and a web control center so good it feels illegal. Set it up in minutes — run your whole server from your browser.</p>
+      <div class="lp-cta">
+        <a href="/dashboard" class="btn primary big">🚀 Open the Dashboard</a>
+        <a href="#features" class="btn big ghost">See what it does ↓</a>
+      </div>
+      <div class="lp-trust">
+        <span>🔒 OAuth via Discord &amp; Google</span><span>·</span><span>🍪 No tracking</span><span>·</span><span>💸 Free</span>
+      </div>
+    </div>
+
+    <!-- Faux dashboard preview card -->
+    <div class="lp-preview reveal" aria-hidden="true">
+      <div class="lp-preview-bar"><i></i><i></i><i></i></div>
+      <div class="lp-preview-body">
+        <div class="lp-mini-stats">
+          <div class="lp-mini"><span>Servers</span><b id="pv-guilds">—</b></div>
+          <div class="lp-mini"><span>Users</span><b id="pv-users">—</b></div>
+          <div class="lp-mini"><span>Ping</span><b id="pv-ping">—</b></div>
+        </div>
+        <div class="lp-mini-bars"><i style="height:40%"></i><i style="height:65%"></i><i style="height:52%"></i><i style="height:80%"></i><i style="height:35%"></i><i style="height:70%"></i><i style="height:90%"></i></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== LIVE STATS BAND ===== -->
+  <section class="lp-band" id="stats">
+    <div class="lp-band-item reveal"><b id="st-guilds">—</b><span>Servers</span></div>
+    <div class="lp-band-item reveal"><b id="st-users">—</b><span>Users reached</span></div>
+    <div class="lp-band-item reveal"><b>336</b><span>Commands</span></div>
+    <div class="lp-band-item reveal"><b>12</b><span>Dashboard pages</span></div>
+  </section>
+
+  <!-- ===== FEATURES ===== -->
+  <section class="lp-section" id="features">
+    <header class="lp-head reveal">
+      <h2>Everything your server needs, <span class="grad">in one bot.</span></h2>
+      <p>No juggling five different bots. Sentinel does it all — and lets you configure every piece from a browser.</p>
+    </header>
+    <div class="lp-feature-grid">
+      <article class="lp-feature reveal"><span class="lp-fic">🎫</span><h3>Ticket Studio</h3><p>Design support panels, DM modmail, auto-close timers, claim &amp; transcript buttons — a full creative studio.</p></article>
+      <article class="lp-feature reveal"><span class="lp-fic">🪙</span><h3>Economy</h3><p>Wallets, banks, shop, gambling, daily rewards, leaderboards. A whole game economy per server.</p></article>
+      <article class="lp-feature reveal"><span class="lp-fic">🛡️</span><h3>Moderation</h3><p>Bans, kicks, timeouts, warnings, an infraction ladder, and automod for spam, invites &amp; bad words.</p></article>
+      <article class="lp-feature reveal"><span class="lp-fic">📈</span><h3>Leveling &amp; XP</h3><p>Message XP, level-up announcements, and auto-roles that unlock as members climb the ranks.</p></article>
+      <article class="lp-feature reveal"><span class="lp-fic">🧠</span><h3>AI Chat</h3><p>Mention the bot and it answers — powered by Gemini, with a strict, context-aware moderation layer.</p></article>
+      <article class="lp-feature reveal"><span class="lp-fic">📢</span><h3>Announcements</h3><p>Compose rich embeds in the dashboard and the bot posts them to any channel. Live preview included.</p></article>
+      <article class="lp-feature reveal"><span class="lp-fic">📊</span><h3>Live Analytics</h3><p>Track joins, leaves, and message volume over time with charts that update as your server grows.</p></article>
+      <article class="lp-feature reveal"><span class="lp-fic">🎮</span><h3>Games &amp; Fun</h3><p>UNO, trivia, 8-ball, dad jokes, and 50+ more — keep your community entertained around the clock.</p></article>
+      <article class="lp-feature reveal"><span class="lp-fic">🛡️</span><h3>File Scanner</h3><p>Automatically blocks dangerous attachments — even sneaky renamed <code>.exe</code> files. Keeps members safe.</p></article>
+    </div>
+  </section>
+
+  <!-- ===== MODULES / DASHBOARD SHOWCASE ===== -->
+  <section class="lp-section alt" id="modules">
+    <header class="lp-head reveal">
+      <h2>A dashboard that looks like <span class="grad">the future.</span></h2>
+      <p>Aurora backgrounds, 3D tilt cards, live charts, a command palette, confetti — plus 12 real pages that actually control your bot.</p>
+    </header>
+    <div class="lp-chip-cloud reveal">
+      <span class="lp-chip">📊 Overview</span><span class="lp-chip">🧩 Modules</span><span class="lp-chip">🏆 Leaderboards</span>
+      <span class="lp-chip">🛒 Shop</span><span class="lp-chip">📝 Notes</span><span class="lp-chip">🎫 Tickets</span>
+      <span class="lp-chip">📢 Announce</span><span class="lp-chip">📈 Analytics</span><span class="lp-chip">👮 Warnings</span>
+      <span class="lp-chip">🛠️ Owner Tools</span><span class="lp-chip">💸 Transactions</span><span class="lp-chip">📜 Live Logs</span>
+    </div>
+    <div class="lp-center reveal"><a href="/dashboard" class="btn primary big">Explore the Dashboard →</a></div>
+  </section>
+
+  <!-- ===== FAQ ===== -->
+  <section class="lp-section" id="faq">
+    <header class="lp-head reveal">
+      <h2>Frequently asked <span class="grad">questions.</span></h2>
+      <p>Everything you might be wondering, answered.</p>
+    </header>
+    <div class="lp-faq reveal">
+      <details class="faq-item"><summary>Is Sentinel free?</summary><p>Yes — completely free. There's no paywall on any feature. If it's ever hosted at scale, running costs may apply to the host, but the software itself is free.</p></details>
+      <details class="faq-item"><summary>How do I add Sentinel to my server?</summary><p>Open the dashboard and use the invite link, or ask the bot owner for the invite. You'll need the <b>Manage Server</b> permission to configure it.</p></details>
+      <details class="faq-item"><summary>Do I need to log in to use the bot?</summary><p>No — the bot works in Discord without any login. Logging in to the dashboard just lets you configure everything from a browser instead of slash commands.</p></details>
+      <details class="faq-item"><summary>What data does Sentinel store?</summary><p>Only what's needed for features — server settings, economy balances, XP, and moderation logs. We don't read your everyday messages or sell data. See the <a href="/privacy">Privacy Policy</a>.</p></details>
+      <details class="faq-item"><summary>Why sign in with Google AND Discord?</summary><p>Google (or email) is an optional first verification step. Discord is what actually connects your account to your servers — it's required to manage them.</p></details>
+      <details class="faq-item"><summary>Can I self-host it?</summary><p>No — Sentinel is not available for self-hosting. It runs as a single managed instance so everyone gets the same up-to-date, secure version. Just invite the hosted bot and configure it from the dashboard.</p></details>
+      <details class="faq-item"><summary>Is my bot token safe?</summary><p>Your tokens live only in your <code>.env</code> file and are never exposed to the dashboard or browser. Keep that file private and never share it.</p></details>
+    </div>
+  </section>
+
+  <!-- ===== CTA ===== -->
+  <section class="lp-final reveal">
+    <div class="lp-final-card">
+      <h2>Ready to run your server like a <span class="grad">pro?</span></h2>
+      <p>Sign in with Google or Discord and take control in under a minute.</p>
+      <a href="/dashboard" class="btn primary big">🚀 Launch Dashboard</a>
+    </div>
+  </section>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="lp-footer" role="contentinfo">
+    <div class="lp-footer-grid">
+      <div>
+        <div class="lp-brand"><span class="lp-logo">🎴</span><span class="lp-brand-name">Sentinel</span></div>
+        <p class="muted">The all-in-one Discord bot &amp; control center.</p>
+      </div>
+      <div>
+        <h4>Product</h4>
+        <a href="/dashboard">Dashboard</a><a href="/commands">Commands</a><a href="/docs">Docs</a><a href="/status">Status</a><a href="/changelog">Changelog</a>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <a href="/privacy">Privacy Policy</a><a href="/terms">Terms of Service</a>
+      </div>
+      <div>
+        <h4>Built with</h4>
+        <p class="muted">Discord.js · SQLite · Express · Node.js</p>
+      </div>
+    </div>
+    <div class="lp-footer-bottom">
+      <span class="muted">© <span id="lp-year">2026</span> Sentinel. Not affiliated with Discord Inc. or Google LLC.</span>
+      <span class="muted">Made with 🖤</span>
+    </div>
+  </footer>
+
+  <script src="site-effects.js"></script>
+  <script src="landing.js"></script>
+</body>
+</html>
