@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Live status and health for Sentinel." />
+  <title>Status · Sentinel</title>
+  <link rel="icon" href="favicon.ico" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="legal-page">
+  <div class="bg-orbs" aria-hidden="true"><span class="orb orb-1"></span><span class="orb orb-2"></span></div>
+
+  <header class="lp-nav">
+    <a href="/" class="lp-brand"><span class="lp-logo" id="lp-logo">🎴</span><span class="lp-brand-name" id="lp-brand-name">Sentinel</span></a>
+    <nav class="lp-links"><a href="/">Home</a><a href="/dashboard">Dashboard</a><a href="/commands">Commands</a></nav>
+  </header>
+
+  <main class="status-page">
+    <a href="/" class="legal-back">← Back to home</a>
+
+    <div class="status-hero card glass">
+      <div class="status-big-dot" id="status-dot"></div>
+      <div>
+        <h1 id="status-headline">Checking status…</h1>
+        <p class="muted" id="status-sub">Pinging the bot…</p>
+      </div>
+      <span class="chip" id="status-refresh">auto-refresh 5s</span>
+    </div>
+
+    <div class="stats-grid">
+      <article class="stat card" data-accent="blue"><div class="stat-top"><span class="stat-ic">📶</span><h3 class="stat-label">API Latency</h3></div><p class="stat-num" id="s-ping">—</p><p class="stat-sub">Discord gateway ping.</p></article>
+      <article class="stat card" data-accent="gold"><div class="stat-top"><span class="stat-ic">⏱️</span><h3 class="stat-label">Uptime</h3></div><p class="stat-num" id="s-uptime">—</p><p class="stat-sub">Since last restart.</p></article>
+      <article class="stat card" data-accent="green"><div class="stat-top"><span class="stat-ic">🌐</span><h3 class="stat-label">Servers</h3></div><p class="stat-num" id="s-guilds">—</p><p class="stat-sub">Guilds connected.</p></article>
+      <article class="stat card" data-accent="orange"><div class="stat-top"><span class="stat-ic">👥</span><h3 class="stat-label">Users</h3></div><p class="stat-num" id="s-users">—</p><p class="stat-sub">Cached users.</p></article>
+    </div>
+
+    <div class="card">
+      <header class="card-header row"><h3>Latency history</h3><span class="chip" id="s-now">— ms</span></header>
+      <canvas id="s-chart" class="chart" height="160" aria-label="Latency history"></canvas>
+    </div>
+
+    <div class="card">
+      <h3>Components</h3>
+      <ul class="status-components" id="status-components">
+        <li><span>🤖 Bot gateway</span><span class="badge-status" id="c-bot">—</span></li>
+        <li><span>🖥️ Web dashboard</span><span class="badge-status ok">Operational</span></li>
+        <li><span>🗄️ Database (SQLite)</span><span class="badge-status ok">Operational</span></li>
+      </ul>
+    </div>
+  </main>
+
+  <footer class="lp-footer">
+    <div class="lp-footer-bottom">
+      <span class="muted">© <span id="lp-year">2026</span> Sentinel</span>
+      <span class="muted"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/commands">Commands</a></span>
+    </div>
+  </footer>
+
+  <script src="status.js"></script>
+</body>
+</html>

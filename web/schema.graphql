@@ -1,0 +1,41 @@
+# GraphQL — SDL for the community / economy API.
+# Wire with any GraphQL server (e.g. graphql-yoga) against the SQLite/Mongo layer.
+
+type Widget {
+  type: String!
+  title: String
+  config: String # JSON-encoded
+}
+
+type CommunityConfig {
+  guildId: ID!
+  customSubdomainOrId: String!
+  communityName: String!
+  themeColor: String!
+  homePageMarkdown: String!
+  verificationRequired: Boolean!
+  isApproved: Boolean!
+  widgets: [Widget!]!
+}
+
+type Balance {
+  userId: ID!
+  wallet: Int!
+  bank: Int!
+  total: Int!
+}
+
+type Query {
+  community(id: ID!): CommunityConfig
+  pendingCommunities: [CommunityConfig!]!
+  leaderboard(limit: Int = 10): [Balance!]!
+}
+
+type Mutation {
+  setProfile(guildId: ID!, title: String, themeColor: String, homePageMarkdown: String): CommunityConfig!
+  approveCommunity(guildId: ID!, approved: Boolean!): CommunityConfig!
+}
+
+type Subscription {
+  communityUpdated(id: ID!): CommunityConfig!
+}

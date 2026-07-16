@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Getting started with Sentinel — setup guide and command examples." />
+  <title>Docs · Sentinel</title>
+  <link rel="icon" href="favicon.ico" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="legal-page">
+  <div class="bg-orbs" aria-hidden="true"><span class="orb orb-1"></span><span class="orb orb-2"></span></div>
+
+  <header class="lp-nav">
+    <a href="/" class="lp-brand"><span class="lp-logo">🎴</span><span class="lp-brand-name">Sentinel</span></a>
+    <nav class="lp-links"><a href="/">Home</a><a href="/commands">Commands</a><a href="/dashboard">Dashboard</a></nav>
+  </header>
+
+  <main class="legal">
+    <a href="/" class="legal-back">← Back to home</a>
+    <h1>📚 Getting Started</h1>
+    <p class="legal-updated">Everything you need to go from zero to a fully-running server.</p>
+
+    <div class="legal-toc card">
+      <strong>Contents</strong>
+      <a href="#invite">1. Add the bot</a>
+      <a href="#setup">2. Run /setup</a>
+      <a href="#dashboard">3. Use the dashboard</a>
+      <a href="#economy">4. Economy basics</a>
+      <a href="#mod">5. Moderation</a>
+      <a href="#tickets">6. Tickets</a>
+      <a href="#selfhost">7. Hosting</a>
+    </div>
+
+    <section id="invite" class="legal-sec">
+      <h2>1. Add the bot to your server</h2>
+      <p>Use your bot's invite link (from the dashboard or the Discord Developer Portal). You'll need the <b>Manage Server</b> permission on the server you're adding it to. Grant it the recommended permissions so every feature works.</p>
+    </section>
+
+    <section id="setup" class="legal-sec">
+      <h2>2. Run <code>/setup</code></h2>
+      <p>The fastest way to configure everything is the interactive setup wizard. Type <code>/setup</code> in any channel and use the arrows or dropdown to move between pages:</p>
+      <ul>
+        <li><b>Modules</b> — turn features on/off (economy, moderation, leveling, etc.)</li>
+        <li><b>Automod</b> — invite blocking, spam, bad-word filter, mention limits</li>
+        <li><b>Leveling</b> — level-up channel and auto-roles</li>
+        <li><b>Tickets</b> — the full ticket studio</li>
+        <li><b>Welcome</b> — greet new members with a custom card</li>
+      </ul>
+    </section>
+
+    <section id="dashboard" class="legal-sec">
+      <h2>3. Use the web dashboard</h2>
+      <p>Prefer a browser? Open the <a href="/dashboard">dashboard</a>, sign in with Discord (optionally Google first), and pick a server. From there you can toggle modules, edit the economy, compose announcements, design tickets, run giveaways, set up reaction roles, and watch live analytics — all without typing a single command.</p>
+    </section>
+
+    <section id="economy" class="legal-sec">
+      <h2>4. Economy basics</h2>
+      <p>Members earn and spend a per-server currency. Common commands:</p>
+      <ul>
+        <li><code>/balance</code> — check your wallet &amp; bank</li>
+        <li><code>/daily</code>, <code>/weekly</code>, <code>/work</code> — earn coins on a cooldown</li>
+        <li><code>/shop</code> and <code>/buy</code> — spend coins on items</li>
+        <li><code>/gamble</code>, <code>/slots</code>, <code>/blackjack</code> — risk it for the biscuit</li>
+        <li><code>/leaderboard</code> — see the richest players</li>
+      </ul>
+    </section>
+
+    <section id="mod" class="legal-sec">
+      <h2>5. Moderation</h2>
+      <p>Keep your server clean with tools like <code>/ban</code>, <code>/kick</code>, <code>/timeout</code>, <code>/purge</code>, and <code>/warn</code>. Warnings feed an infraction ladder you can review in the dashboard's <b>Warnings</b> page. Automod runs automatically once enabled in <code>/setup</code>.</p>
+    </section>
+
+    <section id="tickets" class="legal-sec">
+      <h2>6. Tickets</h2>
+      <p>Design a support panel in <code>/setup ▸ Tickets</code> (or the dashboard's Tickets page), then deploy it to a channel. Members click a button (or pick a menu option) to open a private ticket. You can also enable DM tickets so members message the bot directly. Staff get Close, Claim, Lock, and Transcript controls.</p>
+    </section>
+
+    <section id="selfhost" class="legal-sec">
+      <h2>7. Hosting</h2>
+      <p>Sentinel is <b>not available for self-hosting</b> — it runs as a single managed instance so every server always gets the same secure, up-to-date version with zero setup. There's nothing to install and no server to maintain on your end.</p>
+      <p>Just invite the hosted bot, run <code>/setup</code>, and manage everything from the <a href="/dashboard">dashboard</a>. See the <a href="/commands">command reference</a> for the full list of what's available.</p>
+    </section>
+
+    <a href="/" class="legal-back">← Back to home</a>
+  </main>
+
+  <footer class="lp-footer">
+    <div class="lp-footer-bottom">
+      <span class="muted">© <span id="lp-year">2026</span> Sentinel</span>
+      <span class="muted"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/changelog">Changelog</a></span>
+    </div>
+  </footer>
+  <script>
+    (function () {
+      var t = localStorage.getItem('theme') || 'dark';
+      if (t !== 'light' && t !== 'dark') t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+      var y = document.getElementById('lp-year'); if (y) y.textContent = new Date().getFullYear();
+    })();
+  </script>
+</body>
+</html>

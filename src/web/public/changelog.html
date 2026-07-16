@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="What's new in Sentinel." />
+  <title>Changelog · Sentinel</title>
+  <link rel="icon" href="favicon.ico" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="legal-page">
+  <div class="bg-orbs" aria-hidden="true"><span class="orb orb-1"></span><span class="orb orb-2"></span></div>
+
+  <header class="lp-nav">
+    <a href="/" class="lp-brand"><span class="lp-logo">🎴</span><span class="lp-brand-name">Sentinel</span></a>
+    <nav class="lp-links"><a href="/">Home</a><a href="/docs">Docs</a><a href="/dashboard">Dashboard</a></nav>
+  </header>
+
+  <main class="legal">
+    <a href="/" class="legal-back">← Back to home</a>
+    <h1>📰 Changelog</h1>
+    <p class="legal-updated">The latest features and fixes.</p>
+
+    <div class="changelog">
+      <article class="cl-entry">
+        <div class="cl-meta"><span class="cl-ver">v2.0</span><span class="cl-tag new">Major</span><time>July 2026</time></div>
+        <h3>The Web Update 🌐</h3>
+        <ul>
+          <li>Brand new marketing <b>landing page</b> with live stats.</li>
+          <li>Full <b>Privacy Policy</b> and <b>Terms of Service</b>.</li>
+          <li><b>Commands</b> reference and live <b>Status</b> page.</li>
+          <li><b>Getting Started</b> docs.</li>
+          <li>Real <b>Google Sign-In</b> alongside Discord OAuth.</li>
+        </ul>
+      </article>
+
+      <article class="cl-entry">
+        <div class="cl-meta"><span class="cl-ver">v1.9</span><span class="cl-tag">Feature</span><time>July 2026</time></div>
+        <h3>Dashboard Widgets</h3>
+        <ul>
+          <li>🎉 <b>Giveaway Manager</b> — launch &amp; end giveaways from the browser.</li>
+          <li>🎭 <b>Reaction Roles</b> builder.</li>
+          <li>📢 Announcement composer with live embed preview.</li>
+          <li>📊 Real per-server analytics (joins, leaves, messages).</li>
+          <li>👮 Warnings browser and 📝 Notes.</li>
+        </ul>
+      </article>
+
+      <article class="cl-entry">
+        <div class="cl-meta"><span class="cl-ver">v1.8</span><span class="cl-tag">Feature</span><time>July 2026</time></div>
+        <h3>The Ticket Studio 🎫</h3>
+        <ul>
+          <li>A full creative studio for support tickets — button or menu panels.</li>
+          <li>DM tickets (modmail) with staff threads.</li>
+          <li>Claim, close, lock, transcript, auto-close, priority, feedback.</li>
+        </ul>
+      </article>
+
+      <article class="cl-entry">
+        <div class="cl-meta"><span class="cl-ver">v1.7</span><span class="cl-tag fix">Fix</span><time>July 2026</time></div>
+        <h3>Stability &amp; Safety</h3>
+        <ul>
+          <li>🛡️ File scanner blocks dangerous attachments (even renamed ones).</li>
+          <li>Hardened everything with graceful fallbacks — nothing crashes the bot.</li>
+          <li>Fixed the setup menu, command registration limits, and more.</li>
+        </ul>
+      </article>
+
+      <article class="cl-entry">
+        <div class="cl-meta"><span class="cl-ver">v1.0</span><span class="cl-tag">Launch</span><time>2026</time></div>
+        <h3>Hello, world 👋</h3>
+        <ul>
+          <li>Economy, moderation, leveling, games, AI chat, and 300+ commands.</li>
+          <li>The first version of the web dashboard.</li>
+        </ul>
+      </article>
+    </div>
+
+    <a href="/" class="legal-back">← Back to home</a>
+  </main>
+
+  <footer class="lp-footer">
+    <div class="lp-footer-bottom">
+      <span class="muted">© <span id="lp-year">2026</span> Sentinel</span>
+      <span class="muted"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/docs">Docs</a></span>
+    </div>
+  </footer>
+  <script>
+    (function () {
+      var t = localStorage.getItem('theme') || 'dark';
+      if (t !== 'light' && t !== 'dark') t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+      var y = document.getElementById('lp-year'); if (y) y.textContent = new Date().getFullYear();
+    })();
+  </script>
+</body>
+</html>
