@@ -1,0 +1,1 @@
+cd "c:/Users/chris/OneDrive/Desktop/New folder (5)" && g++ -O0 -g -std=c++17 -o /tmp/norm0 tools/normalize.cpp 2>&1 | head -3 && printf 'HELLO\nworld\n' | /tmp/norm0; echo "O0 exit: $?" && echo "--- gdb backtrace ---" && (command -v gdb >/dev/null && printf 'HELLO\n' | gdb -batch -ex run -ex bt /tmp/norm0 2>&1 | tail -15 || echo "no gdb")
