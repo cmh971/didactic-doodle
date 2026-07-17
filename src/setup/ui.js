@@ -134,17 +134,25 @@ export const PAGES = [
       const nick = guild?.members?.me?.nickname;
       const avatarSet = me?.displayAvatarURL?.() ? 'Set' : 'Default';
 
+      const guildAvatar = guild?.members?.me?.avatar ? 'Set (this server)' : 'Using global';
+
       const desc =
-        `Change the bot's global identity (⚠️ username & avatar are **global** and rate-limited by Discord) or its nickname here.\n\n` +
+        `Manage the bot's identity here.\n\n` +
+        `🌍 **Global** (affects EVERY server): username & avatar — rate-limited by Discord.\n` +
+        `🏠 **This server only**: nickname & a server avatar — safe to change freely.\n\n` +
         `**Username:** ${me?.username ?? '—'}\n` +
+        `**Global avatar:** ${avatarSet}\n` +
         `**Nickname (this server):** ${nick || '_none_'}\n` +
-        `**Avatar:** ${avatarSet}\n\n` +
-        `Use these controls carefully — Discord enforces strict limits on username & avatar changes.`;
+        `**Server avatar:** ${guildAvatar}`;
 
       const rows = [
         new ActionRowBuilder().addComponents(
-          btn('setup:modal:identity.name:1', 'Set Username', ButtonStyle.Primary, { emoji: '✏️' }),
-          btn('setup:modal:identity.avatar:1', 'Set Avatar (URL)', ButtonStyle.Primary, { emoji: '🖼️' }),
+          btn('setup:modal:identity.name:1', 'Set Username 🌍', ButtonStyle.Danger, { emoji: '✏️' }),
+          btn('setup:modal:identity.avatar:1', 'Set Global Avatar 🌍', ButtonStyle.Danger, { emoji: '🖼️' }),
+        ),
+        new ActionRowBuilder().addComponents(
+          btn('setup:modal:identity.guildavatar:1', 'Set Server Avatar', ButtonStyle.Success, { emoji: '🏠' }),
+          btn('setup:identity:resetavatar:1', 'Reset Server Avatar', ButtonStyle.Secondary, { emoji: '↩️' }),
         ),
         new ActionRowBuilder().addComponents(
           btn('setup:modal:identity.nick:1', 'Set Nickname', ButtonStyle.Secondary, { emoji: '🏷️' }),

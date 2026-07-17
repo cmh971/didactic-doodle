@@ -26,6 +26,7 @@ import { listGiveaways, createGiveawayWeb, endGiveaway, reroll as rerollGiveaway
 import { listGuildReactionRoles, addReactionRoleWeb, removeReactionRole } from '../features/reactionRoles.js';
 import { renderMemberCard } from '../render/cards.js';
 import { getWeather } from '../features/weather.js';
+import { setGuildAvatar, setGuildBanner } from '../features/botProfile.js';
 import { encryptSecret, decryptSecret } from '../systems/secureStore.js';
 import { topCommands, recentCommands, totalCommands, commandsSince, bySource } from '../systems/usage.js';
 import { getLogsAfter } from './logbus.js';
@@ -732,6 +733,22 @@ export function startWeb(client) {
       top: topCommands(15),
       recent,
     });
+  });
+
+  // ---------- per-server bot profile (avatar + banner, this guild only) ----------
+  app.post('/api/guild/:id/bot-avatar', requireAuth, async (req, res) => {
+    if (!canManage(req, req.params.id)) return res.status(403).json({ error: 'No permission' });
+    const guild = client?.guilds?.cache.get(req.params.id);
+    if (!guild) return res.status(404).json({ error: 'Bot is not in that guild' });
+    try { await setGuildAvatar(guild, req.body?.url || null); res.json({ ok: true }); }
+    catch (err) { res.status(400).json({ error: err.message }); }
+  });
+  app.post('/api/guild/:id/bot-banner', requireAuth, async (req, res) => {
+    if (!canManage(req, req.params.id)) return res.status(403).json({ error: 'No permission' });
+    const guild = client?.guilds?.cache.get(req.params.id);
+    if (!guild) return res.status(404).json({ error: 'Bot is not in that guild' });
+    try { await setGuildBanner(guild, req.body?.url || null); res.json({ ok: true }); }
+    catch (err) { res.status(400).json({ error: err.message }); }
   });
 
   // ---------- settings export / import ----------

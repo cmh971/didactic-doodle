@@ -11,6 +11,7 @@ import {
   MessageFlags,
 } from 'discord.js';
 import { renderPanel } from './ui.js';
+import { setGuildAvatar } from '../features/botProfile.js';
 import {
   getCfg, setSetting, setNested, setLanguage, toggleModule, 
   addAutorole, removeAutorole, setRoleList, resetGuild,
@@ -39,6 +40,7 @@ export const METADATA = {
   'identity.name': { label: 'Bot Username', max: 32, style: TextInputStyle.Short, required: true },
   'identity.avatar': { label: 'Avatar Image URL', max: 500, style: TextInputStyle.Short, required: true },
   'identity.nick': { label: 'Server Nickname', max: 32, style: TextInputStyle.Short, required: false },
+  'identity.guildavatar': { label: 'Server Avatar Image URL', max: 500, style: TextInputStyle.Short, required: true },
   
   // Messaging Engine — keys match the customIds emitted by ui.js (settings.<key>).
   'levelUpMessage': { label: 'Level Up Notification ({user}, {level})', max: 200, style: TextInputStyle.Paragraph, required: true },
@@ -253,7 +255,8 @@ export async function handleSetup(interaction) {
     // rate-limited — they can easily blow the 3-second interaction deadline. So
     // acknowledge the interaction FIRST (deferUpdate keeps the token alive ~15m),
     // then do the slow work, then editReply. Local saves stay on the fast path.
-    const isSlow = targetKey === 'identity.name' || targetKey === 'identity.avatar' || targetKey === 'identity.nick';
+    const isSlow = targetKey === 'identity.name' || targetKey === 'identity.avatar'
+      || targetKey === 'identity.nick' || targetKey === 'identity.guildavatar';
     if (isSlow) await interaction.deferUpdate().catch(() => {});
 
     try {
@@ -266,6 +269,7 @@ export async function handleSetup(interaction) {
 
       if (targetKey === 'identity.name') await client.user.setUsername(cleanedValue);
       else if (targetKey === 'identity.avatar') await client.user.setAvatar(cleanedValue);
+      else if (targetKey === 'identity.guildavatar') await setGuildAvatar(guild, cleanedValue); // this server only
       else if (targetKey === 'identity.nick') await guild.members.me.setNickname(cleanedValue || null);
       else if (targetKey.includes('.')) {
         const [root, branch] = targetKey.split('.');
@@ -337,11 +341,17 @@ export async function handleSetup(interaction) {
       return true;
     }
     case 'identity': {
-      // Currently only the "Clear Nickname" action lives here.
       if (segments[2] === 'resetnick') {
         await guild.members.me.setNickname(null).catch(() => {});
+        await interaction.update(renderPanel(client, guildId, Number(segments[3])));
+      } else if (segments[2] === 'resetavatar') {
+        // Slow API call — ack first, then clear the per-server avatar.
+        await interaction.deferUpdate().catch(() => {});
+        await setGuildAvatar(guild, null).catch(() => {});
+        await interaction.editReply(renderPanel(client, guildId, Number(segments[3]))).catch(() => {});
+      } else {
+        await interaction.update(renderPanel(client, guildId, Number(segments[3])));
       }
-      await interaction.update(renderPanel(client, guildId, Number(segments[3])));
       return true;
     }
     case 'lang': {

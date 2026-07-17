@@ -497,6 +497,24 @@ async function loadGuild(id, list) {
   loadErlcStatus();
 }
 
+/* ---- per-server bot profile (avatar + banner) ---- */
+function setupBotProfile() {
+  const post = async (kind, url) => {
+    if (!state.guild) return;
+    const msg = $('bp-msg');
+    if (msg) msg.textContent = 'Applying…';
+    try {
+      await api(`/api/guild/${state.guild}/bot-${kind}`, { method: 'POST', body: JSON.stringify({ url: url || null }) });
+      if (msg) msg.textContent = `Server ${kind} ${url ? 'updated' : 'reset'} ✓`;
+      toast(`Server ${kind} ${url ? 'set 🏠' : 'reset'}`, 'success');
+    } catch (e) { if (msg) msg.textContent = 'Error: ' + e.message; toast('Error: ' + e.message, 'error'); }
+  };
+  on($('bp-avatar-set'), 'click', () => { const u = $('bp-avatar')?.value.trim(); if (!u) return toast('Enter an image URL', 'error'); post('avatar', u); });
+  on($('bp-avatar-reset'), 'click', () => post('avatar', null));
+  on($('bp-banner-set'), 'click', () => { const u = $('bp-banner')?.value.trim(); if (!u) return toast('Enter an image URL', 'error'); post('banner', u); });
+  on($('bp-banner-reset'), 'click', () => post('banner', null));
+}
+
 /* ---- ER:LC encrypted key ---- */
 async function loadErlcStatus() {
   const el = $('erlc-status'); if (!el || !state.guild) return;
@@ -1635,6 +1653,7 @@ async function boot() {
   setupAutomod();
   setupWeather();
   setupErlc();
+  setupBotProfile();
 
   on($('lang'), 'change', (e) => loadI18n(e.target.value));
   on($('module-search'), 'input', filterModules);
