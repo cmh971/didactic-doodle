@@ -248,6 +248,14 @@ export async function handleSetup(interaction) {
 
     // Single Key Structural Saving Routine
     const userValue = interaction.fields.getTextInputValue('value');
+
+    // Identity edits (username/avatar/nick) hit Discord's API and are slow &
+    // rate-limited — they can easily blow the 3-second interaction deadline. So
+    // acknowledge the interaction FIRST (deferUpdate keeps the token alive ~15m),
+    // then do the slow work, then editReply. Local saves stay on the fast path.
+    const isSlow = targetKey === 'identity.name' || targetKey === 'identity.avatar' || targetKey === 'identity.nick';
+    if (isSlow) await interaction.deferUpdate().catch(() => {});
+
     try {
       const meta = METADATA[targetKey];
       let cleanedValue = userValue;
@@ -266,11 +274,17 @@ export async function handleSetup(interaction) {
         setSetting(guildId, targetKey, cleanedValue);
       }
     } catch (err) {
-      await interaction.reply(eph(`⚠️ System Modification Failure: Could not write block. Reason: ${err.message}`));
+      const msg = eph(`⚠️ System Modification Failure: Could not write block. Reason: ${err.message}`);
+      if (isSlow) await interaction.followUp(msg).catch(() => {});
+      else await interaction.reply(msg).catch(() => {});
       return true;
     }
 
-    await interaction.update(renderPanel(client, guildId, targetPage));
+    // Re-render the panel: editReply if we deferred, else a fast update. Both are
+    // .catch-guarded so a stale interaction can never crash the handler.
+    const panel = renderPanel(client, guildId, targetPage);
+    if (isSlow) await interaction.editReply(panel).catch(() => {});
+    else await interaction.update(panel).catch(() => {});
     return true;
   }
 
