@@ -503,9 +503,9 @@ async function setupEmojis() {
   const grid = $('emoji-grid');
   if (grid && !emojiListLoaded) {
     emojiListLoaded = true;
-    let names = [];
-    try { names = await api('/api/emojis'); } catch { /* ignore */ }
-    grid.innerHTML = names.map((n) => `<button class="emoji-chip" data-emoji="${esc(n)}" title="Add :${esc(n)}:"><img src="/emojis/${esc(n)}.png" alt="${esc(n)}" /><span>${esc(n)}</span></button>`).join('') || '<p class="muted">No bundled emojis.</p>';
+    let list = [];
+    try { list = await api('/api/emojis'); } catch { /* ignore */ }
+    grid.innerHTML = list.map((e) => `<button class="emoji-chip" data-emoji="${esc(e.name)}" title="Add :${esc(e.name)}:${e.animated ? ' (animated)' : ''}"><img src="/emojis/${esc(e.file)}" alt="${esc(e.name)}" />${e.animated ? '<i class="anim-dot" title="animated">GIF</i>' : ''}<span>${esc(e.name)}</span></button>`).join('') || '<p class="muted">No bundled emojis.</p>';
     grid.querySelectorAll('.emoji-chip').forEach((b) => on(b, 'click', () => addEmoji({ preset: b.dataset.emoji, name: b.dataset.emoji })));
   }
   on($('emoji-add-url'), 'click', () => {
