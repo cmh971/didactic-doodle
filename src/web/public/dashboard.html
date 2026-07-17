@@ -217,6 +217,18 @@
       </section>
 
       <section class="card">
+        <h3>😀 Custom Emojis</h3>
+        <p class="muted">Add an emoji to this server — click a bundled one, or paste an image URL.</p>
+        <div class="emoji-grid" id="emoji-grid"></div>
+        <div class="inline" style="margin-top:12px">
+          <input id="emoji-url" class="input" placeholder="Image URL (png/gif)…" />
+          <input id="emoji-name" class="input small" placeholder="name" maxlength="32" />
+          <button class="btn primary" id="emoji-add-url">➕ Add</button>
+        </div>
+        <p id="emoji-msg" class="muted" aria-live="polite"></p>
+      </section>
+
+      <section class="card">
         <h3>🏠 Bot Server Profile <span class="badge">This server only</span></h3>
         <p class="muted">Give the bot a custom <b>avatar</b> and <b>banner</b> in <em>this</em> server — the global profile stays untouched. (Discord bots don't have a per-server bio — that one's global.)</p>
         <label class="field"><span>🖼️ Server avatar URL</span>

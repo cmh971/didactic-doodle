@@ -497,6 +497,35 @@ async function loadGuild(id, list) {
   loadErlcStatus();
 }
 
+/* ---- custom emojis ---- */
+let emojiListLoaded = false;
+async function setupEmojis() {
+  const grid = $('emoji-grid');
+  if (grid && !emojiListLoaded) {
+    emojiListLoaded = true;
+    let names = [];
+    try { names = await api('/api/emojis'); } catch { /* ignore */ }
+    grid.innerHTML = names.map((n) => `<button class="emoji-chip" data-emoji="${esc(n)}" title="Add :${esc(n)}:"><img src="/emojis/${esc(n)}.png" alt="${esc(n)}" /><span>${esc(n)}</span></button>`).join('') || '<p class="muted">No bundled emojis.</p>';
+    grid.querySelectorAll('.emoji-chip').forEach((b) => on(b, 'click', () => addEmoji({ preset: b.dataset.emoji, name: b.dataset.emoji })));
+  }
+  on($('emoji-add-url'), 'click', () => {
+    const url = $('emoji-url')?.value.trim();
+    const name = $('emoji-name')?.value.trim();
+    if (!url || !name) return toast('Enter an image URL and a name', 'error');
+    addEmoji({ url, name });
+  });
+}
+async function addEmoji(body) {
+  if (!state.guild) return toast('Pick a server first', 'error');
+  const msg = $('emoji-msg'); if (msg) msg.textContent = 'Adding…';
+  try {
+    const r = await api('/api/guild/' + state.guild + '/emoji', { method: 'POST', body: JSON.stringify(body) });
+    if (msg) msg.textContent = `Added :${r.name}: ✓`;
+    toast(`Emoji :${r.name}: added 😀`, 'success'); confetti(30);
+    if ($('emoji-url')) $('emoji-url').value = ''; if ($('emoji-name')) $('emoji-name').value = '';
+  } catch (e) { if (msg) msg.textContent = 'Error: ' + e.message; toast('Error: ' + e.message, 'error'); }
+}
+
 /* ---- per-server bot profile (avatar + banner) ---- */
 function setupBotProfile() {
   const post = async (kind, url) => {
@@ -1654,6 +1683,7 @@ async function boot() {
   setupWeather();
   setupErlc();
   setupBotProfile();
+  setupEmojis();
 
   on($('lang'), 'change', (e) => loadI18n(e.target.value));
   on($('module-search'), 'input', filterModules);
