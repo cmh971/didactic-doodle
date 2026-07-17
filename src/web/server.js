@@ -26,6 +26,8 @@ import { listGiveaways, createGiveawayWeb, endGiveaway, reroll as rerollGiveaway
 import { listGuildReactionRoles, addReactionRoleWeb, removeReactionRole } from '../features/reactionRoles.js';
 import { renderMemberCard } from '../render/cards.js';
 import { getWeather } from '../features/weather.js';
+import { encryptSecret, decryptSecret } from '../systems/secureStore.js';
+import { topCommands, recentCommands, totalCommands, commandsSince, bySource } from '../systems/usage.js';
 import { getLogsAfter } from './logbus.js';
 import { registerCommunity } from './community.js';
 import { LOCALES, DEFAULT_LOCALE, LANG_LIST } from '../i18n/index.js';
@@ -694,6 +696,42 @@ export function startWeb(client) {
       }
     }
     res.json({ ok: true, changed, automod: getCfg(req.params.id).settings.automod });
+  });
+
+  // ---------- ER:LC key (dual-guarded, never returned to the client) ----------
+  app.get('/api/guild/:id/erlckey', requireAuth, (req, res) => {
+    if (!canManage(req, req.params.id)) return res.status(403).json({ error: 'No permission' });
+    const s = getCfg(req.params.id).settings;
+    // Only ever report whether a key is set + that it's encrypted — never the value.
+    res.json({ set: Boolean(s.erlcKeyEnc || s.erlcKey), encrypted: Boolean(s.erlcKeyEnc) });
+  });
+  app.post('/api/guild/:id/erlckey', requireAuth, (req, res) => {
+    if (!canManage(req, req.params.id)) return res.status(403).json({ error: 'No permission' });
+    const key = String(req.body?.key || '').trim();
+    if (!key) {
+      setSetting(req.params.id, 'erlcKeyEnc', null);
+      setSetting(req.params.id, 'erlcKey', null);
+      return res.json({ ok: true, set: false });
+    }
+    const blob = encryptSecret(key);
+    // Sanity: confirm it round-trips before saving (a third safety check).
+    if (decryptSecret(blob) !== key) return res.status(500).json({ error: 'Encryption self-check failed.' });
+    setSetting(req.params.id, 'erlcKeyEnc', blob);
+    setSetting(req.params.id, 'erlcKey', null); // wipe any legacy plaintext
+    console.log(`[dashboard] ${req.session.user.username} set an encrypted ER:LC key for ${req.params.id}`);
+    res.json({ ok: true, set: true, encrypted: true });
+  });
+
+  // ---------- command usage (flight recorder) ----------
+  app.get('/api/usage', requireOwner, (req, res) => {
+    const recent = recentCommands(20).map((r) => ({ ...r, userName: client?.users?.cache.get(r.user_id)?.username || null }));
+    res.json({
+      total: totalCommands(),
+      last24h: commandsSince(86400),
+      bySource: bySource(),
+      top: topCommands(15),
+      recent,
+    });
   });
 
   // ---------- settings export / import ----------
