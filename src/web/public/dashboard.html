@@ -217,6 +217,18 @@
       </section>
 
       <section class="card">
+        <h3>🏠 Bot Server Profile <span class="badge">This server only</span></h3>
+        <p class="muted">Give the bot a custom <b>avatar</b> and <b>banner</b> in <em>this</em> server — the global profile stays untouched. (Discord bots don't have a per-server bio — that one's global.)</p>
+        <label class="field"><span>🖼️ Server avatar URL</span>
+          <div class="inline"><input id="bp-avatar" class="input" placeholder="https://…/image.png" /><button class="btn primary" id="bp-avatar-set">Set</button><button class="btn" id="bp-avatar-reset">Reset</button></div>
+        </label>
+        <label class="field"><span>🎏 Server banner URL</span>
+          <div class="inline"><input id="bp-banner" class="input" placeholder="https://…/banner.png" /><button class="btn primary" id="bp-banner-set">Set</button><button class="btn" id="bp-banner-reset">Reset</button></div>
+        </label>
+        <p id="bp-msg" class="muted" aria-live="polite"></p>
+      </section>
+
+      <section class="card">
         <h3>🚓 ER:LC Server Key <span class="badge">🔒 Encrypted</span></h3>
         <p class="muted">Your PRC private-server key, stored <b>dual-encrypted</b> (AES-256-GCM + HMAC). It's never shown again or sent back to the browser after you save it.</p>
         <div class="inline">
