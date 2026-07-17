@@ -12,6 +12,13 @@ import {
 } from 'discord.js';
 import { renderPanel } from './ui.js';
 import { setGuildAvatar } from '../features/botProfile.js';
+
+// Only these Discord user IDs may change the bot's GLOBAL identity (username/avatar).
+// Falls back to the known owner ID if OWNER_IDS isn't set in the env.
+function isGlobalOwner(userId) {
+  const ids = (process.env.OWNER_IDS || '').split(',').map((s) => s.trim()).filter(Boolean);
+  return ids.length ? ids.includes(userId) : userId === '1183222250153984040';
+}
 import {
   getCfg, setSetting, setNested, setLanguage, toggleModule, 
   addAutorole, removeAutorole, setRoleList, resetGuild,
@@ -255,6 +262,13 @@ export async function handleSetup(interaction) {
     // rate-limited — they can easily blow the 3-second interaction deadline. So
     // acknowledge the interaction FIRST (deferUpdate keeps the token alive ~15m),
     // then do the slow work, then editReply. Local saves stay on the fast path.
+    // Defense in depth: block global identity saves from non-owners (the modal
+    // button already blocks it, but never trust the client).
+    if ((targetKey === 'identity.name' || targetKey === 'identity.avatar') && !isGlobalOwner(interaction.user.id)) {
+      await interaction.reply(eph('🔒 Only the bot owner can change the global username/avatar.')).catch(() => {});
+      return true;
+    }
+
     const isSlow = targetKey === 'identity.name' || targetKey === 'identity.avatar'
       || targetKey === 'identity.nick' || targetKey === 'identity.guildavatar';
     if (isSlow) await interaction.deferUpdate().catch(() => {});
@@ -444,6 +458,13 @@ export async function handleSetup(interaction) {
       const targetFieldKey = segments[2];
       const returnPageId = Number(segments[3]);
       const activeConfig = getCfg(guildId);
+
+      // GLOBAL identity edits (username / global avatar) affect every server, so
+      // only the bot owner may do them. Everyone else is limited to per-server bits.
+      if ((targetFieldKey === 'identity.name' || targetFieldKey === 'identity.avatar') && !isGlobalOwner(interaction.user.id)) {
+        await interaction.reply(eph('🔒 Only the **bot owner** can change the global username/avatar (it affects every server). You can still change this server\'s **nickname, avatar, and banner**.'));
+        return true;
+      }
 
       let structuralModal;
       if (targetFieldKey === '__autorole') {
