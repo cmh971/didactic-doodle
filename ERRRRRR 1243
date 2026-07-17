@@ -1,2 +1,0 @@
-
-// cd "c:/Users/chris/OneDrive/Desktop/New folder (5)" && g++ -O2 -std=c++17 -o /tmp/norm3 tools/normalize.cpp 2>&1 | head -3 && printf 'B4dW0rd!!!\nHELLO\ncl@ss\naaaaa\n' | /tmp/norm3; echo "-O2 exit: $?"

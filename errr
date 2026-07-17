@@ -1,1 +1,0 @@
-cd "c:/Users/chris/OneDrive/Desktop/New folder (5)" && g++ -O0 -g -std=c++17 -fsanitize=address,undefined -o /tmp/normdbg tools/normalize.cpp 2>&1 | head -3 && printf 'HELLO\n' | /tmp/normdbg 2>&1 | head -25
