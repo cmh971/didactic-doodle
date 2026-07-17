@@ -28,6 +28,8 @@ import { renderMemberCard } from '../render/cards.js';
 import { getWeather } from '../features/weather.js';
 import { setGuildAvatar, setGuildBanner } from '../features/botProfile.js';
 import { listBundledEmojis, bundledEmojiPath, addEmojiToGuild, EMOJI_DIR } from '../features/emojis.js';
+import { startVerification, pendingCode, previewRoblox, completeVerification } from '../features/verification.js';
+import { applyAction, listRanks, saveRanks, staffLog } from '../features/staff.js';
 import { encryptSecret, decryptSecret } from '../systems/secureStore.js';
 import { topCommands, recentCommands, totalCommands, commandsSince, bySource } from '../systems/usage.js';
 import { getLogsAfter } from './logbus.js';
@@ -754,6 +756,77 @@ export function startWeb(client) {
     }
   });
 
+  // ---------- Roblox verification: admin config (Manage Guild) ----------
+  app.get('/api/guild/:id/verify', requireAuth, (req, res) => {
+    if (!canManage(req, req.params.id)) return res.status(403).json({ error: 'No permission' });
+    res.json(getCfg(req.params.id).settings.verify);
+  });
+  app.post('/api/guild/:id/verify', requireAuth, (req, res) => {
+    if (!canManage(req, req.params.id)) return res.status(403).json({ error: 'No permission' });
+    const { verifiedRoleId, unverifiedRoleId, nickname } = req.body || {};
+    setNested(req.params.id, 'verify', 'verifiedRoleId', verifiedRoleId || '');
+    setNested(req.params.id, 'verify', 'unverifiedRoleId', unverifiedRoleId || '');
+    setNested(req.params.id, 'verify', 'nickname', Boolean(nickname));
+    res.json(getCfg(req.params.id).settings.verify);
+  });
+
+  // ---------- Roblox verification: member self-serve flow (login required) ----------
+  // Guilds the logged-in user shares with the bot that have verification set up.
+  app.get('/api/verify/options', requireAuth, (req, res) => {
+    const botGuilds = new Set(client?.guilds?.cache.map((g) => g.id) || []);
+    const mine = (req.session.guilds || []).filter((g) => botGuilds.has(g.id));
+    const out = mine
+      .map((g) => ({ g, v: getCfg(g.id).settings.verify }))
+      .filter(({ v }) => v && (v.verifiedRoleId || v.unverifiedRoleId))
+      .map(({ g }) => ({ id: g.id, name: g.name }));
+    res.json(out);
+  });
+  app.post('/api/verify/start', requireAuth, (req, res) => {
+    const guildId = req.body?.guildId;
+    if (!guildId) return res.status(400).json({ error: 'Missing guild' });
+    const code = startVerification(guildId, req.session.user.id);
+    res.json({ code });
+  });
+  app.get('/api/verify/code', requireAuth, (req, res) => {
+    res.json({ code: pendingCode(req.query.g, req.session.user.id) });
+  });
+  app.post('/api/verify/preview', requireAuth, async (req, res) => {
+    const p = await previewRoblox(String(req.body?.username || '').trim());
+    if (!p) return res.status(404).json({ error: 'Roblox user not found.' });
+    res.json(p);
+  });
+  app.post('/api/verify/complete', requireAuth, async (req, res) => {
+    const { guildId, username } = req.body || {};
+    if (!guildId || !username) return res.status(400).json({ error: 'Missing guild or username' });
+    const r = await completeVerification(client, guildId, req.session.user.id, String(username).trim());
+    res.status(r.ok ? 200 : 400).json(r);
+  });
+
+  // ---------- staff manager: promotion / infraction / role actions ----------
+  app.get('/api/guild/:id/ranks', requireAuth, (req, res) => {
+    if (!canManage(req, req.params.id)) return res.status(403).json({ error: 'No permission' });
+    res.json(listRanks(req.params.id));
+  });
+  app.post('/api/guild/:id/ranks', requireAuth, (req, res) => {
+    if (!canManage(req, req.params.id)) return res.status(403).json({ error: 'No permission' });
+    const ranks = Array.isArray(req.body?.ranks)
+      ? req.body.ranks.filter((r) => r && r.roleId).map((r, i) => ({ id: r.id || `r${i}`, name: String(r.name || `Rank ${i + 1}`).slice(0, 40), roleId: r.roleId }))
+      : [];
+    res.json(saveRanks(req.params.id, ranks));
+  });
+  app.post('/api/guild/:id/staff-action', requireAuth, async (req, res) => {
+    if (!canManage(req, req.params.id)) return res.status(403).json({ error: 'No permission' });
+    const { targetId, action, roleId } = req.body || {};
+    if (!targetId || !action) return res.status(400).json({ error: 'Missing target or action' });
+    const r = await applyAction(client, { guildId: req.params.id, targetId, action, roleId, moderatorId: req.session.user.id, reason: req.body?.reason });
+    res.status(r.ok ? 200 : 400).json(r);
+  });
+  app.get('/api/guild/:id/staff-log', requireAuth, (req, res) => {
+    if (!canManage(req, req.params.id)) return res.status(403).json({ error: 'No permission' });
+    const rows = staffLog(req.params.id, 30).map((r) => ({ ...r, targetName: client?.users?.cache.get(r.target_id)?.username || r.target_id, modName: client?.users?.cache.get(r.moderator_id)?.username || null }));
+    res.json(rows);
+  });
+
   // ---------- per-server bot profile (avatar + banner, this guild only) ----------
   app.post('/api/guild/:id/bot-avatar', requireAuth, async (req, res) => {
     if (!canManage(req, req.params.id)) return res.status(403).json({ error: 'No permission' });
@@ -813,6 +886,7 @@ export function startWeb(client) {
   // ---------- pretty page routes ----------
   const page = (file) => (req, res) => res.sendFile(join(__dirname, 'public', file));
   app.get('/dashboard', page('dashboard.html'));
+  app.get('/verify', page('verify.html'));
   app.get('/privacy', page('privacy.html'));
   app.get('/terms', page('terms.html'));
   app.get('/commands', page('commands.html'));

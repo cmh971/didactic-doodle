@@ -495,19 +495,94 @@ async function loadGuild(id, list) {
   if ($('autorole-box')) $('autorole-box').hidden = false;
   renderAutoroles(g.settings?.autoroles || {});
   loadErlcStatus();
+  loadVerifyStaff();
+}
+
+/* ---- verification + staff manager ---- */
+let vsRoles = [];
+function roleOptions(roles, selected, includeNone) {
+  const none = includeNone ? '<option value="">— none —</option>' : '';
+  return none + roles.map((r) => `<option value="${r.id}"${r.id === selected ? ' selected' : ''}>${esc(r.name)}</option>`).join('');
+}
+async function loadVerifyStaff() {
+  if (!state.guild) return;
+  vsRoles = await guildRoles();
+  const vcfg = await api('/api/guild/' + state.guild + '/verify').catch(() => ({}));
+  if ($('vf-verified')) $('vf-verified').innerHTML = roleOptions(vsRoles, vcfg.verifiedRoleId, true);
+  if ($('vf-unverified')) $('vf-unverified').innerHTML = roleOptions(vsRoles, vcfg.unverifiedRoleId, true);
+  if ($('vf-nick')) $('vf-nick').checked = !!vcfg.nickname;
+  if ($('sa-role')) $('sa-role').innerHTML = roleOptions(vsRoles, '', true);
+  const ranks = await api('/api/guild/' + state.guild + '/ranks').catch(() => []);
+  renderRankRows(ranks);
+  loadStaffLog();
+}
+function addRankRow(r = {}) {
+  const box = $('rank-rows'); if (!box) return;
+  const row = document.createElement('div');
+  row.className = 'inline rank-row'; row.style.marginBottom = '6px';
+  row.innerHTML = `<input class="input small rr-name" placeholder="Rank name" value="${esc(r.name || '')}" maxlength="40" /><select class="input rr-role">${roleOptions(vsRoles, r.roleId || '', false)}</select><button class="btn rr-del" title="Remove">✕</button>`;
+  row.querySelector('.rr-del').onclick = () => row.remove();
+  box.appendChild(row);
+}
+function renderRankRows(ranks) {
+  const box = $('rank-rows'); if (!box) return;
+  box.innerHTML = '';
+  (ranks || []).forEach(addRankRow);
+}
+async function loadStaffLog() {
+  const box = $('staff-log'); if (!box || !state.guild) return;
+  const rows = await api('/api/guild/' + state.guild + '/staff-log').catch(() => []);
+  box.innerHTML = rows.length
+    ? '<b>Recent actions</b><br/>' + rows.slice(0, 8).map((r) => `${esc(r.action)} → ${esc(r.targetName)} <span class="muted">(${esc(r.detail || '')}${r.modName ? ' · by ' + esc(r.modName) : ''})</span>`).join('<br/>')
+    : '';
+}
+function setupStaffVerify() {
+  on($('vf-save'), 'click', async () => {
+    if (!state.guild) return;
+    try {
+      await api('/api/guild/' + state.guild + '/verify', { method: 'POST', body: JSON.stringify({ verifiedRoleId: $('vf-verified').value, unverifiedRoleId: $('vf-unverified').value, nickname: $('vf-nick').checked }) });
+      toast('Verification saved ✅', 'success');
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
+  });
+  on($('rank-add'), 'click', () => addRankRow());
+  on($('rank-save'), 'click', async () => {
+    if (!state.guild) return;
+    const ranks = [...document.querySelectorAll('#rank-rows .rank-row')]
+      .map((row) => ({ name: row.querySelector('.rr-name').value.trim(), roleId: row.querySelector('.rr-role').value }))
+      .filter((r) => r.roleId);
+    try { await api('/api/guild/' + state.guild + '/ranks', { method: 'POST', body: JSON.stringify({ ranks }) }); toast('Rank ladder saved 🪜', 'success'); }
+    catch (e) { toast('Error: ' + e.message, 'error'); }
+  });
+  on($('sa-apply'), 'click', async () => {
+    if (!state.guild) return;
+    const body = { targetId: $('sa-user').value.trim(), action: $('sa-action').value, roleId: $('sa-role').value, reason: $('sa-reason').value.trim() };
+    if (!body.targetId) return toast('Enter a member ID', 'error');
+    const msg = $('sa-msg');
+    try {
+      const r = await api('/api/guild/' + state.guild + '/staff-action', { method: 'POST', body: JSON.stringify(body) });
+      if (msg) msg.textContent = `✅ ${r.action} → ${r.target || ''} (${r.detail || ''})`;
+      $('sa-reason').value = ''; loadStaffLog();
+    } catch (e) { if (msg) msg.textContent = '❌ ' + e.message; }
+  });
 }
 
 /* ---- custom emojis ---- */
 let emojiListLoaded = false;
+let emojiList = [];
+function renderEmojiGrid() {
+  const grid = $('emoji-grid'); if (!grid) return;
+  const q = ($('emoji-search')?.value || '').toLowerCase();
+  const list = emojiList.filter((e) => !q || e.name.toLowerCase().includes(q));
+  grid.innerHTML = list.map((e) => `<button class="emoji-chip" data-emoji="${esc(e.name)}" title="Add :${esc(e.name)}:${e.animated ? ' (animated)' : ''}"><img src="/emojis/${esc(e.file)}" alt="${esc(e.name)}" loading="lazy" />${e.animated ? '<i class="anim-dot" title="animated">GIF</i>' : ''}<span>${esc(e.name)}</span></button>`).join('') || '<p class="muted">No matches.</p>';
+  grid.querySelectorAll('.emoji-chip').forEach((b) => on(b, 'click', () => addEmoji({ preset: b.dataset.emoji, name: b.dataset.emoji })));
+}
 async function setupEmojis() {
-  const grid = $('emoji-grid');
-  if (grid && !emojiListLoaded) {
+  if (!emojiListLoaded) {
     emojiListLoaded = true;
-    let list = [];
-    try { list = await api('/api/emojis'); } catch { /* ignore */ }
-    grid.innerHTML = list.map((e) => `<button class="emoji-chip" data-emoji="${esc(e.name)}" title="Add :${esc(e.name)}:${e.animated ? ' (animated)' : ''}"><img src="/emojis/${esc(e.file)}" alt="${esc(e.name)}" />${e.animated ? '<i class="anim-dot" title="animated">GIF</i>' : ''}<span>${esc(e.name)}</span></button>`).join('') || '<p class="muted">No bundled emojis.</p>';
-    grid.querySelectorAll('.emoji-chip').forEach((b) => on(b, 'click', () => addEmoji({ preset: b.dataset.emoji, name: b.dataset.emoji })));
+    try { emojiList = await api('/api/emojis'); } catch { /* ignore */ }
+    renderEmojiGrid();
   }
+  on($('emoji-search'), 'input', renderEmojiGrid);
   on($('emoji-add-url'), 'click', () => {
     const url = $('emoji-url')?.value.trim();
     const name = $('emoji-name')?.value.trim();
@@ -1684,6 +1759,7 @@ async function boot() {
   setupErlc();
   setupBotProfile();
   setupEmojis();
+  setupStaffVerify();
 
   on($('lang'), 'change', (e) => loadI18n(e.target.value));
   on($('module-search'), 'input', filterModules);

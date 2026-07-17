@@ -219,6 +219,7 @@
       <section class="card">
         <h3>😀 Custom Emojis</h3>
         <p class="muted">Add an emoji to this server — click a bundled one, or paste an image URL.</p>
+        <input type="search" id="emoji-search" class="input" placeholder="🔍 Search emojis…" style="margin-bottom:10px" aria-label="Search emojis" />
         <div class="emoji-grid" id="emoji-grid"></div>
         <div class="inline" style="margin-top:12px">
           <input id="emoji-url" class="input" placeholder="Image URL (png/gif)…" />
@@ -249,6 +250,44 @@
           <button class="btn danger" id="erlc-clear">Clear</button>
         </div>
         <p id="erlc-status" class="muted" aria-live="polite"></p>
+      </section>
+
+      <section class="card">
+        <h3>🔐 Roblox Verification</h3>
+        <p class="muted">Members run <code>/verify</code>, get a code in their DMs, paste it into their Roblox <b>About</b>, then confirm on the <a href="/verify" target="_blank">verify page</a>. On success the bot swaps their roles.</p>
+        <label class="field"><span>✅ Verified role <span class="muted">(added on success)</span></span>
+          <select id="vf-verified" class="input"></select>
+        </label>
+        <label class="field"><span>🚫 Unverified role <span class="muted">(removed on success — optional)</span></span>
+          <select id="vf-unverified" class="input"></select>
+        </label>
+        <label class="inline" style="gap:8px;align-items:center"><input type="checkbox" id="vf-nick" /> <span>Set their nickname to their Roblox name</span></label>
+        <div style="margin-top:10px"><button class="btn primary" id="vf-save">💾 Save verification</button></div>
+        <p id="vf-cfg-msg" class="muted" aria-live="polite"></p>
+      </section>
+
+      <section class="card">
+        <h3>🪜 Staff Manager <span class="badge">Promotions &amp; infractions</span></h3>
+        <p class="muted">Build a <b>rank ladder</b> (low → high). Promote/demote walks it one step; you can also add/remove any role or log an infraction — here or with <code>/staff</code>.</p>
+        <div id="rank-rows"></div>
+        <div class="inline" style="margin-top:8px"><button class="btn" id="rank-add">➕ Add rank</button><button class="btn primary" id="rank-save">💾 Save ladder</button></div>
+        <hr style="border-color:rgba(255,255,255,.08);margin:16px 0" />
+        <h4 style="margin:0 0 8px">Quick action</h4>
+        <div class="inline" style="flex-wrap:wrap;gap:8px">
+          <input id="sa-user" class="input small" placeholder="Member ID" />
+          <select id="sa-action" class="input small">
+            <option value="promote">⬆️ Promote</option>
+            <option value="demote">⬇️ Demote</option>
+            <option value="infract">⚠️ Infract</option>
+            <option value="addrole">➕ Add role</option>
+            <option value="removerole">➖ Remove role</option>
+          </select>
+          <select id="sa-role" class="input small"></select>
+          <input id="sa-reason" class="input" placeholder="Reason (optional)" />
+          <button class="btn primary" id="sa-apply">Apply</button>
+        </div>
+        <p id="sa-msg" class="muted" aria-live="polite"></p>
+        <div id="staff-log" class="muted" style="margin-top:10px;font-size:.86rem"></div>
       </section>
     </section>
 

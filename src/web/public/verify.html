@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Verify your Roblox account with Sentinel." />
+  <title>Verify · Sentinel</title>
+  <link rel="icon" href="favicon.ico" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .vf-wrap { max-width: 560px; margin: 40px auto; padding: 0 18px; }
+    .vf-card { background: var(--panel, #1a1c24); border: 1px solid rgba(255,255,255,.08); border-radius: 18px; padding: 26px; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+    .vf-step { display: none; }
+    .vf-step.active { display: block; animation: vfIn .25s ease; }
+    @keyframes vfIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    .vf-code { font-family: ui-monospace, monospace; font-size: 1.05rem; background: #0e0f15; border: 1px dashed #5865f2; border-radius: 12px; padding: 14px 16px; text-align: center; letter-spacing: .5px; user-select: all; cursor: copy; }
+    .vf-in { width: 100%; padding: 13px 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,.14); background: #0e0f15; color: #fff; font-size: 1rem; box-sizing: border-box; }
+    .vf-btn { display: inline-flex; align-items: center; gap: 8px; justify-content: center; width: 100%; padding: 13px 18px; border: none; border-radius: 12px; background: linear-gradient(135deg,#5865f2,#7c3aed); color: #fff; font-weight: 700; font-size: 1rem; cursor: pointer; margin-top: 12px; }
+    .vf-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .vf-btn.ghost { background: #2a2d3a; }
+    .vf-ol { padding-left: 20px; line-height: 1.7; color: #c9cdd8; }
+    .vf-preview { display: flex; align-items: center; gap: 14px; background: #0e0f15; border: 1px solid rgba(255,255,255,.1); border-radius: 14px; padding: 14px; margin-top: 6px; }
+    .vf-preview img { width: 64px; height: 64px; border-radius: 12px; background: #222; }
+    .vf-msg { margin-top: 12px; padding: 11px 14px; border-radius: 10px; font-size: .92rem; display: none; }
+    .vf-msg.ok { display: block; background: rgba(87,242,135,.12); color: #7ef0a2; border: 1px solid rgba(87,242,135,.3); }
+    .vf-msg.err { display: block; background: rgba(237,66,69,.12); color: #ff9ea0; border: 1px solid rgba(237,66,69,.3); }
+    .vf-h { text-align: center; margin: 0 0 4px; }
+    .vf-sub { text-align: center; color: #9aa0ad; margin-top: 0; }
+    select.vf-in { appearance: none; }
+    .muted { color: #9aa0ad; font-size: .88rem; }
+  </style>
+</head>
+<body class="legal-page">
+  <div class="bg-orbs" aria-hidden="true"><span class="orb orb-1"></span><span class="orb orb-2"></span></div>
+  <header class="lp-nav">
+    <a href="/" class="lp-brand"><span class="lp-logo">🎴</span><span class="lp-brand-name">Sentinel</span></a>
+    <nav class="lp-links"><a href="/">Home</a><a href="/dashboard">Dashboard</a></nav>
+  </header>
+
+  <div class="vf-wrap">
+    <div class="vf-card">
+      <h1 class="vf-h">🔐 Roblox Verification</h1>
+      <p class="vf-sub" id="vf-server">Link your Roblox account to unlock the server.</p>
+
+      <!-- not logged in -->
+      <div class="vf-step" id="step-login">
+        <p class="muted" style="text-align:center">You need to sign in with Discord first so we know who to verify.</p>
+        <a class="vf-btn" href="/login">Login with Discord</a>
+      </div>
+
+      <!-- pick server -->
+      <div class="vf-step" id="step-guild">
+        <p>Which server are you verifying for?</p>
+        <select class="vf-in" id="vf-guilds"></select>
+        <button class="vf-btn" id="vf-guild-go">Continue</button>
+      </div>
+
+      <!-- code + username -->
+      <div class="vf-step" id="step-code">
+        <ol class="vf-ol">
+          <li>Copy your personal code:</li>
+        </ol>
+        <div class="vf-code" id="vf-code" title="Click to copy">…</div>
+        <ol class="vf-ol" start="2">
+          <li>Paste it into your <b>Roblox profile ▸ About</b>, then hit <b>Save</b> on Roblox.</li>
+          <li>Enter your Roblox username below.</li>
+        </ol>
+        <input class="vf-in" id="vf-username" placeholder="Your Roblox username" autocomplete="off" />
+        <button class="vf-btn" id="vf-check">Check my account →</button>
+        <div class="vf-msg" id="vf-msg1"></div>
+      </div>
+
+      <!-- confirm -->
+      <div class="vf-step" id="step-confirm">
+        <p>Does this look right?</p>
+        <div class="vf-preview">
+          <img id="vf-avatar" alt="" />
+          <div>
+            <div style="font-weight:700;font-size:1.1rem" id="vf-name">—</div>
+            <div class="muted" id="vf-id">Roblox ID —</div>
+          </div>
+        </div>
+        <button class="vf-btn" id="vf-confirm">✅ Yes, verify me</button>
+        <button class="vf-btn ghost" id="vf-back">← That's not me</button>
+        <div class="vf-msg" id="vf-msg2"></div>
+      </div>
+
+      <!-- done -->
+      <div class="vf-step" id="step-done">
+        <div style="text-align:center;font-size:3rem">🎉</div>
+        <h2 style="text-align:center;margin:.2em 0">You're verified!</h2>
+        <p class="vf-sub" id="vf-done-detail">Your roles have been updated. You can remove the code from your Roblox profile now.</p>
+        <a class="vf-btn ghost" href="/">Done</a>
+      </div>
+    </div>
+    <p class="muted" style="text-align:center;margin-top:14px">Never share your code with anyone. Sentinel will never DM you asking for it.</p>
+  </div>
+
+  <script src="verify.js"></script>
+</body>
+</html>

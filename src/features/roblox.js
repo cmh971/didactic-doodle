@@ -15,6 +15,7 @@ const pending = new Map(); // `${g}:${u}` -> {robloxId, name, code}
 export const getLink = (g, u) => st.get.get(g, u);
 export const unlink = (g, u) => st.del.run(g, u);
 export const allLinks = (g) => st.all.all(g);
+export const saveLink = (g, u, robloxId, name) => st.set.run(g, u, String(robloxId), name);
 
 export async function resolveRoblox(username) {
   try {
@@ -32,13 +33,24 @@ export async function resolveRoblox(username) {
   }
 }
 
-async function getDescription(robloxId) {
+export async function getDescription(robloxId) {
   try {
     const r = await fetch(`https://users.roblox.com/v1/users/${robloxId}`);
     if (!r.ok) return '';
     return (await r.json()).description || '';
   } catch {
     return '';
+  }
+}
+
+/** Headshot thumbnail URL for a Roblox user id (public API). */
+export async function getRobloxAvatar(robloxId) {
+  try {
+    const r = await fetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${robloxId}&size=150x150&format=Png&isCircular=false`);
+    if (!r.ok) return null;
+    return (await r.json()).data?.[0]?.imageUrl || null;
+  } catch {
+    return null;
   }
 }
 

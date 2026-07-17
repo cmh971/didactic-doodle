@@ -21,6 +21,8 @@ const DEFAULT_SETTINGS = () => ({
   automod: { invites: true, spam: true, badwords: false, logChannel: null, maxMentions: 5 },
   economy: { startingBalance: 100000, dailyAmount: 250000 },
   tickets: DEFAULT_TICKETS(),
+  verify: { verifiedRoleId: '', unverifiedRoleId: '', nickname: false },
+  ranks: [], // promotion/infraction ladder: [{ id, name, roleId }] (built later)
 });
 
 // The full ticket "creative studio" config. Everything is flat (one level under
@@ -89,6 +91,8 @@ function normalize(settings) {
   s.automod = { ...d.automod, ...(settings.automod || {}) };
   s.economy = { ...d.economy, ...(settings.economy || {}) };
   s.tickets = { ...d.tickets, ...(settings.tickets || {}) };
+  s.verify = { ...d.verify, ...(settings.verify || {}) };
+  s.ranks = Array.isArray(settings.ranks) ? settings.ranks : [];
   s.autoroles = { ...(settings.autoroles || {}) };
   s.joinRoles = settings.joinRoles || [];
   s.adminRoles = settings.adminRoles || [];
