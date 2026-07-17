@@ -2,11 +2,19 @@
 // PRC API (https://apidocs.policeroleplay.community). Needs a private-server key:
 // set ERLC_API_KEY in .env, or per-guild settings.erlcKey.
 import { getCfg } from '../setup/store.js';
+import { decryptSecret } from '../systems/secureStore.js';
 
 const BASE = 'https://api.policeroleplay.community/v1';
 
 export function erlcKey(guildId) {
-  return getCfg(guildId).settings.erlcKey || process.env.ERLC_API_KEY || null;
+  const s = getCfg(guildId).settings;
+  // Preferred: the dual-guarded encrypted key (set via dashboard). Falls back to a
+  // legacy plaintext value or the global env key.
+  if (s.erlcKeyEnc) {
+    const dec = decryptSecret(s.erlcKeyEnc);
+    if (dec) return dec;
+  }
+  return s.erlcKey || process.env.ERLC_API_KEY || null;
 }
 
 export async function erlc(guildId, path, { method = 'GET', body } = {}) {

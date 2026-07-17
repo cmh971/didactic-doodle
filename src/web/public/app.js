@@ -494,6 +494,44 @@ async function loadGuild(id, list) {
   }
   if ($('autorole-box')) $('autorole-box').hidden = false;
   renderAutoroles(g.settings?.autoroles || {});
+  loadErlcStatus();
+}
+
+/* ---- ER:LC encrypted key ---- */
+async function loadErlcStatus() {
+  const el = $('erlc-status'); if (!el || !state.guild) return;
+  try {
+    const r = await api('/api/guild/' + state.guild + '/erlckey');
+    el.textContent = r.set ? (r.encrypted ? '🔒 A key is set (encrypted at rest).' : '⚠️ Legacy plaintext key — click Save to encrypt it.') : 'No key set yet.';
+  } catch { el.textContent = ''; }
+}
+function setupErlc() {
+  on($('erlc-save'), 'click', async () => {
+    const key = $('erlc-key')?.value.trim();
+    if (!key || !state.guild) return toast('Enter a key first', 'error');
+    try {
+      await api('/api/guild/' + state.guild + '/erlckey', { method: 'POST', body: JSON.stringify({ key }) });
+      $('erlc-key').value = ''; toast('ER:LC key saved & encrypted 🔒', 'success'); loadErlcStatus();
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
+  });
+  on($('erlc-clear'), 'click', async () => {
+    if (!state.guild) return;
+    try { await api('/api/guild/' + state.guild + '/erlckey', { method: 'POST', body: JSON.stringify({ key: '' }) }); toast('Key cleared', 'success'); loadErlcStatus(); }
+    catch (e) { toast('Error: ' + e.message, 'error'); }
+  });
+}
+
+/* ---- command usage (flight recorder) ---- */
+async function loadUsage() {
+  let d;
+  try { d = await api('/api/usage'); } catch { return; }
+  if ($('usage-card')) $('usage-card').hidden = false;
+  if ($('usage-total')) $('usage-total').textContent = Number(d.total || 0).toLocaleString();
+  if ($('usage-24h')) $('usage-24h').textContent = Number(d.last24h || 0).toLocaleString();
+  const top = $('usage-top');
+  if (top) top.innerHTML = (d.top || []).map((c) => `<li><span class="who"><span>/${esc(c.name)}</span></span><span class="amt">${c.n}</span></li>`).join('') || '<li class="muted">No data yet.</li>';
+  const rec = $('usage-recent');
+  if (rec) rec.innerHTML = (d.recent || []).map((r) => `<li><span>/${esc(r.name)}${r.userName ? ' · ' + esc(r.userName) : ''}</span><span class="muted">${new Date(r.at).toLocaleTimeString()}</span></li>`).join('') || '<li class="muted">No data yet.</li>';
 }
 function filterModules() {
   const q = ($('module-search')?.value || '').toLowerCase();
@@ -630,6 +668,7 @@ function setupOwner() {
   setupOwnerControl();
   setupOwnerChat();
   loadOwnerControl();
+  loadUsage();
   startPresence();
 
   pollLogs();
@@ -1595,6 +1634,7 @@ async function boot() {
   setupWelcomePreview();
   setupAutomod();
   setupWeather();
+  setupErlc();
 
   on($('lang'), 'change', (e) => loadI18n(e.target.value));
   on($('module-search'), 'input', filterModules);

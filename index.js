@@ -18,6 +18,7 @@ import { enter as giveawayEnter, restoreGiveaways } from './src/features/giveawa
 import { handleMessageDelete } from './src/features/snipe.js';
 import { prepare, resolve } from './src/handlers/registry.js';
 import { moduleEnabled } from './src/systems/guilds.js';
+import { track as trackCommand } from './src/systems/usage.js';
 
 // Category -> module name. Commands in these categories are blocked when the
 // matching module is toggled OFF in /setup. (core & utility are always on.)
@@ -148,6 +149,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         await interaction.reply({ content: `🚫 The **${mod}** module is disabled on this server (an admin can re-enable it in \`/setup\`).`, flags: 64 });
         return;
       }
+      trackCommand(command.data?.name, { guildId: interaction.guildId, userId: interaction.user.id, source: 'discord' });
       await command.execute(interaction);
     } else if (interaction.isModalSubmit()) {
       if (interaction.customId.startsWith('setup:')) await handleSetup(interaction);

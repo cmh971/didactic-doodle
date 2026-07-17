@@ -1,75 +1,98 @@
-# UNO Discord Bot 🎴
-
-An UNO game bot with **everything rendered on your CPU** (via `@napi-rs/canvas` — no GPU, no build tools): a full table-scene image, card backs, hands, win banners, profile/balance cards, slot machines, dice, coins and more. Plus a private **AI coach** powered by **Google Gemini**, a full **UNO Token economy + shop**, and **59 slash commands**.
-
-## 🪙 Economy & Shop
-
-- Win an UNO game → earn **UNO Tokens**; lose → drop tokens. (`settleGame` pays out on every game end.)
-- Earn with `/daily` `/weekly` `/work` `/beg` `/crime`, gamble with `/slots` `/coinflip` `/dice` `/blackjack` `/roulette` `/gamble` `/lottery`, manage with `/balance` `/deposit` `/withdraw` `/pay` `/rob` `/networth` `/leaderboard`.
-- `/shop` `/buy` `/sell` `/use` `/inventory` `/iteminfo` — items include the **🔨 Timeout Hammer**, loot boxes, rob shields, and flex collectibles.
-- **`/additem <idea>`** — the **AI shopkeeper** approves a new collectible, designs its name/price/description, and adds it to the shop live.
-
-### 🔨 Timeout Hammer rules
-- Use it to time out a member you outrank.
-- If the target **outranks you**, it **backfires**: you get the **Buck** role + a timeout instead.
-- Members with the **protected role** (`PROTECTED_ROLE_ID`, default `1520771668166049892`) can **never** be hammered.
-
-## Setup
-
-1. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-2. **Fill in `.env`**
-   - `DISCORD_TOKEN` — Bot → Reset Token in the [Developer Portal](https://discord.com/developers/applications)
-   - `CLIENT_ID` — General Information → Application ID
-   - `GUILD_ID` — *(optional)* a server ID for instant command registration
-   - `GEMINI_API_KEY` — from [Google AI Studio](https://aistudio.google.com/app/apikey)
-
-3. **Enable the right toggles in the Developer Portal → Bot tab**
-   - ✅ **Message Content Intent** (so the AI can read your DMs)
-   - ✅ **Server Members Intent** (for `userinfo`, role/kick lookups)
-
-4. **Invite the bot** with the `bot` and `applications.commands` scopes and these permissions:
-   `Ban Members`, `Kick Members`, `Moderate Members`, `Manage Messages`, `Manage Channels`, `Manage Roles`.
-
-5. **Run it**
-   ```bash
-   npm start
-   ```
-
-## How to play
-
-- `/uno new` — opens a lobby. Others press **Join**, host presses **Start**.
-- **Show Hand / Play** — privately (ephemeral) shows *your* hand image and a menu to play.
-- **Draw / Pass**, **Call UNO!**, **Leave**, and **Talk to AI** buttons on the table.
-- **Talk to AI** DMs you a Gemini coach that can see **only your hand** — never anyone else's.
-
-## Commands
-
-| Category | Commands |
-|------|----------|
-| **Game** | `/uno new` `/uno status` `/uno end` |
-| **Economy** | `/balance` `/networth` `/leaderboard` `/daily` `/weekly` `/work` `/beg` `/crime` `/rob` `/pay` `/deposit` `/withdraw` |
-| **Shop** | `/shop` `/buy` `/sell` `/use` `/inventory` `/iteminfo` `/additem` |
-| **Gambling** | `/gamble` `/slots` `/coinflip` `/dice` `/blackjack` `/roulette` `/lottery` |
-| **Fun** | `/8ball` `/rps` `/joke` `/fact` `/quote` `/meme` `/choose` `/mock` `/owoify` `/clap` `/emojify` `/reverse` `/colorpick` `/roll` |
-| **Utility** | `/calc` `/base64` `/hash` `/password` `/botinfo` `/ping` `/userinfo` `/serverinfo` `/avatar` `/say` `/poll` |
-| **Moderation** | `/ban` `/kick` `/timeout` `/unban` `/purge` `/slowmode` `/role` |
-
-## Project layout
+<div align="center">
 
 ```
-index.js               loads .env, all commands, events, login
-src/commands/          one file per slash command (auto-loaded)
-src/uno/               Deck, Game rules, GameManager
-src/economy/           token store (JSON), shop, win/loss settlement
-src/config.js          token amounts, Buck role, protected role id
-src/render/renderer.js CPU card + full table-scene rendering
-src/render/extras.js   CPU images: profile, shop, banners, slots, dice, coins…
-src/ui.js              embeds, buttons, menus
-src/interactions.js    button & menu handling
-src/ai/gemini.js       Gemini client (AI sees only the sender's hand)
-src/dmHandler.js       routes DMs to the AI
+ ____             _   _            _
+/ ___|  ___ _ __ | |_(_)_ __   ___| |
+\___ \ / _ \ '_ \| __| | '_ \ / _ \ |
+ ___) |  __/ | | | |_| | | | |  __/ |
+|____/ \___|_| |_|\__|_|_| |_|\___|_|
 ```
+
+# 🛡️ Sentinel
+
+**The all-in-one Discord bot — with a jaw-dropping web control center.**
+
+*Economy · Moderation · Tickets · Leveling · Games · AI · and a 15-page dashboard.*
+
+</div>
+
+---
+
+## ✨ What it does
+
+- **🎫 Tickets** — a full "creative studio": button/menu panels, DM modmail, claim/close/transcript, auto-close.
+- **🪙 Economy** — wallets, bank, shop, gambling, daily rewards, leaderboards, and an AI shopkeeper.
+- **🛡️ Moderation** — bans, kicks, timeouts, warnings, an infraction ladder, and automod (spam, invites, bad words).
+- **📈 Leveling** — message XP, level-up announcements, auto-roles.
+- **🧠 AI chat** — mention the bot for a Gemini-powered reply (with a strict moderation layer, only used when needed).
+- **🌤️ Weather** — `/weather <city>` via OpenWeather.
+- **🚓 ER:LC** — Emergency Response: Liberty County integration, with **dual-encrypted** server keys.
+- **🃏 UNO** — a full CPU-rendered UNO game with a private AI coach.
+- **🖥️ Web dashboard** — manage everything from a browser: modules, tickets, giveaways, reaction roles, announcements (120 templates!), live analytics, command tracking, presence, and an owner control center.
+- **🔐 OAuth** — sign in with Discord **and** Google.
+
+## 🧰 Tech stack
+
+- **Bot & web:** Node.js, [discord.js](https://discord.js.org), Express, SQLite (`node:sqlite`), `@napi-rs/canvas`
+- **Helper tools:** Python (`tools/monitor.py` — health monitor) and C++ (`tools/normalize.cpp` — word-list normalizer)
+
+## 🚀 Getting started
+
+```bash
+git clone https://github.com/cmh971/didactic-doodle.git
+cd didactic-doodle
+npm install
+cp .env.example .env      # then fill in your keys (Windows: copy .env.example .env)
+node index.js
+```
+
+The bot logs in and the dashboard starts on **http://localhost:3000**.
+
+### Key `.env` values
+| Key | For |
+|---|---|
+| `DISCORD_TOKEN` | Bot token (**required**) |
+| `CLIENT_ID` | Application ID (**required**) |
+| `GEMINI_API_KEY` | AI chat (optional) |
+| `OAUTH_CLIENT_SECRET` + `GOOGLE_*` | Dashboard login (optional) |
+| `OPENWEATHER_API_KEY` | `/weather` (optional) |
+
+See [`.env.example`](.env.example) for the full list. **Never commit your real `.env`.**
+
+### Developer Portal toggles
+- ✅ **Message Content Intent** · ✅ **Server Members Intent**
+- Invite scopes: `bot` + `applications.commands`
+
+## 🛠️ Helper tools
+
+```bash
+# Monitor a running bot's health (servers, users, ping, uptime)
+python tools/monitor.py --url http://localhost:3000 --interval 30
+
+# Normalize / de-dupe a word list (mirrors the bot's bad-word filter)
+g++ -O2 -std=c++17 -o normalize tools/normalize.cpp
+./normalize words.txt > cleaned.txt
+```
+
+## 📁 Project layout
+
+```
+index.js            loads env, all commands, events, login, web
+src/commands/       one file per slash command (auto-loaded, hub-packed)
+src/features/       tickets, giveaways, reaction roles, weather, erlc, …
+src/systems/        automod, leveling, analytics, usage, secureStore, …
+src/web/            Express server + the dashboard SPA (public/)
+src/render/         CPU image rendering (cards, banners, member cards)
+src/ai/gemini.js    Gemini client + bad-word intelligence
+tools/              Python + C++ helper utilities
+```
+
+## 📜 License
+
+Personal project — not affiliated with Discord Inc., Google LLC, or PRC.
+
+<div align="center">
+
+*Built with 🖤 (and a lot of "DID I DO IT???").*
+
+</div>

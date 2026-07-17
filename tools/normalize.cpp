@@ -6,6 +6,7 @@
 // argument or stdin; prints the normalized, de-duplicated, sorted list.
 //
 // Build:  g++ -O2 -std=c++17 -o normalize tools/normalize.cpp
+//         (on a bleeding-edge/experimental GCC that miscompiles, use -O0)
 // Run:    ./normalize words.txt
 //         cat words.txt | ./normalize > cleaned.txt
 #include <algorithm>
@@ -23,31 +24,19 @@ static const std::unordered_map<char, char> kLeet = {
     {'!', 'i'}, {'+', 't'}, {'|', 'i'}, {'#', 'h'}, {'%', 'o'}, {'&', 'n'},
 };
 
-// Normalize a single token the way the filter does:
+// Normalize a single token the way the filter does, in one clean pass:
 //   lowercase -> leet map -> strip non-alphanumerics -> collapse 3+ repeats to 2.
 std::string Normalize(const std::string& input) {
-    std::string mapped;
-    mapped.reserve(input.size());
-    for (char c : input) {
-        char lc = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-        auto it = kLeet.find(lc);
-        mapped += (it != kLeet.end()) ? it->second : lc;
-    }
-
-    std::string alnum;
-    alnum.reserve(mapped.size());
-    for (char c : mapped) {
-        if (std::isalnum(static_cast<unsigned char>(c))) alnum += c;
-    }
-
     std::string out;
-    out.reserve(alnum.size());
-    for (std::size_t i = 0; i < alnum.size();) {
-        std::size_t run = 1;
-        while (i + run < alnum.size() && alnum[i + run] == alnum[i]) ++run;
-        out += alnum[i];
-        if (run >= 2) out += alnum[i];  // keep at most a double letter
-        i += run;
+    out.reserve(input.size());
+    for (char raw : input) {
+        char lc = static_cast<char>(std::tolower(static_cast<unsigned char>(raw)));
+        auto it = kLeet.find(lc);
+        char mapped = (it != kLeet.end()) ? it->second : lc;
+        if (!std::isalnum(static_cast<unsigned char>(mapped))) continue;  // strip symbols
+        const std::size_t n = out.size();
+        if (n >= 2 && out[n - 1] == mapped && out[n - 2] == mapped) continue;  // cap doubles
+        out += mapped;
     }
     return out;
 }

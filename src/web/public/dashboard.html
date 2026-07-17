@@ -215,6 +215,17 @@
         <button class="btn" id="wc-preview-btn">✨ Generate preview</button>
         <div id="wc-preview" style="margin-top:12px"></div>
       </section>
+
+      <section class="card">
+        <h3>🚓 ER:LC Server Key <span class="badge">🔒 Encrypted</span></h3>
+        <p class="muted">Your PRC private-server key, stored <b>dual-encrypted</b> (AES-256-GCM + HMAC). It's never shown again or sent back to the browser after you save it.</p>
+        <div class="inline">
+          <input id="erlc-key" class="input" type="password" placeholder="Paste your ER:LC key…" autocomplete="off" />
+          <button class="btn primary" id="erlc-save">💾 Save</button>
+          <button class="btn danger" id="erlc-clear">Clear</button>
+        </div>
+        <p id="erlc-status" class="muted" aria-live="polite"></p>
+      </section>
     </section>
 
     <!-- ============ LEADERBOARDS ============ -->
@@ -557,6 +568,18 @@
                 <tbody id="presence-body"><tr><td colspan="4" class="muted">Watching…</td></tr></tbody>
               </table>
             </div>
+          </div>
+        </section>
+
+        <section class="card inner-card" id="usage-card" hidden style="grid-column:1/-1">
+          <h3>📊 Command Usage <span class="badge">Flight recorder</span></h3>
+          <div class="two-col" style="margin-bottom:12px">
+            <div class="mini-stat"><span class="muted">Total commands run</span><b id="usage-total">—</b></div>
+            <div class="mini-stat"><span class="muted">Last 24 hours</span><b id="usage-24h">—</b></div>
+          </div>
+          <div class="two-col">
+            <div><h4>🔥 Top commands</h4><ol class="leaderboard" id="usage-top"></ol></div>
+            <div><h4>🕐 Recent</h4><ul class="list" id="usage-recent"></ul></div>
           </div>
         </section>
 
