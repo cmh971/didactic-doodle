@@ -12,7 +12,8 @@ const PRIMARY = new Set([
   'ping', 'botinfo', 'say', 'embed', 'avatar', 'banner', 'servericon', 'userinfo', 'serverinfo', 'membercount', 'roleinfo', 'channelinfo', 'timestamp',
   // economy
   // (networth, iteminfo, deposit, withdraw demoted to the /eco hub to free top-level slots)
-  'balance', 'leaderboard', 'daily', 'weekly', 'work', 'beg', 'crime', 'rob', 'pay', 'shop', 'buy', 'sell', 'use', 'inventory', 'additem', 'gamble', 'slots', 'coinflip', 'dice', 'blackjack', 'roulette', 'lottery', 'guess', 'ship',
+  'balance', 'leaderboard', 'daily', 'weekly', 'work', 'beg', 'crime', 'rob', 'pay', 'shop', 'buy', 'sell', 'use', 'inventory', 'additem', 'gamble', 'slots', 'coinflip', 'dice', 'blackjack', 'roulette', 'lottery', 'guess',
+  // (ship demoted to the /eco hub to make room for /verify)
   // moderation (classics stay top-level; power tools go to the /mod hub).
   // NOTE: commands that define their OWN subcommands (reactionrole, giveaway, uno)
   // MUST stay top-level — Discord can't nest subcommands under a hub subcommand.
@@ -23,6 +24,8 @@ const PRIMARY = new Set([
   'uno', 'giveaway', '8ball', 'rps', 'joke', 'fact', 'quote', 'meme', 'rate', 'wouldyourather', 'truthordare', 'compliment', 'roast', 'level',
   // roblox / management (these define subcommands -> must be top-level)
   'link', 'punishments', 'bolo', 'modstats', 'erlc', 'automations',
+  // verification (its own top-level command)
+  'verify',
 ]);
 
 // Always keep this whole category top-level even if not in PRIMARY.
