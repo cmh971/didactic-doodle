@@ -1,1 +1,0 @@
-$root="c:\Users\chris\OneDrive\Desktop\New folder (10)"; @("apps","packages","services","services\aggregator","services\accounts","native","native\core","native\grid","native\thermal","scripting","scripting\rules","packages\contracts") | ForEach-Object { [pscustomobject]@{ Path=$_; Exists=(Test-Path (Join-Path $root $_)) } } | Format-Table -AutoSize
