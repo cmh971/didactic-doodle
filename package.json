@@ -21,5 +21,8 @@
     "mongoose": "^9.7.3",
     "pg": "^8.22.0",
     "xml2js": "^0.6.2"
+  },
+  "devDependencies": {
+    "gifenc": "^1.0.3"
   }
 }
