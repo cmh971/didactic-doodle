@@ -27,6 +27,7 @@ import { listGuildReactionRoles, addReactionRoleWeb, removeReactionRole } from '
 import { renderMemberCard } from '../render/cards.js';
 import { getWeather } from '../features/weather.js';
 import { setGuildAvatar, setGuildBanner } from '../features/botProfile.js';
+import { listBundledEmojis, bundledEmojiPath, addEmojiToGuild, EMOJI_DIR } from '../features/emojis.js';
 import { encryptSecret, decryptSecret } from '../systems/secureStore.js';
 import { topCommands, recentCommands, totalCommands, commandsSince, bySource } from '../systems/usage.js';
 import { getLogsAfter } from './logbus.js';
@@ -733,6 +734,24 @@ export function startWeb(client) {
       top: topCommands(15),
       recent,
     });
+  });
+
+  // ---------- custom emojis ----------
+  app.use('/emojis', express.static(EMOJI_DIR)); // serve the bundled PNGs for previews
+  app.get('/api/emojis', (req, res) => res.json(listBundledEmojis()));
+  app.post('/api/guild/:id/emoji', requireAuth, async (req, res) => {
+    if (!canManage(req, req.params.id)) return res.status(403).json({ error: 'No permission' });
+    const guild = client?.guilds?.cache.get(req.params.id);
+    if (!guild) return res.status(404).json({ error: 'Bot is not in that guild' });
+    const { preset, url, name } = req.body || {};
+    const source = preset ? bundledEmojiPath(preset) : url;
+    if (!source) return res.status(400).json({ error: 'Pick a preset or provide an image URL.' });
+    try {
+      const e = await addEmojiToGuild(guild, name || preset || 'emoji', source);
+      res.json({ ok: true, name: e.name, id: e.id });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
   });
 
   // ---------- per-server bot profile (avatar + banner, this guild only) ----------
