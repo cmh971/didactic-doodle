@@ -80,6 +80,12 @@ export const DEFAULT_TICKETS = () => ({
   dmAck: '✅',
   dmReply: 'Thanks! Your message was sent to our staff team — they will reply to you right here in your DMs. 📨',
 
+  // ---- Per-category ping roles ----
+  // Maps a menu option label -> the role to ping/grant when that type is chosen.
+  // e.g. { "General": staffRoleId, "Management": mgmtRoleId, "HR": hrRoleId }.
+  // Falls back to staffRoleId when a category has no mapping.
+  categoryRoles: {},
+
   // ---- Internal counter ----
   counter: 0,
 });
