@@ -42,6 +42,7 @@ const SAFE_TICKETS = {
   feedback: false, welcomeDM: false, blacklistRoleId: '', priority: false,
   dmCommand: '!ticket', dmCloseCommand: '!close', dmStaffChannelId: '', dmAck: '✅',
   dmReply: 'Thanks! Your message was sent to our staff team.', counter: 0,
+  categoryRoles: {}, // { "<menu option label>": roleId } — pinged instead of staffRoleId
 };
 
 /* ============================================================ SAFETY HELPERS */
@@ -369,13 +370,19 @@ async function startTicket(interaction, reason, fromModal = false) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(ignore);
   const num = nextNumber(guild.id);
 
+  // Per-category routing: menu tickets pass the chosen option label as `reason`.
+  // If that category maps to a role, ping/grant that team; else fall back to staff.
+  const catRoleId = (reason && t.categoryRoles && t.categoryRoles[reason]) || '';
+  const pingRoleId = (catRoleId && guild.roles.cache.has(catRoleId)) ? catRoleId : t.staffRoleId;
+
   const overwrites = [
     { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
     { id: member.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.ReadMessageHistory] },
     { id: interaction.client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageChannels, PermissionFlagsBits.ReadMessageHistory] },
   ];
-  if (t.staffRoleId && guild.roles.cache.has(t.staffRoleId)) {
-    overwrites.push({ id: t.staffRoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
+  // Grant view to both the routed category role and the base staff role (deduped).
+  for (const rid of new Set([pingRoleId, t.staffRoleId].filter((r) => r && guild.roles.cache.has(r)))) {
+    overwrites.push({ id: rid, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
   }
 
   // Only use the configured category if it still exists and is actually a category.
@@ -409,7 +416,7 @@ async function startTicket(interaction, reason, fromModal = false) {
     if (!channel) return safeRespond(interaction, eph(`❌ Could not create the ticket channel (check my permissions / category): ${clamp(err?.message, 300)}`));
   }
 
-  const staffMention = t.staffRoleId ? `<@&${t.staffRoleId}>` : 'our staff';
+  const staffMention = pingRoleId ? `<@&${pingRoleId}>` : 'our staff';
   const desc = clamp(String(t.openMessage || 'Hi {user}, staff will be with you shortly.')
     .replaceAll('{user}', `${member}`)
     .replaceAll('{staff}', staffMention)
@@ -441,7 +448,7 @@ async function startTicket(interaction, reason, fromModal = false) {
     ));
   }
 
-  const ping = t.pingStaff && t.staffRoleId ? `${member} <@&${t.staffRoleId}>` : `${member}`;
+  const ping = t.pingStaff && pingRoleId ? `${member} <@&${pingRoleId}>` : `${member}`;
   await channel.send({ content: ping, embeds: [embed], components: rows }).catch(ignore);
 
   if (t.welcomeDM) member.send(clamp(`🎫 Your ticket **#${num}** is open in **${guild.name}**: <#${channel.id}>`, 2000)).catch(ignore);

@@ -1139,17 +1139,29 @@ function renderTicketForm() {
     }
     html += `</div></div>`;
   }
+  html += `<div class="tk-group"><h4>🔔 Category pings <span class="muted">(who to ping per menu option)</span></h4><div id="tk-catroles" class="tk-grid"></div></div>`;
   html += `<div class="tk-group"><h4>🔘 Feature toggles</h4><div class="tk-flags">`;
   for (const [k, label] of TK_FLAGS) {
     html += `<label class="flag-chip ${cfg[k] ? 'on' : ''}"><input type="checkbox" id="tkf-${k}" ${cfg[k] ? 'checked' : ''} /> ${esc(label)}</label>`;
   }
   html += `</div></div>`;
   form.innerHTML = html;
-  // live preview + flag-chip styling
+  renderCategoryRoles();
+  // live preview + flag-chip styling; re-render category pings when options change
   form.querySelectorAll('input, select, textarea').forEach((el) => on(el, 'input', () => {
     if (el.type === 'checkbox') el.closest('.flag-chip')?.classList.toggle('on', el.checked);
+    if (el.id === 'tkf-menuOptions') renderCategoryRoles();
     updateTicketPreview();
   }));
+}
+// Render one role picker per menu option so each ticket type can ping a different team.
+function renderCategoryRoles() {
+  const box = $('tk-catroles'); if (!box) return;
+  const map = state.tkCfg.categoryRoles || {};
+  const raw = $('tkf-menuOptions')?.value ?? state.tkCfg.menuOptions ?? '';
+  const labels = String(raw).split(',').map((s) => s.trim()).filter(Boolean).slice(0, 25);
+  if (!labels.length) { box.innerHTML = '<p class="muted">Add menu options (in Appearance) to route each ticket type to a role.</p>'; return; }
+  box.innerHTML = labels.map((lbl, i) => `<label class="field"><span>${esc(lbl)}</span><select id="tkcr-${i}" data-label="${esc(lbl)}" class="select">${optionList(state.tkRoles, map[lbl] || '', 'role')}</select></label>`).join('');
 }
 function gatherTicketForm() {
   const out = {};
@@ -1158,6 +1170,9 @@ function gatherTicketForm() {
     out[f.k] = f.type === 'number' ? Math.max(0, parseInt(el.value, 10) || 0) : el.value;
   }
   for (const [k] of TK_FLAGS) { const el = $('tkf-' + k); if (el) out[k] = el.checked; }
+  const cr = {};
+  document.querySelectorAll('#tk-catroles select').forEach((sel) => { const lbl = sel.dataset.label; if (lbl && sel.value) cr[lbl] = sel.value; });
+  out.categoryRoles = cr;
   return out;
 }
 function updateTicketPreview() {
