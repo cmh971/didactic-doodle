@@ -1,0 +1,10 @@
+cd "c:/Users/chris/OneDrive/Desktop/New folder (5)" && echo "=== does it still parse? ===" && node --check src/ai/gemini.js 2>&1 | head -5; echo "exit: $?"
+echo "=== where are the NUL bytes? ===" && node -e "
+const fs=require('fs');
+const buf=fs.readFileSync('src/ai/gemini.js');
+const txt=buf.toString('latin1');
+const lines=txt.split('\n');
+let ln=0,found=0;
+for(let i=0;i<lines.length;i++){ if(lines[i].includes('\0')){ found++; if(found<=6) console.log('line '+(i+1)+': '+JSON.stringify(lines[i].slice(0,60))); } }
+console.log('total lines containing NUL:', found);
+"

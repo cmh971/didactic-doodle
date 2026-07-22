@@ -579,6 +579,35 @@ export const PAGES = [
   { id: 'ticket-behavior', title: 'Ticket Behavior', emoji: '⚙️', render: (cfg) => renderTicketBehavior(cfg) }, // 16
   { id: 'ticket-dm', title: 'DM Tickets', emoji: '📨', render: (cfg) => renderTicketDM(cfg) },             // 17
   { id: 'ticket-extras', title: 'Ticket Extras', emoji: '🧰', render: (cfg) => renderTicketExtras(cfg) },  // 18
+
+  // -------------------------------------------------------------------------
+  // MODERATION / INFRACTIONS (index 19)
+  // -------------------------------------------------------------------------
+  {
+    id: 'moderation',
+    title: 'Moderation',
+    emoji: '👮',
+    render(cfg) {
+      const s = cfg.settings || {};
+      const desc =
+        `Configure how infractions are handled and logged.\n\n` +
+        `**Mod-log channel:** ${chan(s.modLogChannel)}\n` +
+        `_Every \`/infraction\` action (warn/mute/kick/ban) is mirrored here with a case ID._\n\n` +
+        `**Auto-mod escalation ladder** (applied automatically as infractions stack):\n` +
+        `1. ⚠️ Warning\n` +
+        `2. 🔇 10-minute timeout\n` +
+        `3. 🔇 24-hour timeout\n` +
+        `4. 👢 Kick\n` +
+        `5. 🔨 Permanent ban\n\n` +
+        `Use \`/infraction add\` to action a member, \`/infraction view\` to see history, ` +
+        `and \`/infraction remove\` to delete a case. You can also manage everything from the **web dashboard**.`;
+
+      const rows = [
+        chanSelect('modLogChannel', 19, s.modLogChannel, 'Moderation log channel…'),
+      ];
+      return { desc, rows };
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------

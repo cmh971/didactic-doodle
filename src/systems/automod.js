@@ -9,8 +9,11 @@ import { cache } from '../db/index.js';
 import { getGuild } from './guilds.js';
 
 const db = getDb();
+// Migration: add the optional `notes` column to older databases (idempotent —
+// throws & is ignored if the column already exists).
+try { db.exec('ALTER TABLE infractions ADD COLUMN notes TEXT'); } catch { /* column already exists */ }
 const stmt = {
-  add: db.prepare('INSERT INTO infractions(user_id, guild_id, moderator_id, type, reason, expires_at) VALUES (?, ?, ?, ?, ?, ?)'),
+  add: db.prepare('INSERT INTO infractions(user_id, guild_id, moderator_id, type, reason, expires_at, notes) VALUES (?, ?, ?, ?, ?, ?, ?)'),
   count: db.prepare('SELECT COUNT(*) AS n FROM infractions WHERE guild_id = ? AND user_id = ?'),
   recent: db.prepare('SELECT * FROM infractions WHERE guild_id = ? AND user_id = ? ORDER BY id DESC LIMIT ?'),
 };
@@ -26,9 +29,16 @@ const LADDER = [
   { action: 'ban', label: '🔨 Permanent ban' },
 ];
 
-export function recordInfraction(guildId, userId, moderatorId, type, reason, expiresAt = null) {
-  stmt.add.run(userId, guildId, moderatorId, type, reason, expiresAt);
+export function recordInfraction(guildId, userId, moderatorId, type, reason, expiresAt = null, notes = null) {
+  stmt.add.run(userId, guildId, moderatorId, type, reason, expiresAt, notes);
   return stmt.count.get(guildId, userId).n;
+}
+
+// Like recordInfraction, but returns the new case ID alongside the running total
+// so callers can show the moderator exactly which case they just created.
+export function addInfraction(guildId, userId, moderatorId, type, reason, expiresAt = null, notes = null) {
+  const info = stmt.add.run(userId, guildId, moderatorId, type, reason, expiresAt, notes);
+  return { id: Number(info.lastInsertRowid), count: stmt.count.get(guildId, userId).n };
 }
 
 export function infractionCount(guildId, userId) {
@@ -44,6 +54,19 @@ export function clearInfractions(guildId, userId) {
 
 export function recentInfractions(guildId, userId, limit = 5) {
   return stmt.recent.all(guildId, userId, limit);
+}
+
+// Delete a single case by its numeric ID (scoped to the guild). Returns the
+// number of rows removed (1 if it existed, 0 otherwise).
+const delOneStmt = db.prepare('DELETE FROM infractions WHERE guild_id = ? AND id = ?');
+export function deleteInfraction(guildId, id) {
+  return delOneStmt.run(guildId, Number(id)).changes;
+}
+
+// Fetch a single case by ID (scoped to the guild), or undefined.
+const getOneStmt = db.prepare('SELECT * FROM infractions WHERE guild_id = ? AND id = ?');
+export function getInfraction(guildId, id) {
+  return getOneStmt.get(guildId, Number(id));
 }
 
 // Apply the next ladder step to a member based on their total infractions.

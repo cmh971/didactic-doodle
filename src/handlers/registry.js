@@ -17,7 +17,10 @@ const PRIMARY = new Set([
   // moderation (classics stay top-level; power tools go to the /mod hub).
   // NOTE: commands that define their OWN subcommands (reactionrole, giveaway, uno)
   // MUST stay top-level — Discord can't nest subcommands under a hub subcommand.
-  'ban', 'kick', 'timeout', 'unban', 'purge', 'slowmode', 'role', 'nickname', 'warn', 'warnings', 'reactionrole',
+  // NOTE: /warnings was demoted to the `mod` hub (/mod warnings) to free a slot
+  // for /infraction — we're at Discord's 100 top-level cap. /infraction view
+  // supersedes it anyway.
+  'ban', 'kick', 'timeout', 'unban', 'purge', 'slowmode', 'role', 'nickname', 'warn', 'reactionrole', 'infraction',
   // utility
   'poll', 'calc', 'base64', 'hash', 'password', 'colorpick', 'roll', 'random', 'remindme', 'choose', 'reverse', 'mock', 'owoify', 'clap', 'weather',
   // gamification

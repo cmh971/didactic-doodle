@@ -2,6 +2,8 @@
 .env
 .env.local
 .env.*.local
+.env.bak
+*.bak
 
 # ===== Dependencies =====
 node_modules/
@@ -20,6 +22,7 @@ cloudflared.exe
 
 # ===== Logs & OS junk =====
 *.log
+*.out
 npm-debug.log*
 .DS_Store
 Thumbs.db

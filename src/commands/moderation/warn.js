@@ -13,5 +13,5 @@ export async function execute(interaction) {
   const reason = interaction.options.getString('reason');
   const total = recordInfraction(interaction.guildId, user.id, interaction.user.id, 'warn', reason);
   await user.send(`⚠️ You were warned in **${interaction.guild.name}**: ${reason}`).catch(() => {});
-  await interaction.reply(`⚠️ Warned **${user.tag}** — ${reason}\nThey now have **${total}** infraction(s). View with \`/warnings\`.`);
+  await interaction.reply(`⚠️ Warned **${user.tag}** — ${reason}\nThey now have **${total}** infraction(s). View with \`/infraction view\`.`);
 }

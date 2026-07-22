@@ -13,6 +13,7 @@ const DATA_DIR = join(__dirname, '..', '..', 'data');
 // SQLite dialect of the full schema. PostgreSQL DDL lives in schema.sql.
 const MIGRATIONS = `
 PRAGMA journal_mode = WAL;        -- concurrent readers + one writer
+PRAGMA busy_timeout = 5000;       -- wait up to 5s for a lock instead of erroring
 PRAGMA foreign_keys = ON;
 PRAGMA synchronous = NORMAL;
 
@@ -100,7 +101,8 @@ CREATE TABLE IF NOT EXISTS infractions (
   type         TEXT NOT NULL,   -- warn|timeout|kick|ban
   reason       TEXT,
   created_at   INTEGER NOT NULL DEFAULT (unixepoch()),
-  expires_at   INTEGER
+  expires_at   INTEGER,
+  notes        TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_inf_user ON infractions(guild_id, user_id);
 

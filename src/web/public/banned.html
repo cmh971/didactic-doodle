@@ -3,25 +3,198 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Access denied · Sentinel</title>
+  <title>Access Denied · Sentinel</title>
   <link rel="icon" href="favicon.ico" />
   <link rel="stylesheet" href="style.css" />
+
+  <style>
+    :root {
+      --danger: #e74c3c;
+      --danger-soft: #ff9a8a;
+      --bg-dark: #0a0a0a;
+      --text: #e6edf3;
+      --muted: #9aa7b4;
+      --panel: #161b22;
+      --radius: 18px;
+    }
+
+    body.legal-page {
+      margin: 0;
+      padding: 0;
+      background:
+        radial-gradient(circle at 20% -10%, rgba(231,76,60,0.35), transparent 55%),
+        radial-gradient(circle at 90% 120%, rgba(255,80,80,0.25), transparent 55%),
+        linear-gradient(135deg, #0a0a0a, #1a1a1a);
+      color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Floating orbs */
+    .bg-orbs {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(40px);
+      opacity: 0.7;
+      mix-blend-mode: screen;
+      animation: floatOrb 14s infinite ease-in-out;
+    }
+
+    .orb-1 {
+      width: 320px;
+      height: 320px;
+      top: -60px;
+      left: 10%;
+      background: radial-gradient(circle, rgba(231,76,60,0.55), transparent 70%);
+    }
+
+    .orb-2 {
+      width: 260px;
+      height: 260px;
+      bottom: -40px;
+      right: 15%;
+      background: radial-gradient(circle, rgba(255,120,120,0.45), transparent 70%);
+      animation-delay: -4s;
+    }
+
+    @keyframes floatOrb {
+      0% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(-40px, -60px) scale(1.2); }
+      100% { transform: translate(0, 0) scale(1); }
+    }
+
+    /* Main card */
+    .err-page {
+      position: relative;
+      z-index: 2;
+      max-width: 640px;
+      margin: 40px 16px;
+      padding: 60px 32px 48px;
+      background: var(--panel);
+      border-radius: var(--radius);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 24px 80px rgba(0,0,0,0.85);
+      text-align: center;
+    }
+
+    .err-code {
+      font-size: 7rem;
+      font-weight: 900;
+      letter-spacing: -4px;
+      margin-bottom: 20px;
+      background: linear-gradient(120deg, var(--danger), var(--danger-soft));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: pulseGlow 2.5s infinite ease-in-out;
+    }
+
+    @keyframes pulseGlow {
+      0% { filter: drop-shadow(0 0 10px rgba(231,76,60,0.4)); }
+      50% { filter: drop-shadow(0 0 25px rgba(231,76,60,0.8)); }
+      100% { filter: drop-shadow(0 0 10px rgba(231,76,60,0.4)); }
+    }
+
+    h1 {
+      font-size: 2.4rem;
+      margin: 0;
+      font-weight: 800;
+      background: linear-gradient(90deg, #fff, #ffd6d6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .muted {
+      color: var(--muted);
+      margin-top: 12px;
+      font-size: 1rem;
+      line-height: 1.6;
+    }
+
+    .err-actions {
+      margin-top: 40px;
+    }
+
+    .btn.big {
+      padding: 14px 26px;
+      font-size: 1.1rem;
+      border-radius: 12px;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-block;
+      transition: 0.25s ease;
+    }
+
+    .btn.ghost {
+      background: transparent;
+      border: 2px solid var(--danger);
+      color: var(--danger);
+    }
+
+    .btn.ghost:hover {
+      background: var(--danger);
+      color: #000;
+      transform: translateY(-2px);
+    }
+
+    .err-links {
+      margin-top: 30px;
+    }
+
+    .err-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+
+    .err-links a:hover {
+      color: #fff;
+    }
+  </style>
 </head>
+
 <body class="legal-page">
-  <div class="bg-orbs" aria-hidden="true"><span class="orb orb-2"></span></div>
+  <div class="bg-orbs" aria-hidden="true">
+    <span class="orb orb-1"></span>
+    <span class="orb orb-2"></span>
+  </div>
+
   <main class="err-page">
-    <div class="err-code" style="background:linear-gradient(120deg,#e74c3c,#c0392b);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">⛔</div>
+    <div class="err-code">⛔</div>
+
     <h1>You've been banned.</h1>
-    <p class="muted">Your access to Sentinel has been revoked. If you think this is a mistake… well, it's probably not. 😏</p>
+
+    <p class="muted">
+      Your access to Sentinel has been revoked.<br>
+      If you think this is a mistake… well, it's probably not. 😏 AHAHAHAHAHAHAHAHAHAAHAHHAAH
+    </p>
+
     <div class="err-actions">
       <a href="/" class="btn big ghost">↻ Refresh</a>
     </div>
-    <div class="err-links"><a href="/">✕ Exit preview</a></div>
+
+    <div class="err-links">
+      <a href="/">✕ Exit preview</a>
+    </div>
   </main>
+
   <script>
     (function () {
       var t = localStorage.getItem('theme') || 'dark';
-      if (t !== 'light' && t !== 'dark') t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      if (t !== 'light' && t !== 'dark') {
+        t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      }
       document.documentElement.setAttribute('data-theme', t);
     })();
   </script>

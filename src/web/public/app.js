@@ -156,7 +156,7 @@ function cycleTheme() {
 }
 
 /* ---------------------------------------------------------------- router */
-const VIEWS = ['overview', 'servers', 'leaderboards', 'shop', 'notes', 'tickets', 'announce', 'analytics', 'members', 'giveaways', 'reactionroles', 'automod', 'owner', 'transactions', 'logs'];
+const VIEWS = ['overview', 'servers', 'leaderboards', 'shop', 'notes', 'tickets', 'announce', 'automations', 'community', 'analytics', 'members', 'giveaways', 'reactionroles', 'automod', 'owner', 'transactions', 'logs'];
 function showView(name) {
   if (!VIEWS.includes(name)) name = 'overview';
   state.view = name;
@@ -173,6 +173,8 @@ function showView(name) {
   if (name === 'leaderboards') drawLeaderboardChart();
   if (name === 'tickets') loadTickets();
   if (name === 'announce') loadAnnounce();
+  if (name === 'automations') loadAutomations();
+  if (name === 'community') loadCommunity();
   if (name === 'analytics') loadAnalytics();
   if (name === 'members') loadWarnings();
   if (name === 'giveaways') loadGiveaways();
@@ -423,6 +425,8 @@ function reloadGuildView() {
   const v = state.view;
   if (v === 'tickets') loadTickets();
   else if (v === 'announce') loadAnnounce();
+  else if (v === 'automations') loadAutomations();
+  else if (v === 'community') loadCommunity();
   else if (v === 'analytics') loadAnalytics();
   else if (v === 'members') loadWarnings();
   else if (v === 'giveaways') loadGiveaways();
@@ -939,6 +943,7 @@ const COMMANDS = [
   { ic: '🏆', label: 'Go to Leaderboards', sub: 'view', run: () => showView('leaderboards') },
   { ic: '🛒', label: 'Go to Shop', sub: 'view', run: () => showView('shop') },
   { ic: '📜', label: 'Go to Live Logs', sub: 'owner', run: () => showView('logs') },
+  { ic: '🩺', label: 'Open Diagnostics Console', sub: 'owner', run: () => (location.href = '/diagnostics') },
   { ic: '💸', label: 'Go to Transactions', sub: 'owner', run: () => showView('transactions') },
   { ic: '🌓', label: 'Toggle theme', sub: 'action', run: cycleTheme },
   { ic: '🔄', label: 'Refresh all data', sub: 'action', run: () => { refreshStats(); refreshLeaderboard(); loadGuilds(); toast('Refreshed', 'success'); } },
@@ -1209,12 +1214,135 @@ function setupTickets() {
 }
 
 /* ================================================================ ANNOUNCE */
+let announceComponents = [];
+
 async function loadAnnounce() {
   if (!guildViewReady('announce')) return;
   const sel = $('an-channel'); if (!sel) return;
-  const channels = await guildChannels();
-  sel.innerHTML = channels.map((c) => `<option value="${esc(c.id)}">#${esc(c.name)}</option>`).join('') || '<option value="">No channels</option>';
+  const [channels, roles] = await Promise.all([guildChannels(), guildRoles()]);
+  const chanOpts = channels.map((c) => `<option value="${esc(c.id)}">#${esc(c.name)}</option>`).join('') || '<option value="">No channels</option>';
+  sel.innerHTML = chanOpts;
+  if ($('an-cf-channel')) $('an-cf-channel').innerHTML = chanOpts;
+  const roleOpts = roles.map((r) => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('') || '<option value="">No roles</option>';
+  if ($('an-cf-role')) $('an-cf-role').innerHTML = roleOpts;
+  if ($('an-menu-role')) $('an-menu-role').innerHTML = roleOpts;
+  announceComponents = [];
+  announcePages = [];
+  menuRoles = [];
+  renderMenuRoles();
+  renderAnnPages();
+  renderAnnComponents();
+  syncCompFields();
   updateAnnouncePreview();
+}
+
+// ---- role-menu option sub-builder (per-option emoji + label) ----
+let menuRoles = [];
+function renderMenuRoles() {
+  const list = $('an-menu-list'); if (!list) return;
+  list.innerHTML = menuRoles.length
+    ? menuRoles.map((r, i) => `<div class="row" style="align-items:center;gap:6px;margin:2px 0"><span class="chip">${esc(r.emoji || '')} ${esc(r.label)}</span><button class="btn small danger" data-rm-menu="${i}" title="Remove">✕</button></div>`).join('')
+    : '<p class="muted" style="margin:2px 0">No roles added to the menu yet.</p>';
+  qsa('[data-rm-menu]').forEach((b) => on(b, 'click', () => { menuRoles.splice(Number(b.getAttribute('data-rm-menu')), 1); renderMenuRoles(); }));
+}
+function addMenuRole() {
+  const sel = $('an-menu-role'); const roleId = sel?.value;
+  if (!roleId) return toast('Pick a role', 'error');
+  const label = $('an-menu-label')?.value.trim() || sel.options[sel.selectedIndex]?.textContent || 'Role';
+  const emoji = $('an-menu-emoji')?.value.trim() || '';
+  menuRoles.push({ roleId, label, emoji });
+  renderMenuRoles();
+  if ($('an-menu-emoji')) $('an-menu-emoji').value = '';
+  if ($('an-menu-label')) $('an-menu-label').value = '';
+}
+
+// ---- multi-page panels ----
+let announcePages = [];
+function currentEmbedFields() {
+  return {
+    title: $('an-title')?.value.trim() || '', description: $('an-desc')?.value.trim() || '',
+    color: $('an-color')?.value || '#5865f2', footer: $('an-footer')?.value.trim() || '', image: $('an-image')?.value.trim() || '',
+  };
+}
+const embedIsEmpty = (p) => !(p.title || p.description || p.image);
+function renderAnnPages() {
+  const list = $('an-pages-list'); if (!list) return;
+  if ($('an-pages-count')) $('an-pages-count').textContent = String(announcePages.length);
+  list.innerHTML = announcePages.map((p, i) =>
+    `<div class="row" style="align-items:center;gap:8px;margin:3px 0"><span class="chip">📄 ${i + 1}</span>` +
+    `<span class="muted" style="flex:1">${esc((p.title || p.description || '(image only)').slice(0, 40))}</span>` +
+    `<button class="btn small danger" data-rm-page="${i}">✕</button></div>`).join('');
+  qsa('[data-rm-page]').forEach((b) => on(b, 'click', () => { announcePages.splice(Number(b.getAttribute('data-rm-page')), 1); renderAnnPages(); }));
+}
+function addAnnPage() {
+  const p = currentEmbedFields();
+  if (embedIsEmpty(p)) return toast('Fill in the embed first', 'error');
+  announcePages.push(p);
+  renderAnnPages();
+  ['an-title', 'an-desc', 'an-footer', 'an-image'].forEach((id) => { if ($(id)) $(id).value = ''; });
+  updateAnnouncePreview();
+  toast('Page saved — build the next one', 'success');
+}
+
+const COMP_ICON = { link: '🔗', role: '🎭', rolemenu: '📋', form: '📝' };
+function renderAnnComponents() {
+  const list = $('an-comp-list'); if (!list) return;
+  if ($('an-comp-count')) $('an-comp-count').textContent = String(announceComponents.length);
+  if (!announceComponents.length) { list.innerHTML = '<p class="muted" style="margin:0 0 6px">No components yet.</p>'; return; }
+  list.innerHTML = announceComponents.map((c, i) =>
+    `<div class="row" style="align-items:center;gap:8px;margin:4px 0"><span class="chip">${COMP_ICON[c.kind] || '•'} ${esc(c.kind)}</span>` +
+    `<span class="muted" style="flex:1">${esc(c.label || c.placeholder || c.url || '')}</span>` +
+    `<button class="btn small danger" data-rm-comp="${i}" title="Remove">✕</button></div>`).join('');
+  qsa('[data-rm-comp]').forEach((b) => on(b, 'click', () => { announceComponents.splice(Number(b.getAttribute('data-rm-comp')), 1); renderAnnComponents(); }));
+}
+
+function syncCompFields() {
+  const kind = $('an-comp-kind')?.value || 'link';
+  const show = {
+    'cf-label': kind !== 'rolemenu',
+    'cf-emoji': kind === 'link' || kind === 'role' || kind === 'form',
+    'cf-style': kind === 'role' || kind === 'form',
+    'cf-url': kind === 'link',
+    'cf-role': kind === 'role',
+    'cf-ph': kind === 'rolemenu',
+    'cf-roles': kind === 'rolemenu',
+    'cf-channel': kind === 'form',
+    'cf-questions': kind === 'form',
+  };
+  Object.entries(show).forEach(([cls, vis]) => { const el = qs('.' + cls); if (el) el.hidden = !vis; });
+}
+
+function addAnnComponent() {
+  const kind = $('an-comp-kind')?.value || 'link';
+  const label = $('an-cf-label')?.value.trim() || '';
+  const emoji = $('an-cf-emoji')?.value.trim() || '';
+  const style = $('an-cf-style')?.value || 'secondary';
+  const comp = { kind };
+  if (emoji) comp.emoji = emoji;
+  if (kind === 'link') {
+    const url = $('an-cf-url')?.value.trim();
+    if (!/^https?:\/\//i.test(url || '')) return toast('Link needs a valid http(s) URL', 'error');
+    comp.label = label || 'Link'; comp.url = url;
+  } else if (kind === 'role') {
+    const roleId = $('an-cf-role')?.value;
+    if (!roleId) return toast('Pick a role', 'error');
+    comp.label = label || 'Role'; comp.roleId = roleId; comp.style = style;
+  } else if (kind === 'rolemenu') {
+    if (!menuRoles.length) return toast('Add at least one role to the menu (＋)', 'error');
+    comp.placeholder = $('an-cf-ph')?.value.trim() || 'Select roles…'; comp.roles = menuRoles.slice(); comp.min = 0; comp.max = menuRoles.length;
+  } else if (kind === 'form') {
+    const questions = qsa('.an-q').map((i) => i.value.trim()).filter(Boolean).map((q) => ({ label: q, paragraph: true, required: true }));
+    if (!questions.length) return toast('Add at least one form question', 'error');
+    comp.label = label || 'Open Form'; comp.style = style; comp.title = label || 'Form';
+    comp.channelId = $('an-cf-channel')?.value || null; comp.questions = questions;
+  }
+  announceComponents.push(comp);
+  renderAnnComponents();
+  // reset the small inputs
+  ['an-cf-label', 'an-cf-emoji', 'an-cf-url', 'an-cf-ph'].forEach((id) => { if ($(id)) $(id).value = ''; });
+  qsa('.an-q').forEach((i) => { i.value = ''; });
+  if (kind === 'rolemenu') { menuRoles = []; renderMenuRoles(); }
+  toast('Component added', 'success');
 }
 function updateAnnouncePreview() {
   const cp = $('an-content-preview'), p = $('an-preview'); if (!p) return;
@@ -1235,13 +1363,21 @@ function updateAnnouncePreview() {
 function setupAnnounce() {
   ['an-content', 'an-title', 'an-desc', 'an-footer', 'an-image', 'an-color'].forEach((id) => on($(id), 'input', updateAnnouncePreview));
   on($('an-useembed'), 'change', updateAnnouncePreview);
+  on($('an-comp-kind'), 'change', syncCompFields);
+  on($('an-comp-add'), 'click', addAnnComponent);
+  on($('an-menu-add'), 'click', addMenuRole);
+  on($('an-addpage'), 'click', addAnnPage);
   on($('an-send'), 'click', () => {
     if (!state.guild) return;
+    const pages = announcePages.slice();
+    const cur = currentEmbedFields();
+    if (announcePages.length >= 1 && !embedIsEmpty(cur)) pages.push(cur);
     const payload = {
       channelId: $('an-channel')?.value, content: $('an-content')?.value,
       useEmbed: $('an-useembed')?.checked, title: $('an-title')?.value,
       description: $('an-desc')?.value, color: $('an-color')?.value,
       footer: $('an-footer')?.value, image: $('an-image')?.value,
+      components: announceComponents, pages,
     };
     if (!payload.channelId) return toast('Pick a channel', 'error');
     confirmModal('Send this announcement now?', async () => {
@@ -1250,10 +1386,253 @@ function setupAnnounce() {
         if ($('an-msg')) $('an-msg').textContent = 'Sent! ' + (r.url || '');
         toast('Announcement sent 🚀', 'success');
         confetti(120);
+        announceComponents = []; renderAnnComponents();
+        announcePages = []; renderAnnPages();
         pushFeed('📢', 'Announcement posted via dashboard');
       } catch (e) { if ($('an-msg')) $('an-msg').textContent = 'Error: ' + e.message; toast('Error: ' + e.message, 'error'); }
     });
   });
+}
+
+/* ================================================================ AUTOMATIONS 🧩 */
+let auActions = [];
+const AU_ACT_LABEL = { reply: '↩️ Reply', send: '📨 Send', send_embed: '🖼️ Embed', dm: '✉️ DM', react: '😀 React', add_role: '➕ Add role', remove_role: '➖ Remove role', set_nickname: '🏷️ Nickname', timeout: '🔇 Timeout', delete_message: '🗑️ Delete', pin_message: '📌 Pin', ai_reply: '🤖 AI reply', weather: '🌤️ Weather', translate: '🌍 Translate', wait: '⏳ Wait' };
+
+async function loadAutomations() {
+  if (!guildViewReady('automations')) return;
+  const [channels, roles] = await Promise.all([guildChannels(), guildRoles()]);
+  const chanOpts = channels.map((c) => `<option value="${esc(c.id)}">#${esc(c.name)}</option>`).join('');
+  if ($('au-channel')) $('au-channel').innerHTML = '<option value="">Any channel</option>' + chanOpts;
+  if ($('au-act-channel')) $('au-act-channel').innerHTML = chanOpts || '<option value="">No channels</option>';
+  const roleOpts = roles.map((r) => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('') || '<option value="">No roles</option>';
+  if ($('au-act-role')) $('au-act-role').innerHTML = roleOpts;
+  auActions = [];
+  if ($('au-global')) $('au-global').checked = false;
+  syncTriggerFields(); syncActionFields(); renderAuActions();
+  if (window.AutomationCanvas) window.AutomationCanvas.init(channels, roles);
+  renderLibraries();
+  const panel = $('au-owner-panel');
+  if (panel) { panel.hidden = !state.me?.owner; if (state.me?.owner) renderPending(); }
+  await renderAuList();
+}
+function renderLibraries() {
+  const list = $('au-lib-list'); const all = window.AUTOMATION_PRESETS || [];
+  if (!list) return;
+  if ($('au-lib-count')) $('au-lib-count').textContent = String(all.length);
+  const q = ($('au-lib-search')?.value || '').toLowerCase().trim();
+  const byCat = {};
+  all.forEach((p, i) => { if (q && !(p.name + ' ' + p.category).toLowerCase().includes(q)) return; (byCat[p.category] = byCat[p.category] || []).push(i); });
+  const cats = Object.keys(byCat);
+  list.innerHTML = cats.length
+    ? cats.map((cat) => `<div class="muted" style="margin:6px 0 2px;font-size:12px">${esc(cat)}</div>` +
+      byCat[cat].map((i) => `<button class="btn small block" style="text-align:left;margin:2px 0" data-preset="${i}">${esc(all[i].name)}</button>`).join('')).join('')
+    : '<p class="muted">No matches.</p>';
+  qsa('[data-preset]').forEach((b) => on(b, 'click', () => {
+    const spec = all[Number(b.getAttribute('data-preset'))];
+    if (spec && window.AutomationCanvas?.loadPreset) { window.AutomationCanvas.loadPreset(spec); toast('Loaded: ' + spec.name, 'success'); }
+  }));
+}
+function syncTriggerFields() { const t = $('au-trigger')?.value; if ($('au-trig-msg')) $('au-trig-msg').hidden = t !== 'message_contains'; }
+function syncActionFields() {
+  const t = $('au-act-type')?.value || 'reply';
+  const show = {
+    'af-embedtitle': t === 'send_embed',
+    'af-text': ['reply', 'send', 'dm', 'send_embed', 'set_nickname', 'ai_reply', 'weather'].includes(t),
+    'af-color': t === 'send_embed',
+    'af-channel': ['send', 'send_embed'].includes(t),
+    'af-role': ['add_role', 'remove_role'].includes(t),
+    'af-emoji': t === 'react',
+    'af-seconds': ['wait', 'timeout'].includes(t),
+    'af-lang': t === 'translate',
+  };
+  Object.entries(show).forEach(([cls, vis]) => { const el = qs('.' + cls); if (el) el.hidden = !vis; });
+}
+async function renderPending() {
+  const box = $('au-pending-list'); if (!box) return;
+  let rows;
+  try { rows = await api('/api/automations/pending'); } catch { return; }
+  if ($('au-pending-count')) $('au-pending-count').textContent = String(rows.length);
+  if (!rows.length) { box.innerHTML = '<p class="muted">Nothing pending. 🎉</p>'; return; }
+  box.innerHTML = rows.map((a) =>
+    `<div class="card" style="padding:10px;margin:6px 0"><div class="row" style="align-items:center;gap:8px"><b style="flex:1">${esc(a.name)}</b>` +
+    `<span class="muted">by ${esc(a.byName || '?')} · ${esc(a.guildName || '')}</span>` +
+    `<button class="btn small" data-ap="${a.id}" title="Approve">✅</button><button class="btn small danger" data-dn="${a.id}" title="Deny">❌</button></div>` +
+    `<p class="muted" style="margin:4px 0 0">${esc(AU_TRIG_LABEL(a))} → ${a.actions.map((x) => esc(AU_ACT_LABEL[x.type] || x.type)).join(', ')}</p></div>`).join('');
+  qsa('[data-ap]').forEach((b) => on(b, 'click', async () => { try { await api('/api/automations/' + b.getAttribute('data-ap') + '/approve', { method: 'POST' }); toast('Approved 👑', 'success'); confetti(50); renderPending(); } catch (e) { toast(e.message, 'error'); } }));
+  qsa('[data-dn]').forEach((b) => on(b, 'click', async () => { try { await api('/api/automations/' + b.getAttribute('data-dn') + '/deny', { method: 'POST' }); toast('Denied', 'success'); renderPending(); } catch (e) { toast(e.message, 'error'); } }));
+}
+function auDesc(a) { return a.text || a.emoji || (a.seconds != null ? a.seconds + 's' : '') || (a.channelId ? 'to #channel' : '') || (a.roleId ? 'a role' : ''); }
+function renderAuActions() {
+  const list = $('au-actions-list'); if (!list) return;
+  if ($('au-actcount')) $('au-actcount').textContent = String(auActions.length);
+  list.innerHTML = auActions.length
+    ? auActions.map((a, i) => `<div class="row" style="align-items:center;gap:8px;margin:3px 0"><span class="chip">${AU_ACT_LABEL[a.type] || a.type}</span><span class="muted" style="flex:1">${esc(auDesc(a))}</span><button class="btn small danger" data-rm-act="${i}">✕</button></div>`).join('')
+    : '<p class="muted" style="margin:2px 0">No actions yet — add one below.</p>';
+  qsa('[data-rm-act]').forEach((b) => on(b, 'click', () => { auActions.splice(Number(b.getAttribute('data-rm-act')), 1); renderAuActions(); }));
+}
+function addAuAction() {
+  const t = $('au-act-type')?.value || 'reply';
+  const a = { type: t };
+  if (['reply', 'dm', 'set_nickname'].includes(t)) { a.text = $('au-act-text')?.value.trim() || ''; if (!a.text) return toast('Add text', 'error'); }
+  if (t === 'send') { a.text = $('au-act-text')?.value.trim() || ''; a.channelId = $('au-act-channel')?.value; if (!a.text) return toast('Add message text', 'error'); if (!a.channelId) return toast('Pick a channel for Send', 'error'); }
+  if (t === 'send_embed') { a.title = $('au-act-embedtitle')?.value.trim() || ''; a.description = $('au-act-text')?.value.trim() || ''; a.color = $('au-act-color')?.value || '#5865f2'; a.channelId = $('au-act-channel')?.value || null; if (!a.title && !a.description) return toast('Embed needs a title or text', 'error'); }
+  if (['add_role', 'remove_role'].includes(t)) { a.roleId = $('au-act-role')?.value; if (!a.roleId) return toast('Pick a role', 'error'); }
+  if (t === 'react') { a.emoji = $('au-act-emoji')?.value.trim(); if (!a.emoji) return toast('Add an emoji', 'error'); }
+  if (t === 'wait') { a.seconds = Math.min(30, Math.max(1, Number($('au-act-seconds')?.value) || 3)); }
+  if (t === 'timeout') { a.seconds = Math.min(600, Math.max(1, Number($('au-act-seconds')?.value) || 60)); }
+  if (t === 'ai_reply') { a.prompt = $('au-act-text')?.value.trim() || '{content}'; }
+  if (t === 'weather') { a.location = $('au-act-text')?.value.trim() || '{args}'; }
+  if (t === 'translate') { a.to = $('au-act-lang')?.value.trim(); if (!a.to) return toast('Enter a target language', 'error'); }
+  auActions.push(a); renderAuActions();
+  ['au-act-text', 'au-act-emoji', 'au-act-embedtitle'].forEach((id) => { if ($(id)) $(id).value = ''; });
+}
+function buildTrigger() {
+  const t = $('au-trigger')?.value || 'message_contains';
+  if (t === 'member_join') return { type: 'member_join' };
+  return { type: 'message_contains', matchType: $('au-match')?.value || 'contains', text: $('au-keyword')?.value.trim() || '', channelId: $('au-channel')?.value || null };
+}
+async function saveAutomation() {
+  const trigger = buildTrigger();
+  if (trigger.type === 'message_contains' && !trigger.text) return toast('Enter the trigger text', 'error');
+  if (!auActions.length) return toast('Add at least one action', 'error');
+  const name = $('au-name')?.value.trim() || 'Untitled';
+  const scope = $('au-global')?.checked ? 'global' : 'server';
+  const btn = $('au-save'); if (btn) btn.disabled = true;
+  try {
+    const r = await api('/api/guild/' + state.guild + '/automations', { method: 'POST', body: JSON.stringify({ name, trigger, actions: auActions, scope }) });
+    toast(r.pending ? 'Submitted for owner approval 👑' : 'Automation saved ✅', 'success'); confetti(40);
+    if ($('au-name')) $('au-name').value = '';
+    if ($('au-keyword')) $('au-keyword').value = '';
+    if ($('au-global')) $('au-global').checked = false;
+    auActions = []; renderAuActions(); await renderAuList();
+    if ($('au-msg')) $('au-msg').textContent = '';
+  } catch (e) { toast(e.message || 'Could not save', 'error'); if ($('au-msg')) $('au-msg').textContent = e.message; }
+  finally { if (btn) btn.disabled = false; }
+}
+const AU_TRIG_LABEL = (a) => a.trigger?.type === 'member_join' ? '👋 on member join' : `💬 message ${a.trigger?.matchType || 'contains'} “${a.trigger?.text || ''}”`;
+async function renderAuList() {
+  const box = $('au-list'); if (!box) return;
+  let rows;
+  try { rows = await api('/api/guild/' + state.guild + '/automations'); } catch { box.innerHTML = '<p class="muted">Could not load.</p>'; return; }
+  if (!rows.length) { box.innerHTML = '<p class="muted">No automations yet. Build one on the left! 👈</p>'; return; }
+  const badge = (a) => {
+    if (a.scope === 'global' && a.status === 'pending') return '<span class="chip" style="background:#f1c40f;color:#000">⏳ pending</span> ';
+    if (a.scope === 'global' && a.status === 'denied') return '<span class="chip" style="background:#e74c3c">❌ denied</span> ';
+    if (a.scope === 'global') return '<span class="chip" style="background:#5865f2">🌍 global</span> ';
+    return '';
+  };
+  box.innerHTML = rows.map((a) =>
+    `<div class="card" style="padding:10px;margin:6px 0"><div class="row" style="align-items:center;gap:8px"><b style="flex:1">${badge(a)}${esc(a.name || 'Untitled')}</b>` +
+    `<label class="check"><input type="checkbox" data-au-toggle="${a.id}" ${a.enabled ? 'checked' : ''} /> <span>${a.enabled ? 'On' : 'Off'}</span></label>` +
+    `<button class="btn small danger" data-au-del="${a.id}">🗑</button></div>` +
+    `<p class="muted" style="margin:4px 0 0">${esc(AU_TRIG_LABEL(a))} → ${a.actions.map((x) => esc(AU_ACT_LABEL[x.type] || x.type)).join(', ')}</p></div>`).join('');
+  qsa('[data-au-toggle]').forEach((c) => on(c, 'change', async () => { try { await api('/api/guild/' + state.guild + '/automations/' + c.getAttribute('data-au-toggle') + '/toggle', { method: 'POST', body: JSON.stringify({ enabled: c.checked }) }); renderAuList(); } catch (e) { toast(e.message, 'error'); } }));
+  qsa('[data-au-del]').forEach((b) => on(b, 'click', async () => { if (!confirm('Delete this automation?')) return; try { await api('/api/guild/' + state.guild + '/automations/' + b.getAttribute('data-au-del') + '/delete', { method: 'POST' }); toast('Deleted', 'success'); renderAuList(); } catch (e) { toast(e.message, 'error'); } }));
+}
+function setupAutomations() {
+  on($('au-trigger'), 'change', syncTriggerFields);
+  on($('au-act-type'), 'change', syncActionFields);
+  on($('au-act-add'), 'click', addAuAction);
+  on($('au-save'), 'click', saveAutomation);
+  on($('au-canvas-save'), 'click', () => window.AutomationCanvas && window.AutomationCanvas.save($('au-canvas-name')?.value.trim()));
+  on($('au-lib-search'), 'input', renderLibraries);
+  on($('au-ai-build'), 'click', aiBuildAutomation);
+}
+async function aiBuildAutomation() {
+  const prompt = $('au-ai-prompt')?.value.trim();
+  if (!prompt) return toast('Describe what you want first', 'error');
+  const btn = $('au-ai-build'); if (btn) { btn.disabled = true; btn.textContent = '✨ Thinking…'; }
+  try {
+    const r = await api('/api/guild/' + state.guild + '/ai-build', { method: 'POST', body: JSON.stringify({ prompt }) });
+    if (window.AutomationCanvas?.loadPreset) window.AutomationCanvas.loadPreset(r.spec);
+    toast('AI built it — tweak & save! 🤖', 'success'); confetti(50);
+  } catch (e) { toast(e.message || 'AI could not build that', 'error'); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = '✨ AI build'; } }
+}
+
+/* ================================================================ COMMUNITY PAGE 🌐 */
+let cmWidgets = [];
+const CM_W_LABEL = { google_login: '🔵 Google sign-in', discord_login: '🎮 Discord login', invite: '🔗 Invite', button: '🔘 Link', text: '📝 Text', stats: '📊 Stats' };
+async function loadCommunity() {
+  if (!guildViewReady('community')) return;
+  let c;
+  try { c = await api('/api/guild/' + state.guild + '/community'); } catch { return; }
+  if ($('cm-name')) $('cm-name').value = c.communityName || '';
+  if ($('cm-slug')) $('cm-slug').value = c.customSubdomainOrId || '';
+  if ($('cm-color')) $('cm-color').value = /^#[0-9a-fA-F]{6}$/.test(c.themeColor || '') ? c.themeColor : '#5865f2';
+  if ($('cm-md')) $('cm-md').value = c.homePageMarkdown || '';
+  if ($('cm-verify')) $('cm-verify').checked = !!c.verificationRequired;
+  cmWidgets = Array.isArray(c.widgets) ? c.widgets : [];
+  renderCmWidgets(); syncWidgetFields();
+  updateCommunityStatus(c);
+  updateCommunityPreview();
+}
+function syncWidgetFields() {
+  const t = $('cm-w-type')?.value || 'google_login';
+  const show = { 'cw-label': ['invite', 'button'].includes(t), 'cw-url': ['invite', 'button'].includes(t), 'cw-text': t === 'text' };
+  Object.entries(show).forEach(([cls, vis]) => { const el = qs('.' + cls); if (el) el.hidden = !vis; });
+}
+function renderCmWidgets() {
+  const list = $('cm-widget-list'); if (!list) return;
+  if ($('cm-wcount')) $('cm-wcount').textContent = String(cmWidgets.length);
+  list.innerHTML = cmWidgets.length
+    ? cmWidgets.map((w, i) => `<div class="row" style="align-items:center;gap:8px;margin:3px 0"><span class="chip">${CM_W_LABEL[w.type] || w.type}</span><span class="muted" style="flex:1">${esc(w.config?.label || w.config?.text || w.config?.url || '')}</span><button class="btn small danger" data-rm-w="${i}">✕</button></div>`).join('')
+    : '<p class="muted" style="margin:2px 0">No widgets yet — add a Google sign-in!</p>';
+  qsa('[data-rm-w]').forEach((b) => on(b, 'click', () => { cmWidgets.splice(Number(b.getAttribute('data-rm-w')), 1); renderCmWidgets(); }));
+}
+function addCmWidget() {
+  const t = $('cm-w-type')?.value || 'google_login';
+  const w = { type: t, title: '', config: {} };
+  if (['invite', 'button'].includes(t)) {
+    const url = $('cm-w-url')?.value.trim();
+    if (!/^https?:\/\//i.test(url || '')) return toast('Add a valid http(s) URL', 'error');
+    w.config = { label: $('cm-w-label')?.value.trim() || 'Open', url };
+  } else if (t === 'text') {
+    const text = $('cm-w-text')?.value.trim();
+    if (!text) return toast('Add some text', 'error');
+    w.config = { text };
+  }
+  cmWidgets.push(w); renderCmWidgets();
+  ['cm-w-label', 'cm-w-url', 'cm-w-text'].forEach((id) => { if ($(id)) $(id).value = ''; });
+}
+function updateCommunityStatus(c) {
+  const s = $('cm-status'); if (!s) return;
+  s.innerHTML = c.isApproved
+    ? '<span class="chip" style="background:#2ecc71;color:#062">✓ Live &amp; approved</span>'
+    : '<span class="chip" style="background:#f1c40f;color:#000">⏳ Pending owner approval</span>';
+  const open = $('cm-open'); if (open) open.href = '/c/' + (c.customSubdomainOrId || state.guild);
+}
+function updateCommunityPreview() {
+  const p = $('cm-preview'); if (!p) return;
+  p.style.borderLeftColor = $('cm-color')?.value || '#5865f2';
+  const name = esc($('cm-name')?.value || 'My Community');
+  const md = esc($('cm-md')?.value || '').replace(/\n/g, '<br>');
+  p.innerHTML = `<div class="ep-title">${name}</div><div class="ep-desc">${md || '<span class="muted">Your page content…</span>'}</div>`;
+}
+async function saveCommunity() {
+  if (!state.guild) return;
+  const body = {
+    communityName: $('cm-name')?.value.trim() || 'My Community',
+    customSubdomainOrId: $('cm-slug')?.value.trim() || '',
+    themeColor: $('cm-color')?.value || '#5865f2',
+    homePageMarkdown: $('cm-md')?.value || '',
+    verificationRequired: $('cm-verify')?.checked || false,
+    widgets: cmWidgets,
+  };
+  const btn = $('cm-save'); if (btn) btn.disabled = true;
+  try {
+    const r = await api('/api/guild/' + state.guild + '/community', { method: 'POST', body: JSON.stringify(body) });
+    toast('Submitted for approval 👑', 'success'); confetti(50);
+    updateCommunityStatus(r.community);
+    if ($('cm-msg')) $('cm-msg').textContent = 'Will be live at ' + r.publicUrl + ' once the owner approves.';
+  } catch (e) { toast(e.message || 'Could not save', 'error'); if ($('cm-msg')) $('cm-msg').textContent = e.message; }
+  finally { if (btn) btn.disabled = false; }
+}
+function setupCommunity() {
+  ['cm-name', 'cm-md', 'cm-color'].forEach((id) => on($(id), 'input', updateCommunityPreview));
+  on($('cm-w-type'), 'change', syncWidgetFields);
+  on($('cm-w-add'), 'click', addCmWidget);
+  on($('cm-save'), 'click', saveCommunity);
 }
 
 /* ================================================================ ANALYTICS */
@@ -1306,26 +1685,68 @@ async function loadWarnings() {
   if (!guildViewReady('members')) return;
   const q = $('warn-search')?.value.trim() || '';
   const body = $('warn-body'); if (!body) return;
-  body.innerHTML = '<tr><td colspan="5" class="muted">Loading…</td></tr>';
+  body.innerHTML = '<tr><td colspan="7" class="muted">Loading…</td></tr>';
   let rows;
-  try { rows = await api('/api/guild/' + state.guild + '/warnings' + (q ? '?q=' + encodeURIComponent(q) : '')); } catch { body.innerHTML = '<tr><td colspan="5" class="muted">Could not load.</td></tr>'; return; }
+  try { rows = await api('/api/guild/' + state.guild + '/warnings' + (q ? '?q=' + encodeURIComponent(q) : '')); } catch { body.innerHTML = '<tr><td colspan="7" class="muted">Could not load.</td></tr>'; return; }
   if ($('warn-count')) $('warn-count').textContent = rows.length + ' record' + (rows.length === 1 ? '' : 's');
-  if (!rows.length) { body.innerHTML = '<tr><td colspan="5" class="muted">No infractions found.</td></tr>'; return; }
+  if (!rows.length) { body.innerHTML = '<tr><td colspan="7" class="muted">No infractions found.</td></tr>'; return; }
   const typeIc = { warn: '⚠️', timeout: '🔇', kick: '👢', ban: '🔨', badword: '🤬', auto: '🤖' };
   body.innerHTML = '';
   for (const r of rows) {
     const tr = document.createElement('tr');
     tr.innerHTML =
+      `<td><code>#${esc(r.id)}</code></td>` +
       `<td>${esc(r.userName || '')} <code>${esc(String(r.user_id).slice(-6))}</code></td>` +
       `<td>${typeIc[r.type] || '•'} ${esc(r.type)}</td>` +
       `<td>${esc(r.reason || '—')}</td>` +
       `<td>${esc(r.modName || '—')}</td>` +
-      `<td>${esc(new Date(r.created_at).toLocaleString())}</td>`;
+      `<td>${esc(new Date(r.created_at).toLocaleString())}</td>` +
+      `<td><button class="btn small danger" data-del-case="${esc(r.id)}" title="Delete case #${esc(r.id)}">🗑</button></td>`;
     body.appendChild(tr);
   }
+  qsa('[data-del-case]').forEach((btn) => on(btn, 'click', () => removeCase(btn.getAttribute('data-del-case'))));
+}
+async function removeCase(id) {
+  if (!confirm('Delete case #' + id + '? This cannot be undone.')) return;
+  try {
+    await api('/api/guild/' + state.guild + '/infractions/' + id + '/delete', { method: 'POST' });
+    toast('Deleted case #' + id, 'success');
+    loadWarnings();
+  } catch (e) { toast(e.message || 'Could not delete', 'error'); }
+}
+async function addInfraction() {
+  const userId = ($('inf-user')?.value || '').replace(/[^0-9]/g, '');
+  const action = $('inf-action')?.value || 'warn';
+  const reason = $('inf-reason')?.value.trim() || '';
+  const duration = $('inf-duration')?.value.trim() || '';
+  const notes = $('inf-notes')?.value.trim() || '';
+  const msg = $('inf-msg');
+  if (!userId) { if (msg) msg.textContent = 'Enter a member ID.'; return; }
+  const btn = $('inf-add'); if (btn) btn.disabled = true;
+  if (msg) msg.textContent = 'Applying…';
+  try {
+    const r = await api('/api/guild/' + state.guild + '/infractions', {
+      method: 'POST',
+      body: JSON.stringify({ userId, action, reason, duration, notes }),
+    });
+    if (msg) msg.textContent = '';
+    toast(r.label + ' — case #' + r.caseId, 'success');
+    confetti(40);
+    if ($('inf-user')) $('inf-user').value = '';
+    if ($('inf-reason')) $('inf-reason').value = '';
+    if ($('inf-duration')) $('inf-duration').value = '';
+    if ($('inf-notes')) $('inf-notes').value = '';
+    loadWarnings();
+  } catch (e) {
+    if (msg) msg.textContent = e.message || 'Could not apply.';
+    toast(e.message || 'Could not apply', 'error');
+  } finally { if (btn) btn.disabled = false; }
 }
 function setupWarnings() {
   on($('warn-search'), 'input', () => { clearTimeout(warnTimer); warnTimer = setTimeout(loadWarnings, 300); });
+  const syncDur = () => { const f = $('inf-duration-field'); if (f) f.hidden = !['mute', 'ban'].includes($('inf-action')?.value); };
+  on($('inf-action'), 'change', syncDur); syncDur();
+  on($('inf-add'), 'click', addInfraction);
 }
 
 /* ================================================================ GIVEAWAYS 🎉 */
@@ -1761,6 +2182,8 @@ async function boot() {
   setupTickets();
   setupAnnounce();
   setupWarnings();
+  setupAutomations();
+  setupCommunity();
   setupCookieBanner();
   setupNotes();
   setupLoginGate();
@@ -1789,6 +2212,8 @@ async function boot() {
   if ($('oauth-note')) $('oauth-note').textContent = state.me.oauthEnabled ? '' : 'OAuth2 not configured.';
 
   renderAuth();
+  // The second they're logged in, offer the installable app.
+  if (window.PWA) window.PWA.maybePrompt(state.me);
   initRouter();
   setupAutorole();
 
@@ -1805,6 +2230,7 @@ async function boot() {
   if (params.get('google') === 'ok') {
     toast('Signed in with Google ✓', 'success');
     confetti(90);
+    if (window.PWA) window.PWA.maybePrompt(state.me);
     if (!state.me?.user) setTimeout(openLoginGate, 300);
     history.replaceState(null, '', location.pathname + location.hash);
   }
