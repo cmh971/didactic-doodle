@@ -1,0 +1,1 @@
+cd "c:/Users/chris/OneDrive/Desktop/New folder (5)" && echo "=== localhost:3000 response ===" && curl -s -o /dev/null -w "HTTP %{http_code}\n" http://localhost:3000/ ; echo "=== any tunnel start scripts in project? ===" && ls -1 *.bat *.cmd *.ps1 *.sh scripts/ 2>/dev/null

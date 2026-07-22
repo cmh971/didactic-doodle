@@ -1,7 +1,8 @@
 // Custom emoji system — list bundled emojis (assets/emojis/) and add emojis to a
-// guild from a preset, a URL, or an attachment. Supports .png / .gif / .webp;
-// WebP is auto-converted to PNG on upload because Discord won't accept WebP.
-import { readdirSync, existsSync } from 'node:fs';
+// guild from a preset, a URL, or an attachment. Supports .png / .gif / .webp /
+// .jpg. WebP is auto-converted to PNG on upload because Discord won't accept WebP;
+// PNG/GIF/JPG upload as-is.
+import { readdirSync, existsSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
@@ -12,8 +13,8 @@ export const EMOJI_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..
 export function listBundledEmojis() {
   try {
     return readdirSync(EMOJI_DIR)
-      .filter((f) => /\.(png|gif|webp)$/i.test(f))
-      .map((f) => ({ name: f.replace(/\.(png|gif|webp)$/i, ''), file: f, animated: /\.gif$/i.test(f) }))
+      .filter((f) => /\.(png|gif|webp|jpe?g)$/i.test(f))
+      .map((f) => ({ name: f.replace(/\.(png|gif|webp|jpe?g)$/i, ''), file: f, animated: /\.gif$/i.test(f) }))
       .sort((a, b) => a.name.localeCompare(b.name));
   } catch {
     return [];
@@ -28,7 +29,7 @@ export function bundledEmojiNames() {
 /** Absolute path to a bundled emoji (prefers .gif, then .png, then .webp). Sanitized. */
 export function bundledEmojiPath(name) {
   const safe = String(name || '').replace(/[^a-z0-9_-]/gi, '');
-  for (const ext of ['gif', 'png', 'webp']) {
+  for (const ext of ['gif', 'png', 'webp', 'jpg', 'jpeg']) {
     const p = join(EMOJI_DIR, `${safe}.${ext}`);
     if (existsSync(p)) return p;
   }
@@ -39,6 +40,16 @@ export function bundledEmojiPath(name) {
 function isWebpBuffer(buf) {
   return Buffer.isBuffer(buf) && buf.length > 12 && buf.toString('ascii', 0, 4) === 'RIFF' && buf.toString('ascii', 8, 12) === 'WEBP';
 }
+
+/** Is this buffer an animated GIF? (GIF8 magic bytes.) We must NOT re-encode
+ *  those — running them through the canvas would flatten them to one frame. */
+function isGifBuffer(buf) {
+  return Buffer.isBuffer(buf) && buf.length > 3 && buf.toString('ascii', 0, 4) === 'GIF8';
+}
+
+// Discord rejects guild emojis larger than 256 KB. Anything static above this
+// gets down-scaled to a ≤128px PNG (well under the limit) before upload.
+const MAX_EMOJI_BYTES = 200 * 1024;
 
 /** Decode any image source and re-encode as a small (≤128px) PNG buffer. */
 async function toPng(src) {
@@ -55,14 +66,26 @@ async function toPng(src) {
 /** Convert WebP sources to PNG; pass everything else through untouched. */
 async function normalizeSource(source) {
   try {
-    if (Buffer.isBuffer(source)) return isWebpBuffer(source) ? await toPng(source) : source;
+    if (Buffer.isBuffer(source)) {
+      if (isGifBuffer(source)) return source;                         // keep animation
+      if (isWebpBuffer(source)) return await toPng(source);           // Discord won't take WebP
+      if (source.length > MAX_EMOJI_BYTES) return await toPng(source); // shrink oversized statics
+      return source;
+    }
     if (typeof source === 'string') {
       if (/^data:image\/webp/i.test(source)) return await toPng(Buffer.from(source.split(',')[1] || '', 'base64'));
       if (/^https?:\/\//i.test(source)) {
         if (/\.webp(\?|#|$)/i.test(source)) return await toPng(Buffer.from(await (await fetch(source)).arrayBuffer()));
         return source; // let discord.js fetch png/gif/jpg URLs directly
       }
-      if (existsSync(source) && /\.webp$/i.test(source)) return await toPng(source);
+      if (existsSync(source)) {
+        if (/\.webp$/i.test(source)) return await toPng(source);      // convert WebP → PNG
+        // Down-scale oversized static images (jpg/jpeg/png) so they clear the
+        // 256 KB cap. GIFs are left alone to preserve their animation.
+        if (/\.(jpe?g|png)$/i.test(source)) {
+          try { if (statSync(source).size > MAX_EMOJI_BYTES) return await toPng(source); } catch { /* stat failed — pass through */ }
+        }
+      }
     }
   } catch {
     // fall through to the original source; discord will validate it

@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>SENTINEL · Diagnostics Core</title>
+<style>
+  :root{
+    --bg:#04060a; --panel:#0b0f14; --panel2:#0e141b; --line:#16202b;
+    --grn:#3ef58f; --cyn:#38bdf8; --amb:#f5b83e; --red:#ff5c6c; --vio:#a78bfa;
+    --tx:#c8d6e5; --dim:#5b6b7d;
+    --mono:'Cascadia Code',ui-monospace,'SF Mono',Consolas,'Liberation Mono',monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:radial-gradient(1200px 620px at 72% -12%,#0a1420 0,var(--bg) 55%);
+    color:var(--tx);font-family:var(--mono);font-size:13px;line-height:1.5;letter-spacing:.2px;overflow-x:hidden}
+  body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:60;
+    background:repeating-linear-gradient(0deg,rgba(255,255,255,.014) 0 1px,transparent 1px 3px);mix-blend-mode:overlay;opacity:.6}
+  a{color:var(--cyn);text-decoration:none}
+  .wrap{max-width:1320px;margin:0 auto;padding:16px 16px 60px}
+  .muted{color:var(--dim)} .hidden{display:none!important}
+  code{color:var(--cyn)}
+
+  header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;border:1px solid var(--line);
+    border-radius:14px;background:linear-gradient(180deg,#0c131b,#0a0f15);box-shadow:0 0 0 1px #060a0e inset,0 10px 40px #0006;position:relative;overflow:hidden}
+  header::before{content:"";position:absolute;top:0;left:0;width:100%;height:2px;
+    background:linear-gradient(90deg,transparent,var(--grn),var(--cyn),var(--vio),transparent);background-size:220% 100%;animation:slide 6s linear infinite}
+  @keyframes slide{to{background-position:220% 0}}
+  .brand{font-weight:700;font-size:15px;color:#eafff4;text-shadow:0 0 14px #3ef58f55}
+  .brand b{color:var(--grn)}
+  .spacer{flex:1}
+  .pill{display:inline-flex;align-items:center;gap:8px;padding:5px 11px;border:1px solid var(--line);border-radius:999px;background:#070c11;font-size:12px;color:var(--dim)}
+  #clock{color:var(--cyn);font-variant-numeric:tabular-nums}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--dim)}
+  .dot.on{background:var(--grn);animation:pulse 1.6s infinite;color:var(--grn)}
+  .dot.bad{background:var(--red);animation:pulse 1.6s infinite;color:var(--red)}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 currentColor}70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
+
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 12px}
+  .tab{padding:7px 14px;border:1px solid var(--line);border-radius:10px;background:#0a0f15;color:var(--dim);cursor:pointer;font-size:12px;letter-spacing:.6px;text-transform:uppercase;transition:.15s}
+  .tab:hover{color:#eafff4;border-color:#243543}
+  .tab.active{color:#04120b;background:linear-gradient(180deg,var(--grn),#28c974);border-color:#28c974;font-weight:700;box-shadow:0 0 16px #3ef58f44}
+
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:11px}
+  .tile{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:11px 13px;position:relative;overflow:hidden}
+  .tile .k{color:var(--dim);font-size:10.5px;text-transform:uppercase;letter-spacing:1px}
+  .tile .v{font-size:21px;font-weight:700;margin-top:3px;color:#eafff4;font-variant-numeric:tabular-nums}
+  .tile .v small{font-size:11px;color:var(--dim);font-weight:400}
+  .tile.grn .v{color:var(--grn)} .tile.cyn .v{color:var(--cyn)} .tile.amb .v{color:var(--amb)} .tile.vio .v{color:var(--vio)} .tile.red .v{color:var(--red)}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media(max-width:920px){.grid2,.grid3{grid-template-columns:1fr}}
+  .panel{border:1px solid var(--line);border-radius:14px;background:var(--panel);overflow:hidden;display:flex;flex-direction:column}
+  .phead{display:flex;align-items:center;gap:10px;padding:10px 13px;border-bottom:1px solid var(--line);background:var(--panel2);font-size:11.5px;text-transform:uppercase;letter-spacing:1.3px;color:var(--dim)}
+  .phead .t{color:#dfeaf5;font-weight:700}
+  .chip{padding:2px 9px;border-radius:999px;font-size:11px;border:1px solid var(--line);color:var(--dim)}
+  .chip.ok{color:var(--grn);border-color:#164a30;background:#0b1a12}
+  .chip.warn{color:var(--amb);border-color:#4a3a16;background:#1a1408}
+  .chip.fail{color:var(--red);border-color:#4a1620;background:#1a0b0e}
+  button{font-family:var(--mono);cursor:pointer;background:#0d151d;color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:6px 11px;font-size:12px;transition:.15s}
+  button:hover{border-color:var(--cyn);color:#eafff4;box-shadow:0 0 12px #38bdf833}
+  button.gld{border-color:#164a30;color:var(--grn)} button.gld:hover{box-shadow:0 0 12px #3ef58f44}
+
+  /* charts */
+  .chartbox{padding:10px 12px}
+  .chartbox .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
+  .chartbox .lab{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:1px}
+  .chartbox .now{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+  .chartbox .now small{font-size:11px;color:var(--dim)}
+  canvas.spark{width:100%;height:64px;display:block}
+
+  /* health */
+  .checks{max-height:520px;overflow:auto;padding:6px}
+  .check{display:flex;gap:11px;padding:9px 10px;border-radius:9px}
+  .check+.check{border-top:1px solid #0f1720}
+  .sd{width:10px;height:10px;border-radius:50%;margin-top:5px;flex:none}
+  .sd.ok{background:var(--grn);box-shadow:0 0 8px #3ef58f88}
+  .sd.warn{background:var(--amb);box-shadow:0 0 8px #f5b83e88}
+  .sd.fail{background:var(--red);box-shadow:0 0 8px #ff5c6c88;animation:pulse 1.4s infinite;color:var(--red)}
+  .check .lb{font-weight:600;color:#e7f1fb}
+  .check .de{color:var(--dim);font-size:12px}
+  .check .hi{color:var(--amb);font-size:12px;margin-top:2px}
+  .check .hi::before{content:"↳ fix: "}
+
+  /* terminal */
+  .term{background:#04070a;height:440px;overflow:auto;padding:10px 12px;font-size:12.5px}
+  .ln{white-space:pre-wrap;word-break:break-word}
+  .t{color:#33465a}
+  .lvl-log{color:#bcd}.lvl-warn{color:var(--amb)}.lvl-error{color:var(--red)}.lvl-info{color:var(--cyn)}
+  .lvl-cmd{color:var(--vio)}.lvl-cmd::before{content:"❯ "}.lvl-out{color:#8fb8a6}.lvl-sys{color:var(--grn)}
+  .cmdbar{display:flex;align-items:center;gap:8px;border-top:1px solid var(--line);background:var(--panel2);padding:8px 10px}
+  .cmdbar .pr{color:var(--grn)}
+  #cmd{flex:1;background:transparent;border:none;outline:none;color:#eafff4;font-family:var(--mono);font-size:13px}
+  .quick{display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px;border-top:1px solid var(--line);background:#0a1017}
+  .quick button{padding:3px 9px;font-size:11px}
+  .toolbar{display:flex;gap:6px}
+
+  /* tables / kv */
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{text-align:left;padding:7px 12px;border-bottom:1px solid #0f1720}
+  th{color:var(--dim);text-transform:uppercase;font-size:10.5px;letter-spacing:1px;position:sticky;top:0;background:var(--panel2)}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--cyn)}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;padding:12px 14px;font-size:12.5px}
+  .kv .k{color:var(--dim)} .kv .v{color:#e7f1fb;word-break:break-all}
+
+  /* config inspector */
+  .cfgpanels{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;padding:12px}
+  .cfgp{border:1px solid var(--line);border-radius:11px;background:var(--panel2);overflow:hidden}
+  .cfgp h4{margin:0;padding:8px 11px;font-size:11.5px;letter-spacing:1px;text-transform:uppercase;color:#dfeaf5;border-bottom:1px solid var(--line);background:#0b131b}
+  .cfgrow{display:flex;justify-content:space-between;gap:10px;padding:6px 11px;font-size:12px}
+  .cfgrow+.cfgrow{border-top:1px solid #0e1620}
+  .cfgrow .kk{color:var(--dim)}
+  .badge{font-weight:700;font-size:11px}
+  .badge.ok{color:var(--grn)} .badge.bad{color:var(--red)}
+  select,.access input{background:#04070a;border:1px solid var(--line);border-radius:8px;color:var(--tx);padding:6px 9px;font-family:var(--mono);font-size:12px}
+  .tag{display:inline-flex;gap:6px;align-items:center;background:#0c151d;border:1px solid var(--line);border-radius:999px;padding:3px 9px;font-size:12px;margin:2px}
+  .tag b{cursor:pointer;color:var(--red)}
+  .access .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:5px 0}
+
+  .overlay{position:fixed;inset:0;background:var(--bg);z-index:80;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;padding:24px;text-align:center}
+  #boot .l{color:var(--grn);opacity:.9;text-align:left}
+  #denied{display:none}#denied .big{font-size:48px}#denied h1{color:var(--red);margin:6px 0}
+  ::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:#1b2836;border-radius:8px}::-webkit-scrollbar-track{background:transparent}
+  .stack>*+*{margin-top:12px}
+</style>
+</head>
+<body>
+
+<div class="overlay" id="boot"><div id="bootlog" style="min-width:min(540px,90vw)"></div></div>
+<div class="overlay" id="denied">
+  <div class="big">🔒</div><h1>ACCESS DENIED</h1>
+  <p class="muted">Restricted to the owner and approved staff.</p>
+  <p><a href="/login">→ Log in</a> &nbsp;·&nbsp; <a href="/dashboard">← Dashboard</a></p>
+</div>
+
+<div class="wrap hidden" id="app">
+  <header>
+    <span class="brand">◤ <b>SENTINEL</b> // DIAGNOSTICS CORE ◢</span>
+    <span class="spacer"></span>
+    <span class="pill"><span class="dot" id="botDot"></span><span id="botTxt">connecting…</span></span>
+    <span class="pill" id="clock">--:--:--</span>
+    <button onclick="location.href='/dashboard'">← Dashboard</button>
+  </header>
+
+  <div class="tabs" id="tabs">
+    <div class="tab active" data-tab="overview">Overview</div>
+    <div class="tab" data-tab="health">Health</div>
+    <div class="tab" data-tab="metrics">Metrics</div>
+    <div class="tab" data-tab="terminal">Terminal</div>
+    <div class="tab" data-tab="database">Database</div>
+    <div class="tab" data-tab="config">Config Inspector</div>
+    <div class="tab" data-tab="system">System</div>
+    <div class="tab hidden" data-tab="access" id="accessTab">Access</div>
+  </div>
+
+  <!-- OVERVIEW -->
+  <section class="page" data-page="overview">
+    <div class="tiles" style="margin-bottom:12px">
+      <div class="tile grn"><div class="k">Bot</div><div class="v" id="s-bot">—</div></div>
+      <div class="tile cyn"><div class="k">WS Ping</div><div class="v" id="s-ping">—<small> ms</small></div></div>
+      <div class="tile"><div class="k">Servers</div><div class="v" id="s-guilds">—</div></div>
+      <div class="tile"><div class="k">Cached Users</div><div class="v" id="s-users">—</div></div>
+      <div class="tile amb"><div class="k">CPU</div><div class="v" id="s-cpu">—<small> %</small></div></div>
+      <div class="tile vio"><div class="k">Memory</div><div class="v" id="s-mem">—<small> MB</small></div></div>
+      <div class="tile"><div class="k">Uptime</div><div class="v" id="s-up">—</div></div>
+      <div class="tile"><div class="k">Loop Lag</div><div class="v" id="s-lag">—<small> ms</small></div></div>
+    </div>
+    <div class="grid2">
+      <div class="panel"><div class="phead"><span class="t">CPU %</span></div><div class="chartbox"><canvas class="spark" id="ov-cpu"></canvas></div></div>
+      <div class="panel"><div class="phead"><span class="t">Memory (RSS MB)</span></div><div class="chartbox"><canvas class="spark" id="ov-mem"></canvas></div></div>
+    </div>
+    <div class="panel" style="margin-top:12px">
+      <div class="phead"><span class="t">Health summary</span><span class="spacer"></span>
+        <span class="chip ok" id="o-ok">0 ok</span><span class="chip warn" id="o-warn">0 warn</span><span class="chip fail" id="o-fail">0 fail</span>
+        <button class="gld" onclick="loadHealth()">↻</button></div>
+      <div class="checks" id="o-issues" style="max-height:240px"></div>
+    </div>
+  </section>
+
+  <!-- HEALTH -->
+  <section class="page hidden" data-page="health">
+    <div class="panel">
+      <div class="phead"><span class="t">System Health · full scan</span><span class="spacer"></span>
+        <span class="chip ok" id="c-ok">0 ok</span><span class="chip warn" id="c-warn">0 warn</span><span class="chip fail" id="c-fail">0 fail</span>
+        <button class="gld" onclick="loadHealth()">↻ rescan</button></div>
+      <div class="checks" id="checks"></div>
+    </div>
+  </section>
+
+  <!-- METRICS -->
+  <section class="page hidden" data-page="metrics">
+    <div class="grid2 stack">
+      <div class="panel"><div class="phead"><span class="t">Processor</span></div>
+        <div class="chartbox"><div class="top"><span class="lab">CPU usage</span><span class="now" id="m-cpu" style="color:var(--grn)">—<small>%</small></span></div><canvas class="spark" id="ch-cpu"></canvas></div></div>
+      <div class="panel"><div class="phead"><span class="t">Memory (RSS)</span></div>
+        <div class="chartbox"><div class="top"><span class="lab">resident set</span><span class="now" id="m-mem" style="color:var(--cyn)">—<small>MB</small></span></div><canvas class="spark" id="ch-mem"></canvas></div></div>
+      <div class="panel"><div class="phead"><span class="t">Event-loop lag</span></div>
+        <div class="chartbox"><div class="top"><span class="lab">mean delay</span><span class="now" id="m-lag" style="color:var(--amb)">—<small>ms</small></span></div><canvas class="spark" id="ch-lag"></canvas></div></div>
+      <div class="panel"><div class="phead"><span class="t">Gateway ping</span></div>
+        <div class="chartbox"><div class="top"><span class="lab">discord WS</span><span class="now" id="m-ping" style="color:var(--vio)">—<small>ms</small></span></div><canvas class="spark" id="ch-ping"></canvas></div></div>
+    </div>
+    <div class="panel" style="margin-top:12px"><div class="phead"><span class="t">Runtime counters</span></div>
+      <div class="tiles" style="padding:12px">
+        <div class="tile"><div class="k">Heap Used</div><div class="v" id="x-heap">—<small> MB</small></div></div>
+        <div class="tile"><div class="k">Heap Total</div><div class="v" id="x-heapt">—<small> MB</small></div></div>
+        <div class="tile"><div class="k">External</div><div class="v" id="x-ext">—<small> MB</small></div></div>
+        <div class="tile"><div class="k">Loop Max</div><div class="v" id="x-lagmax">—<small> ms</small></div></div>
+        <div class="tile"><div class="k">Handles</div><div class="v" id="x-handles">—</div></div>
+        <div class="tile"><div class="k">Requests</div><div class="v" id="x-reqs">—</div></div>
+        <div class="tile"><div class="k">Host RAM</div><div class="v" id="x-sysmem">—</div></div>
+        <div class="tile"><div class="k">Load (1m)</div><div class="v" id="x-load">—</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TERMINAL -->
+  <section class="page hidden" data-page="terminal">
+    <div class="panel">
+      <div class="phead"><span class="t">Live Terminal</span><span class="spacer"></span>
+        <div class="toolbar">
+          <button id="pauseBtn" onclick="togglePause()">⏸ pause</button>
+          <button onclick="clearTerm()">clear</button>
+          <button class="gld" onclick="location.href='/api/diagnostics/logs.txt'">⬇ download</button>
+        </div></div>
+      <div class="term" id="term"></div>
+      <div class="quick" id="quick"></div>
+      <div class="cmdbar"><span class="pr">❯</span>
+        <input id="cmd" autocomplete="off" spellcheck="false" placeholder="type a command — 'help'  (↑/↓ history, Tab autocomplete)" /></div>
+    </div>
+  </section>
+
+  <!-- DATABASE -->
+  <section class="page hidden" data-page="database">
+    <div class="panel">
+      <div class="phead"><span class="t">SQLite tables</span><span class="spacer"></span><span class="muted" id="db-sum">—</span><button class="gld" onclick="loadSystem(true)">↻</button></div>
+      <div style="max-height:560px;overflow:auto">
+        <table><thead><tr><th>Table</th><th style="text-align:right">Rows</th></tr></thead><tbody id="db-body"></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONFIG INSPECTOR -->
+  <section class="page hidden" data-page="config">
+    <div class="panel">
+      <div class="phead"><span class="t">Dashboard config inspector</span><span class="spacer"></span>
+        <select id="cfg-guild" onchange="loadGuildConfig(this.value)"><option value="">— pick a server —</option></select>
+        <button class="gld" onclick="loadGuildConfig(document.getElementById('cfg-guild').value)">↻</button></div>
+      <div id="cfg-body"><p class="muted" style="padding:14px">Pick a server to inspect every dashboard panel's live configuration + health.</p></div>
+    </div>
+  </section>
+
+  <!-- SYSTEM -->
+  <section class="page hidden" data-page="system">
+    <div class="grid3 stack">
+      <div class="panel"><div class="phead"><span class="t">Runtime</span></div><div class="kv" id="sys-runtime"></div></div>
+      <div class="panel"><div class="phead"><span class="t">Host / OS</span></div><div class="kv" id="sys-os"></div></div>
+      <div class="panel"><div class="phead"><span class="t">Discord gateway</span></div><div class="kv" id="sys-discord"></div></div>
+    </div>
+    <div class="panel" style="margin-top:12px"><div class="phead"><span class="t">Dependencies</span><span class="spacer"></span><button class="gld" onclick="loadSystem(true)">↻</button></div>
+      <div class="kv" id="sys-deps"></div></div>
+  </section>
+
+  <!-- ACCESS (owner) -->
+  <section class="page hidden" data-page="access">
+    <div class="panel access">
+      <div class="phead"><span class="t">🔐 Who can open this console</span></div>
+      <div style="padding:12px 14px">
+        <p class="muted" style="margin:0 0 8px">You (owner) always have access. Add extra Discord user IDs or Google emails — they'll be able to open <code>/diagnostics</code> too.</p>
+        <div class="row"><b style="width:64px">User IDs</b><span id="idTags"></span></div>
+        <div class="row"><input id="idInput" placeholder="Discord user ID" style="min-width:320px"/><button onclick="addAccess('ids','idInput')">+ add</button></div>
+        <div class="row" style="margin-top:8px"><b style="width:64px">Emails</b><span id="emailTags"></span></div>
+        <div class="row"><input id="emailInput" placeholder="staff@email.com" style="min-width:320px"/><button onclick="addAccess('emails','emailInput')">+ add</button></div>
+      </div>
+    </div>
+  </section>
+
+  <p class="muted" style="text-align:center;margin-top:22px">SENTINEL diagnostics core · metrics stream 1.5s · health scan 10s · logs buffer last 200 lines</p>
+</div>
+
+<script>
+const $=(id)=>document.getElementById(id);
+const api=async(u,opt)=>{const r=await fetch(u,opt);if(!r.ok){const e=new Error('http '+r.status);e.status=r.status;throw e;}return r.json();};
+const esc=(s)=>String(s==null?'':s).replace(/[&<>]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const setText=(id,v)=>{const el=$(id);if(el)el.textContent=v;};
+const setHTML=(id,v)=>{const el=$(id);if(el)el.innerHTML=v;};
+function fmtDur(s){s=Math.max(0,s|0);const d=(s/86400)|0,h=(s%86400/3600)|0,m=(s%3600/60)|0;return d?`${d}d ${h}h`:h?`${h}h ${m}m`:`${m}m ${s%60}s`;}
+
+/* boot */
+const BOOT=['booting sentinel diagnostics core…','mounting log bus … ok','attaching event-loop monitor … ok','sampling cpu counters … ok','authenticating operator …','linking discord gateway …','ready.'];
+async function boot(){const el=$('bootlog');for(const l of BOOT){el.innerHTML+=`<div class="l">> ${l}</div>`;await new Promise(r=>setTimeout(r,150+Math.random()*150));}await new Promise(r=>setTimeout(r,220));}
+
+setInterval(()=>setText('clock',new Date().toLocaleTimeString()),1000);
+
+/* tabs */
+let loaded={};
+function switchTab(name){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===name));
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('hidden',p.dataset.page!==name));
+  if(name==='system'&&!loaded.system) loadSystem();
+  if(name==='database'&&!loaded.system) loadSystem();
+  if(name==='config'&&!loaded.config) loadGuildList();
+  if(name==='terminal') $('cmd')?.focus();
+}
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>switchTab(t.dataset.tab)));
+
+/* charts */
+function mkChart(canvas,color,opts={}){
+  const ctx=canvas.getContext('2d');const data=[];const cap=opts.cap||70;
+  function resize(){const r=canvas.getBoundingClientRect();const dpr=window.devicePixelRatio||1;canvas.width=Math.max(1,r.width*dpr);canvas.height=Math.max(1,r.height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);}
+  function draw(){
+    const r=canvas.getBoundingClientRect();const w=r.width,h=r.height;ctx.clearRect(0,0,w,h);
+    ctx.strokeStyle='#0f1a24';ctx.lineWidth=1;
+    for(let i=1;i<4;i++){const y=(h*i/4)+0.5;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+    if(!data.length)return;
+    const max=Math.max(opts.min||1,...data)*1.18;const step=w/Math.max(1,cap-1);
+    ctx.beginPath();data.forEach((v,i)=>{const x=i*step;const y=h-(v/max)*h;i?ctx.lineTo(x,y):ctx.moveTo(x,y);});
+    ctx.strokeStyle=color;ctx.lineWidth=1.7;ctx.shadowColor=color;ctx.shadowBlur=7;ctx.stroke();ctx.shadowBlur=0;
+    ctx.lineTo((data.length-1)*step,h);ctx.lineTo(0,h);ctx.closePath();
+    const g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,color+'40');g.addColorStop(1,color+'00');ctx.fillStyle=g;ctx.fill();
+  }
+  function push(v){data.push(Number(v)||0);while(data.length>cap)data.shift();draw();}
+  resize();window.addEventListener('resize',()=>{resize();draw();});
+  return {push,draw};
+}
+let charts={};
+function initCharts(){
+  charts.cpu=mkChart($('ch-cpu'),'#3ef58f',{min:5});
+  charts.mem=mkChart($('ch-mem'),'#38bdf8',{min:50});
+  charts.lag=mkChart($('ch-lag'),'#f5b83e',{min:5});
+  charts.ping=mkChart($('ch-ping'),'#a78bfa',{min:20});
+  charts.oc=mkChart($('ov-cpu'),'#3ef58f',{min:5});
+  charts.om=mkChart($('ov-mem'),'#38bdf8',{min:50});
+}
+
+/* metrics stream */
+async function pollMetrics(){
+  try{
+    const m=await api('/api/diagnostics/metrics');
+    charts.cpu?.push(m.cpuPct);charts.oc?.push(m.cpuPct);
+    charts.mem?.push(m.rssMB);charts.om?.push(m.rssMB);
+    charts.lag?.push(m.loopLagMs);charts.ping?.push(m.wsPing??0);
+    setHTML('s-cpu',m.cpuPct+'<small> %</small>');setHTML('s-mem',m.rssMB+'<small> MB</small>');
+    setText('s-up',fmtDur(m.uptimeS));setHTML('s-lag',m.loopLagMs+'<small> ms</small>');
+    setHTML('m-cpu',m.cpuPct+'<small>%</small>');setHTML('m-mem',m.rssMB+'<small>MB</small>');
+    setHTML('m-lag',m.loopLagMs+'<small>ms</small>');setHTML('m-ping',(m.wsPing??'—')+'<small>ms</small>');
+    setHTML('x-heap',m.heapMB+'<small> MB</small>');setHTML('x-heapt',m.heapTotalMB+'<small> MB</small>');
+    setHTML('x-ext',m.extMB+'<small> MB</small>');setHTML('x-lagmax',m.loopMaxMs+'<small> ms</small>');
+    setText('x-handles',m.handles);setText('x-reqs',m.requests);
+    setText('x-sysmem',`${Math.round((m.sysTotalMB-m.sysFreeMB)/1024*10)/10}/${Math.round(m.sysTotalMB/1024*10)/10} GB`);
+    setText('x-load',m.load1);
+  }catch(e){if(e.status===403||e.status===401)return showDenied();}
+  setTimeout(pollMetrics,1500);
+}
+
+/* health */
+function renderChecks(box,checks){box.innerHTML='';for(const c of checks){const d=document.createElement('div');d.className='check';
+  d.innerHTML=`<span class="sd ${c.status}"></span><div><div class="lb">${esc(c.label)}</div><div class="de">${esc(c.detail)}</div>${c.hint?`<div class="hi">${esc(c.hint)}</div>`:''}</div>`;box.appendChild(d);}}
+async function loadHealth(){
+  let h;try{h=await api('/api/diagnostics/health');}catch(e){if(e.status===403||e.status===401)return showDenied();return;}
+  const s=h.summary;
+  setText('s-bot',s.botReady?'ONLINE':'OFFLINE');setHTML('s-ping',(s.wsPing??'—')+'<small> ms</small>');
+  setText('s-guilds',s.guilds);setText('s-users',s.users);
+  $('botDot').className='dot '+(s.botReady?'on':'bad');
+  setText('botTxt',s.botReady?`online · ${s.guilds} servers`:'bot offline');
+  for(const p of ['ok','warn','fail']){setText('c-'+p,h.counts[p]+' '+p);setText('o-'+p,h.counts[p]+' '+p);}
+  renderChecks($('checks'),h.checks);
+  renderChecks($('o-issues'),h.checks.filter(c=>c.status!=='ok').length?h.checks.filter(c=>c.status!=='ok'):[{status:'ok',label:'All systems nominal',detail:'No warnings or failures detected.',hint:''}]);
+}
+
+/* terminal */
+let paused=false,lastLogId=0;
+function addLine(level,text,withTime=true){const term=$('term');if(!term)return;const near=term.scrollHeight-term.scrollTop-term.clientHeight<60;
+  const div=document.createElement('div');div.className='ln';
+  div.innerHTML=(withTime?`<span class="t">[${new Date().toLocaleTimeString()}] </span>`:'')+`<span class="lvl-${level}">${esc(text)}</span>`;
+  term.appendChild(div);while(term.childNodes.length>600)term.removeChild(term.firstChild);if(near)term.scrollTop=term.scrollHeight;}
+function clearTerm(){$('term').innerHTML='';addLine('sys','— console cleared —',false);}
+function togglePause(){paused=!paused;$('pauseBtn').textContent=paused?'▶ resume':'⏸ pause';}
+async function pollLogs(){if(!paused){try{const rows=await api('/api/logs?after='+lastLogId);for(const l of rows){lastLogId=Math.max(lastLogId,l.id);addLine(l.level||'log',l.message);}}catch(e){if(e.status===403||e.status===401)return showDenied();}}setTimeout(pollLogs,1500);}
+const QUICK=['help','status','health','guilds','ping-db','test-gemini','cpu','os','loop-lag','db-tables','versions','env','tunnel','logs 30'];
+const CMDS=['help','status','health','guilds','ping-db','test-gemini','env','memory','uptime','tunnel','logs','cpu','os','loop-lag','handles','db-tables','versions','config','whoami','clear'];
+let hist=[],hi=-1;
+function buildQuick(){const q=$('quick');for(const c of QUICK){const b=document.createElement('button');b.textContent=c;b.onclick=()=>{runCmd(c);};q.appendChild(b);}}
+async function runCmd(raw){raw=raw.trim();if(!raw)return;hist.push(raw);hi=hist.length;addLine('cmd',raw,false);
+  if(raw.toLowerCase()==='clear'){clearTerm();return;}
+  try{const r=await api('/api/diagnostics/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({command:raw})});
+    for(const l of (r.output||'').split('\n'))addLine('out',l,false);}
+  catch(e){if(e.status===403||e.status===401)return showDenied();addLine('error','request failed: '+e.message,false);}}
+function wireCmd(){const inp=$('cmd');inp.addEventListener('keydown',(e)=>{
+  if(e.key==='Enter'){runCmd(inp.value);inp.value='';}
+  else if(e.key==='ArrowUp'){if(hi>0){hi--;inp.value=hist[hi]||'';e.preventDefault();}}
+  else if(e.key==='ArrowDown'){if(hi<hist.length-1){hi++;inp.value=hist[hi]||'';}else{hi=hist.length;inp.value='';}}
+  else if(e.key==='Tab'){e.preventDefault();const m=CMDS.find(c=>c.startsWith(inp.value.toLowerCase()));if(m)inp.value=m;}});}
+
+/* system + database */
+async function loadSystem(force){
+  if(loaded.system&&!force)return;
+  let d;try{d=await api('/api/diagnostics/system');}catch(e){if(e.status===403||e.status===401)return showDenied();return;}
+  loaded.system=true;
+  const kv=(o)=>Object.entries(o).map(([k,v])=>`<div class="k">${esc(k)}</div><div class="v">${esc(v)}</div>`).join('');
+  setHTML('sys-runtime',kv({node:d.runtime.node,v8:d.runtime.v8,libuv:d.runtime.uv,pid:d.runtime.pid,uptime:fmtDur(d.runtime.uptimeS),cwd:d.runtime.cwd}));
+  setHTML('sys-os',kv({os:`${d.os.type} ${d.os.release}`,platform:`${d.os.platform}/${d.os.arch}`,host:d.os.host,cores:d.os.cores,cpu:d.os.cpuModel,ram:`${d.os.freeMemMB}/${d.os.totalMemMB} MB free`}));
+  setHTML('sys-discord',kv({status:d.discord.ready?'READY':'OFFLINE',tag:d.discord.tag||'—',ping:(d.discord.ping??'—')+' ms',servers:d.discord.guilds,channels:d.discord.channels,users:d.discord.users,since:d.discord.readyAt?new Date(d.discord.readyAt).toLocaleString():'—'}));
+  setHTML('sys-deps',Object.entries(d.deps).map(([k,v])=>`<div class="k">${esc(k)}</div><div class="v">${esc(v)}</div>`).join('')||'<div class="muted">none</div>');
+  const body=$('db-body');let total=0;body.innerHTML='';
+  for(const t of d.db){total+=t.rows;const tr=document.createElement('tr');tr.innerHTML=`<td>${esc(t.name)}</td><td class="num">${t.rows.toLocaleString()}</td>`;body.appendChild(tr);}
+  setText('db-sum',`${d.db.length} tables · ${total.toLocaleString()} rows`);
+}
+
+/* config inspector */
+async function loadGuildList(){
+  loaded.config=true;
+  let gs;try{gs=await api('/api/diagnostics/guilds');}catch(e){if(e.status===403||e.status===401)return showDenied();return;}
+  const sel=$('cfg-guild');gs.sort((a,b)=>b.members-a.members);
+  for(const g of gs){const o=document.createElement('option');o.value=g.id;o.textContent=`${g.name} (${g.members})`;sel.appendChild(o);}
+}
+async function loadGuildConfig(id){
+  if(!id){$('cfg-body').innerHTML='<p class="muted" style="padding:14px">Pick a server.</p>';return;}
+  let d;try{d=await api('/api/diagnostics/guild/'+id+'/config');}catch(e){$('cfg-body').innerHTML=`<p class="muted" style="padding:14px">${esc(e.message)}</p>`;return;}
+  let html=`<div style="padding:10px 14px" class="muted">Server: <b style="color:#eafff4">${esc(d.name)}</b> · language <code>${esc(d.language)}</code></div><div class="cfgpanels">`;
+  for(const p of d.panels){
+    html+=`<div class="cfgp"><h4>${esc(p.label)}</h4>`;
+    for(const it of p.items){html+=`<div class="cfgrow"><span class="kk">${esc(it.k)}</span><span class="badge ${it.ok?'ok':'bad'}">${it.ok?'●':'✕'} ${esc(it.val)}</span></div>`;}
+    html+=`</div>`;
+  }
+  html+=`</div><details style="padding:0 14px 14px"><summary class="muted" style="cursor:pointer">raw JSON</summary><pre style="overflow:auto;background:#04070a;padding:10px;border-radius:8px;border:1px solid var(--line);color:#8fb8a6">${esc(JSON.stringify(d.raw,null,2))}</pre></details>`;
+  $('cfg-body').innerHTML=html;
+}
+
+/* access */
+let access={ids:[],emails:[]};
+async function loadAccess(){try{access=await api('/api/diagnostics/access');}catch{return;}$('accessTab').classList.remove('hidden');renderTags();}
+function renderTags(){for(const [key,box] of [['ids','idTags'],['emails','emailTags']]){const el=$(box);el.innerHTML='';
+  (access[key]||[]).forEach((v)=>{const s=document.createElement('span');s.className='tag';s.innerHTML=`${esc(v)} <b title="remove">✕</b>`;s.querySelector('b').onclick=()=>{access[key]=access[key].filter(x=>x!==v);saveAccess();};el.appendChild(s);});
+  if(!(access[key]||[]).length){const m=document.createElement('span');m.className='muted';m.textContent='none';el.appendChild(m);}}}
+function addAccess(key,inputId){const inp=$(inputId);const v=inp.value.trim();if(!v)return;access[key]=[...new Set([...(access[key]||[]),v])];inp.value='';saveAccess();}
+async function saveAccess(){try{access=await api('/api/diagnostics/access',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(access)});renderTags();}catch(e){alert('save failed: '+e.message);}}
+
+function showDenied(){$('app').classList.add('hidden');$('boot').classList.add('hidden');$('denied').style.display='flex';}
+
+(async function(){
+  await boot();
+  let me;try{me=await api('/api/diagnostics/me');}catch(e){return showDenied();}
+  $('boot').classList.add('hidden');$('app').classList.remove('hidden');
+  setText('clock',new Date().toLocaleTimeString());
+  initCharts();buildQuick();wireCmd();
+  addLine('sys',`operator: ${me.name||me.id}${me.owner?' (owner)':''} · console online. type "help".`,false);
+  await loadHealth();await loadAccess();
+  pollLogs();pollMetrics();
+  setInterval(loadHealth,10000);
+})();
+</script>
+</body>
+</html>

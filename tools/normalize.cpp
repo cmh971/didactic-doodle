@@ -5,8 +5,11 @@
 // audit words.json from the command line. Reads words (one per line) from a file
 // argument or stdin; prints the normalized, de-duplicated, sorted list.
 //
-// Build:  g++ -O2 -std=c++17 -o normalize tools/normalize.cpp
-//         (on a bleeding-edge/experimental GCC that miscompiles, use -O0)
+// Build:  g++ -Og -std=c++17 -o normalize tools/normalize.cpp
+//         NOTE: GCC 16.1.0 (MSYS2 rolling) MISCOMPILES this at -O1/-O2/-O3 and the
+//         binary segfaults on startup — even an unused std::ifstream triggers it.
+//         It is a compiler codegen bug, not a bug in this code. Use -Og or -O0
+//         (both verified working) until a stable GCC release is installed.
 // Run:    ./normalize words.txt
 //         cat words.txt | ./normalize > cleaned.txt
 #include <algorithm>

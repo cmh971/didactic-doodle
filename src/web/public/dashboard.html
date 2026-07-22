@@ -8,9 +8,14 @@
 
   <link rel="icon" href="favicon.ico" />
   <meta name="theme-color" content="#111827" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <link rel="stylesheet" href="style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <script src="pwa.js" defer></script>
 </head>
 <body>
   <!-- Accessibility: skip links -->
@@ -79,6 +84,8 @@
       <li><button class="nav-link" data-view="notes"><span class="nav-ic" aria-hidden="true">📝</span><span>Notes</span></button></li>
       <li class="auth-nav" hidden><button class="nav-link" data-view="tickets"><span class="nav-ic" aria-hidden="true">🎫</span><span>Tickets</span></button></li>
       <li class="auth-nav" hidden><button class="nav-link" data-view="announce"><span class="nav-ic" aria-hidden="true">📢</span><span>Announce</span></button></li>
+      <li class="auth-nav" hidden><button class="nav-link" data-view="automations"><span class="nav-ic" aria-hidden="true">🧩</span><span>Automations</span></button></li>
+      <li class="auth-nav" hidden><button class="nav-link" data-view="community"><span class="nav-ic" aria-hidden="true">🌐</span><span>My Page</span></button></li>
       <li class="auth-nav" hidden><button class="nav-link" data-view="analytics"><span class="nav-ic" aria-hidden="true">📈</span><span>Analytics</span></button></li>
       <li class="auth-nav" hidden><button class="nav-link" data-view="members"><span class="nav-ic" aria-hidden="true">👮</span><span>Warnings</span></button></li>
       <li class="auth-nav" hidden><button class="nav-link" data-view="giveaways"><span class="nav-ic" aria-hidden="true">🎉</span><span>Giveaways</span></button></li>
@@ -412,13 +419,207 @@
             </div>
             <label class="field"><span>Image URL (optional)</span><input id="an-image" class="input" placeholder="https://…" /></label>
           </div>
-          <button class="btn primary block" id="an-send">🚀 Send announcement</button>
+
+          <div style="margin-top:12px;border-top:1px solid rgba(255,255,255,.08);padding-top:12px">
+            <h3 style="margin:0 0 4px">📄 Pages <span class="chip" id="an-pages-count">0</span></h3>
+            <p class="muted" style="margin:0 0 8px">Save the embed above as a page, clear it, build the next one. 2+ pages posts a scrollable ◀ ▶ panel.</p>
+            <div id="an-pages-list" class="comp-list"></div>
+            <button class="btn block" id="an-addpage" type="button">📄 Save current embed as a page</button>
+          </div>
+
+          <div class="an-components" style="margin-top:14px;border-top:1px solid rgba(255,255,255,.08);padding-top:12px">
+            <h3 style="margin:0 0 4px">🔘 Buttons &amp; Menus <span class="chip" id="an-comp-count">0</span></h3>
+            <p class="muted" style="margin:0 0 8px">Interactive components — they keep working after restarts.</p>
+            <div id="an-comp-list" class="comp-list"></div>
+            <label class="field"><span>Add component</span>
+              <select id="an-comp-kind" class="select">
+                <option value="link">🔗 Link button</option>
+                <option value="role">🎭 Role button (toggle a role)</option>
+                <option value="rolemenu">📋 Role menu (pick from a list)</option>
+                <option value="form">📝 Form button (opens a popup form)</option>
+              </select>
+            </label>
+            <label class="field cf cf-label"><span>Button label</span><input id="an-cf-label" class="input" maxlength="80" placeholder="Click me" /></label>
+            <div class="two-col">
+              <label class="field cf cf-emoji"><span>Emoji (optional)</span><input id="an-cf-emoji" class="input" placeholder="🎉" /></label>
+              <label class="field cf cf-style"><span>Style</span><select id="an-cf-style" class="select"><option value="primary">Blurple</option><option value="secondary" selected>Grey</option><option value="success">Green</option><option value="danger">Red</option></select></label>
+            </div>
+            <label class="field cf cf-url" hidden><span>URL</span><input id="an-cf-url" class="input" placeholder="https://example.com" /></label>
+            <label class="field cf cf-role" hidden><span>Role to toggle</span><select id="an-cf-role" class="select"></select></label>
+            <label class="field cf cf-ph" hidden><span>Menu placeholder</span><input id="an-cf-ph" class="input" placeholder="Pick your roles…" /></label>
+            <div class="cf cf-roles" hidden>
+              <span class="muted">Roles in this menu (each option can have its own emoji + label)</span>
+              <div id="an-menu-list" class="comp-list" style="margin-top:4px"></div>
+              <div class="row" style="gap:6px;margin-top:6px">
+                <select id="an-menu-role" class="select" style="flex:2"></select>
+                <input id="an-menu-emoji" class="input" placeholder="😀" style="max-width:64px" />
+                <input id="an-menu-label" class="input" placeholder="Label (optional)" style="flex:1" />
+                <button class="btn small" id="an-menu-add" type="button">＋</button>
+              </div>
+            </div>
+            <label class="field cf cf-channel" hidden><span>Post form answers to</span><select id="an-cf-channel" class="select"></select></label>
+            <div class="cf cf-questions" hidden>
+              <span class="muted">Form questions (fill 1–5)</span>
+              <input class="input an-q" data-q="0" maxlength="45" placeholder="Question 1" style="margin-top:6px" />
+              <input class="input an-q" data-q="1" maxlength="45" placeholder="Question 2 (optional)" style="margin-top:6px" />
+              <input class="input an-q" data-q="2" maxlength="45" placeholder="Question 3 (optional)" style="margin-top:6px" />
+            </div>
+            <button class="btn block" id="an-comp-add" style="margin-top:8px">➕ Add component</button>
+          </div>
+
+          <button class="btn primary block" id="an-send" style="margin-top:12px">🚀 Send announcement</button>
           <p id="an-msg" class="muted" aria-live="polite"></p>
         </div>
         <div class="card preview-card">
           <h3>Live preview</h3>
           <div id="an-content-preview" class="content-preview"></div>
           <div id="an-preview" class="embed-preview"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ AUTOMATIONS ============ -->
+    <section aria-labelledby="au-h" class="view view-automations" data-view-id="automations" hidden>
+      <header class="card-header page-head row">
+        <div><h2 id="au-h">🧩 Automations</h2><p class="muted">Build “When → Do” rules — like code blocks. Pick a trigger, stack actions.</p></div>
+        <select class="select guild-picker" data-picker="automations" aria-label="Server"></select>
+      </header>
+      <p class="notice muted guild-empty" data-empty="automations">Log in and select a server to build automations.</p>
+      <div data-body="automations" hidden>
+        <div class="card" id="au-owner-panel" hidden style="margin-bottom:12px;border:1px solid rgba(255,209,49,.4)">
+          <h3 style="margin:0 0 4px">👑 Global approval queue <span class="chip" id="au-pending-count">0</span></h3>
+          <p class="muted" style="margin:0 0 8px">Global automations run in <b>every</b> server the bot is in. Approve only what you trust.</p>
+          <div id="au-pending-list"><p class="muted">Nothing pending.</p></div>
+        </div>
+        <div class="card" style="margin-bottom:12px">
+          <div class="row" style="align-items:center;gap:8px;flex-wrap:wrap">
+            <h3 style="flex:1;margin:0">🎨 Visual canvas <span class="chip">drag blocks</span></h3>
+            <input id="au-canvas-name" class="input" placeholder="Automation name" style="max-width:200px" />
+            <button class="btn primary" id="au-canvas-save">💾 Save from canvas</button>
+          </div>
+          <div class="row" style="align-items:center;gap:8px;margin-top:8px">
+            <input id="au-ai-prompt" class="input" style="flex:1" placeholder="🤖 Describe it… e.g. “when someone says hello, reply hi and give them the Member role”" />
+            <button class="btn" id="au-ai-build" type="button">✨ AI build</button>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+            <div id="au-canvas" style="flex:1;min-width:280px;height:460px;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.08)"></div>
+            <div style="width:250px;height:460px;display:flex;flex-direction:column;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:8px">
+              <div class="row" style="align-items:center;gap:6px;margin-bottom:6px"><b style="flex:1">📚 Libraries</b><span class="chip" id="au-lib-count">0</span></div>
+              <input id="au-lib-search" class="input" placeholder="🔍 Search presets…" style="margin-bottom:6px" />
+              <div id="au-lib-list" style="flex:1;overflow:auto"></div>
+            </div>
+          </div>
+          <p class="muted" style="margin:8px 0 0">Drag from the toolbox, or click a 📚 <b>Library preset</b> on the right to auto-build it. Placeholders: {user} {server} {content}.</p>
+        </div>
+        <div class="split-layout">
+          <div class="card">
+            <h3>➕ New automation (simple)</h3>
+          <label class="field"><span>Name</span><input id="au-name" class="input" maxlength="80" placeholder="Say hi back" /></label>
+          <label class="field"><span>▶️ When (trigger)</span>
+            <select id="au-trigger" class="select">
+              <option value="message_contains">💬 Someone sends a message…</option>
+              <option value="member_join">👋 A member joins</option>
+              <option value="member_leave">🚪 A member leaves</option>
+            </select>
+          </label>
+          <div id="au-trig-msg">
+            <div class="two-col">
+              <label class="field"><span>Match</span><select id="au-match" class="select"><option value="contains">contains</option><option value="exact">is exactly</option><option value="startsWith">starts with</option></select></label>
+              <label class="field"><span>Text</span><input id="au-keyword" class="input" placeholder="hi" /></label>
+            </div>
+            <label class="field"><span>In channel (optional — blank = any)</span><select id="au-channel" class="select"><option value="">Any channel</option></select></label>
+          </div>
+          <h4 style="margin:12px 0 4px">Then do… <span class="chip" id="au-actcount">0</span></h4>
+          <div id="au-actions-list" class="comp-list"></div>
+          <div class="two-col">
+            <label class="field"><span>Action</span>
+              <select id="au-act-type" class="select">
+                <option value="reply">↩️ Reply</option>
+                <option value="send">📨 Send to channel</option>
+                <option value="send_embed">🖼️ Send an embed</option>
+                <option value="dm">✉️ DM the user</option>
+                <option value="react">😀 React</option>
+                <option value="add_role">➕ Add role</option>
+                <option value="remove_role">➖ Remove role</option>
+                <option value="set_nickname">🏷️ Set nickname</option>
+                <option value="timeout">🔇 Timeout user (seconds)</option>
+                <option value="delete_message">🗑️ Delete the message</option>
+                <option value="pin_message">📌 Pin the message</option>
+                <option value="ai_reply">🤖 AI reply (Gemini)</option>
+                <option value="weather">🌤️ Weather lookup</option>
+                <option value="translate">🌍 Translate</option>
+                <option value="wait">⏳ Wait (seconds)</option>
+              </select>
+            </label>
+            <button class="btn" id="au-act-add" type="button" style="align-self:end">＋ Add</button>
+          </div>
+          <label class="field af af-embedtitle" hidden><span>Embed title</span><input id="au-act-embedtitle" class="input" placeholder="Big news!" /></label>
+          <label class="field af af-text"><span>Text</span><input id="au-act-text" class="input" placeholder="Message… use {user} {server} {content}" /></label>
+          <label class="field af af-color" hidden><span>Embed color</span><input id="au-act-color" type="color" value="#5865f2" class="input color-input" /></label>
+          <label class="field af af-channel" hidden><span>Channel (blank = same channel)</span><select id="au-act-channel" class="select"><option value="">Same channel</option></select></label>
+          <label class="field af af-role" hidden><span>Role</span><select id="au-act-role" class="select"></select></label>
+          <label class="field af af-emoji" hidden><span>Emoji</span><input id="au-act-emoji" class="input" placeholder="👍" /></label>
+          <label class="field af af-seconds" hidden><span>Seconds</span><input id="au-act-seconds" type="number" class="input" min="1" max="600" value="3" /></label>
+          <label class="field af af-lang" hidden><span>Translate to (language)</span><input id="au-act-lang" class="input" placeholder="Spanish" /></label>
+          <label class="check" style="margin-top:10px"><input type="checkbox" id="au-global" /> <span>🌍 Request as a <b>global</b> command (runs in every server — needs owner approval)</span></label>
+          <button class="btn primary block" id="au-save" style="margin-top:8px">💾 Save automation</button>
+          <p id="au-msg" class="muted" aria-live="polite"></p>
+        </div>
+        <div class="card">
+          <h3>Your automations</h3>
+          <div id="au-list"><p class="muted">Select a server…</p></div>
+        </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ COMMUNITY PAGE ============ -->
+    <section aria-labelledby="cm-h" class="view view-community" data-view-id="community" hidden>
+      <header class="card-header page-head row">
+        <div><h2 id="cm-h">🌐 My Community Page</h2><p class="muted">Build a public page for your server, hosted on our domain. Owner-approved before it goes live.</p></div>
+        <select class="select guild-picker" data-picker="community" aria-label="Server"></select>
+      </header>
+      <p class="notice muted guild-empty" data-empty="community">Log in and select a server to build your page.</p>
+      <div class="split-layout" data-body="community" hidden>
+        <div class="card">
+          <h3>✏️ Page editor</h3>
+          <p class="muted" id="cm-status" style="margin:0 0 8px"></p>
+          <label class="field"><span>Page name</span><input id="cm-name" class="input" maxlength="60" placeholder="My Awesome Server" /></label>
+          <label class="field"><span>Page URL</span>
+            <div class="row" style="align-items:center;gap:6px"><span class="muted" id="cm-urlbase">/c/</span><input id="cm-slug" class="input" maxlength="32" placeholder="my-server" style="flex:1" /></div>
+          </label>
+          <label class="field"><span>Theme color</span><input id="cm-color" type="color" value="#5865f2" class="input color-input" /></label>
+          <label class="field"><span>Homepage content (markdown: # heading, **bold**, [link](https://…))</span><textarea id="cm-md" class="input" rows="8" maxlength="5000" placeholder="# Welcome!&#10;We're a friendly community…"></textarea></label>
+          <label class="check"><input type="checkbox" id="cm-verify" /> <span>Require Cloud-Fair verification to join</span></label>
+
+          <h4 style="margin:14px 0 4px">🧱 Page widgets <span class="chip" id="cm-wcount">0</span></h4>
+          <p class="muted" style="margin:0 0 6px">Drag-in blocks for your page — login buttons, links, text. They auto-adapt to mobile &amp; PC.</p>
+          <div id="cm-widget-list" class="comp-list"></div>
+          <div class="two-col">
+            <label class="field"><span>Add widget</span>
+              <select id="cm-w-type" class="select">
+                <option value="google_login">🔵 Google sign-in button</option>
+                <option value="discord_login">🎮 Discord login button</option>
+                <option value="invite">🔗 Discord invite button</option>
+                <option value="button">🔘 Link button</option>
+                <option value="text">📝 Text card</option>
+                <option value="stats">📊 Server stats</option>
+              </select>
+            </label>
+            <button class="btn" id="cm-w-add" type="button" style="align-self:end">＋ Add</button>
+          </div>
+          <label class="field cw cw-label" hidden><span>Button label</span><input id="cm-w-label" class="input" placeholder="Join us" /></label>
+          <label class="field cw cw-url" hidden><span>URL</span><input id="cm-w-url" class="input" placeholder="https://discord.gg/…" /></label>
+          <label class="field cw cw-text" hidden><span>Text (markdown)</span><textarea id="cm-w-text" class="input" rows="2" placeholder="**Bold** text…"></textarea></label>
+
+          <button class="btn primary block" id="cm-save" style="margin-top:10px">📤 Save & submit for approval</button>
+          <p id="cm-msg" class="muted" aria-live="polite"></p>
+        </div>
+        <div class="card">
+          <h3>👀 Preview & link</h3>
+          <p class="muted">Sign-in on your page supports <b>Discord</b> and <b>Google</b>.</p>
+          <a id="cm-open" class="btn block" href="#" target="_blank" rel="noopener">🔗 Open my page</a>
+          <div id="cm-preview" class="embed-preview" style="margin-top:12px"></div>
         </div>
       </div>
     </section>
@@ -454,20 +655,38 @@
     <!-- ============ WARNINGS / MEMBERS ============ -->
     <section aria-labelledby="warn-h" class="view view-members" data-view-id="members" hidden>
       <header class="card-header page-head row">
-        <div><h2 id="warn-h">👮 Warnings Browser</h2><p class="muted">Search and review infractions across your server.</p></div>
+        <div><h2 id="warn-h">👮 Infractions Manager</h2><p class="muted">Add, review, and remove infractions across your server.</p></div>
         <select class="select guild-picker" data-picker="members" aria-label="Server"></select>
       </header>
-      <p class="notice muted guild-empty" data-empty="members">Log in and select a server to browse warnings.</p>
-      <div data-body="members" hidden>
+      <p class="notice muted guild-empty" data-empty="members">Log in and select a server to manage infractions.</p>
+      <div class="split-layout" data-body="members" hidden>
+        <div class="card">
+          <h3>➕ Add infraction</h3>
+          <p class="muted">Same as <code>/infraction add</code> — the action is carried out and logged.</p>
+          <label class="field"><span>Member ID</span><input id="inf-user" class="input" placeholder="e.g. 123456789012345678" inputmode="numeric" /></label>
+          <label class="field"><span>Action</span>
+            <select id="inf-action" class="select">
+              <option value="warn">⚠️ Warn</option>
+              <option value="mute">🔇 Mute (timeout)</option>
+              <option value="kick">👢 Kick</option>
+              <option value="ban">🔨 Ban</option>
+            </select>
+          </label>
+          <label class="field" id="inf-duration-field" hidden><span>Duration (optional — e.g. 1h, 1d, 2h30m)</span><input id="inf-duration" class="input" placeholder="mute blank = 1h · ban blank = permanent" /></label>
+          <label class="field"><span>Reason</span><input id="inf-reason" class="input" placeholder="Why is this action being taken?" /></label>
+          <label class="field"><span>Notes (optional)</span><input id="inf-notes" class="input" placeholder="Extra context — shown in the notice + mod-log" /></label>
+          <button class="btn primary block" id="inf-add">Apply infraction</button>
+          <p id="inf-msg" class="muted" aria-live="polite"></p>
+        </div>
         <div class="card">
           <div class="row">
-            <input id="warn-search" class="input" placeholder="Filter by user ID…" aria-label="Search warnings" />
+            <input id="warn-search" class="input" placeholder="Filter by user ID…" aria-label="Search infractions" />
             <span class="chip" id="warn-count">0 records</span>
           </div>
           <div class="table-wrap">
             <table class="tbl" aria-label="Infractions">
-              <thead><tr><th>User</th><th>Type</th><th>Reason</th><th>Moderator</th><th>When</th></tr></thead>
-              <tbody id="warn-body"><tr><td colspan="5" class="muted">Select a server…</td></tr></tbody>
+              <thead><tr><th>Case</th><th>User</th><th>Type</th><th>Reason</th><th>Moderator</th><th>When</th><th></th></tr></thead>
+              <tbody id="warn-body"><tr><td colspan="7" class="muted">Select a server…</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -800,6 +1019,9 @@
 
   <script src="site-effects.js"></script>
   <script src="embed-templates.js"></script>
+  <script src="https://unpkg.com/blockly/blockly.min.js"></script>
+  <script src="automation-presets.js"></script>
   <script src="app.js"></script>
+  <script src="automations-canvas.js"></script>
 </body>
 </html>

@@ -7,36 +7,133 @@
   <title>Commands · Sentinel</title>
   <link rel="icon" href="favicon.ico" />
   <link rel="stylesheet" href="style.css" />
-</head>
-<body class="legal-page">
-  <div class="bg-orbs" aria-hidden="true"><span class="orb orb-1"></span><span class="orb orb-2"></span><span class="orb orb-3"></span></div>
 
-  <header class="lp-nav">
-    <a href="/" class="lp-brand"><span class="lp-logo" id="lp-logo">🎴</span><span class="lp-brand-name" id="lp-brand-name">Sentinel</span></a>
-    <nav class="lp-links"><a href="/">Home</a><a href="/dashboard">Dashboard</a><a href="/status">Status</a></nav>
+  <style>
+    :root {
+      --accent: #5865f2;
+      --accent-soft: #8893ff;
+      --panel: #161b22;
+      --text: #e6edf3;
+      --muted: #9aa7b4;
+      --radius: 18px;
+    }
+
+    body.legal-page {
+      margin: 0;
+      padding: 0;
+      background:
+        radial-gradient(circle at 10% -10%, rgba(88,101,242,0.35), transparent 55%),
+        radial-gradient(circle at 90% 110%, rgba(231,76,60,0.35), transparent 55%),
+        linear-gradient(135deg, #020617, #05070d);
+      color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      overflow-x: hidden;
+      min-height: 100vh;
+    }
+
+    /* Floating background orbs */
+    .bg-orbs { position: fixed; inset: 0; pointer-events: none; z-index: 1; }
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(40px);
+      opacity: 0.6;
+      mix-blend-mode: screen;
+      animation: floatOrb 16s infinite ease-in-out;
+    }
+    .orb-1 { width: 340px; height: 340px; top: -80px; left: 8%; background: radial-gradient(circle, rgba(88,101,242,0.55), transparent 70%); }
+    .orb-2 { width: 280px; height: 280px; bottom: -60px; right: 12%; background: radial-gradient(circle, rgba(231,76,60,0.45), transparent 70%); animation-delay: -5s; }
+    @keyframes floatOrb {
+      0% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(-30px, -50px) scale(1.15); }
+      100% { transform: translate(0, 0) scale(1); }
+    }
+
+    /* Header */
+    .cmd-head {
+      position: relative; z-index: 2;
+      max-width: 900px; margin: 0 auto; padding: 28px 24px 0;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .lp-logo { width: 42px; height: 42px; border-radius: 12px; background: var(--accent); display: grid; place-items: center; font-size: 22px; overflow: hidden; }
+    .lp-logo-img { width: 100%; height: 100%; object-fit: cover; }
+    .cmd-head h2 { margin: 0; font-size: 1.25rem; }
+    .cmd-head .spacer { flex: 1; }
+    .cmd-head a { color: var(--muted); text-decoration: none; font-size: .95rem; margin-left: 16px; }
+    .cmd-head a:hover { color: #fff; }
+
+    .cmd-page { max-width: 900px; margin: 0 auto; padding: 32px 24px 60px; position: relative; z-index: 2; }
+    .cmd-title { font-size: 2.6rem; font-weight: 900; margin: 0 0 4px; background: linear-gradient(120deg, var(--accent), var(--accent-soft)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+    .cmd-sub { color: var(--muted); margin: 0 0 24px; }
+
+    .cmd-toolbar {
+      background: var(--panel); border-radius: var(--radius); padding: 20px;
+      margin-bottom: 24px; border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+    }
+    .input {
+      width: 100%; box-sizing: border-box; padding: 12px 16px; border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.1); background: #0e1117; color: var(--text);
+      font-size: 1rem; margin-bottom: 16px;
+    }
+    .input:focus { outline: none; border-color: var(--accent); }
+
+    .cmd-cats { display: flex; flex-wrap: wrap; gap: 10px; }
+    .cmd-cat {
+      background: #0e1117; color: var(--muted); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 999px; padding: 8px 14px; font-size: .9rem; cursor: pointer; transition: .2s ease;
+    }
+    .cmd-cat:hover { color: #fff; border-color: var(--accent); }
+    .cmd-cat.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .cmd-cat-n { opacity: .7; font-size: .8rem; margin-left: 4px; }
+
+    .cmd-list { margin-top: 8px; }
+    .cmd-group { margin-bottom: 28px; }
+    .cmd-group-h { font-size: 1.15rem; margin: 0 0 12px; }
+    .cmd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+
+    .cmd-card {
+      background: var(--panel); border-radius: var(--radius); padding: 16px 18px;
+      border: 1px solid rgba(255,255,255,0.08); transition: .2s ease;
+    }
+    .cmd-card:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0,0,0,0.5); border-color: var(--accent); }
+    .cmd-name { font-size: 1.05rem; font-weight: 700; color: var(--accent-soft); background: #0e1117; padding: 3px 8px; border-radius: 8px; }
+    .cmd-desc { color: var(--muted); font-size: 0.95rem; margin: 10px 0 0; line-height: 1.5; }
+
+    .muted { color: var(--muted); }
+    .cmd-foot { text-align: center; color: var(--muted); font-size: .85rem; padding: 24px; position: relative; z-index: 2; }
+  </style>
+</head>
+
+<body class="legal-page">
+  <div class="bg-orbs" aria-hidden="true">
+    <span class="orb orb-1"></span>
+    <span class="orb orb-2"></span>
+  </div>
+
+  <header class="cmd-head">
+    <span class="lp-logo" id="lp-logo">🛡️</span>
+    <h2 id="lp-brand-name">Sentinel</h2>
+    <span class="spacer"></span>
+    <a href="/">Home</a>
+    <a href="/dashboard">Dashboard</a>
   </header>
 
   <main class="cmd-page">
-    <a href="/" class="legal-back">← Back to home</a>
-    <header class="lp-head reveal in" style="margin-bottom:24px">
-      <h2>📖 Command Reference</h2>
-      <p>All <b id="cmd-total">—</b> commands, grouped by category. Search to find what you need.</p>
-    </header>
+    <h1 class="cmd-title">Commands</h1>
+    <p class="cmd-sub"><span id="cmd-total">0</span> commands, all searchable. Type to filter or pick a category.</p>
 
-    <div class="cmd-toolbar card">
-      <input type="search" id="cmd-search" class="input" placeholder="Search commands…" aria-label="Search commands" />
+    <div class="cmd-toolbar">
+      <input id="cmd-search" class="input" type="search" placeholder="🔍 Search commands…" aria-label="Search commands" />
       <div class="cmd-cats" id="cmd-cats"></div>
     </div>
 
-    <div id="cmd-list" class="cmd-list"><p class="muted">Loading commands…</p></div>
+    <div class="cmd-list" id="cmd-list">
+      <p class="muted">Loading commands…</p>
+    </div>
   </main>
 
-  <footer class="lp-footer">
-    <div class="lp-footer-bottom">
-      <span class="muted">© <span id="lp-year">2026</span> Sentinel</span>
-      <span class="muted"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/status">Status</a></span>
-    </div>
-  </footer>
+  <footer class="cmd-foot">© <span id="lp-year"></span> Sentinel · powered by the live command registry</footer>
 
   <script src="commands.js"></script>
 </body>

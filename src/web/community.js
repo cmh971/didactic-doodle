@@ -23,6 +23,28 @@ function md(src) {
     .replace(/\n/g, '<br>');
 }
 
+// Drag-in page widgets → safe HTML (no raw user HTML ever). The page is already
+// responsive (viewport + max-width cards), so these adapt to mobile/PC on their own.
+function renderWidget(w) {
+  const c = w.config || {};
+  const url = /^https?:\/\/\S+$/i.test(c.url || '') ? c.url : '';
+  switch (w.type) {
+    case 'google_login':
+      return '<div class="card center"><a class="btn" style="background:#4285F4" href="/auth/google">🔵 Sign in with Google</a></div>';
+    case 'discord_login':
+      return '<div class="card center"><a class="btn" href="/login">🎮 Login with Discord</a></div>';
+    case 'invite':
+    case 'button':
+      return url ? `<div class="card center"><a class="btn" href="${esc(url)}" target="_blank" rel="noopener">${esc(c.label || (w.type === 'invite' ? 'Join our Discord' : 'Open'))}</a></div>` : '';
+    case 'text':
+      return c.text ? `<div class="card">${md(c.text)}</div>` : '';
+    case 'stats':
+      return `<div class="card center"><h3>${esc(w.title || '📊 Server Stats')}</h3><p class="muted">Live member stats appear here.</p></div>`;
+    default:
+      return '';
+  }
+}
+
 function page(cfg, body, extraHead = '') {
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -52,9 +74,7 @@ export function registerCommunity(app, client) {
     const verifyBtn = cfg.verificationRequired
       ? `<p><a class="btn" href="/c/${esc(cfg.customSubdomainOrId)}/verify">✅ Verify to join</a></p>`
       : '';
-    const widgets = (cfg.widgets || [])
-      .map((w) => `<div class="card"><h3>${esc(w.title || w.type)}</h3><div class="muted">${esc(JSON.stringify(w.config || {}))}</div></div>`)
-      .join('');
+    const widgets = (cfg.widgets || []).map((w) => renderWidget(w)).join('');
     res.send(page(cfg, `
       <div class="hero"><h1>${esc(cfg.communityName)}</h1><p>Powered community page</p></div>
       <div class="card"><span class="badge">✓ Approved</span><div style="margin-top:16px">${md(cfg.homePageMarkdown)}</div>${verifyBtn}</div>
@@ -68,7 +88,9 @@ export function registerCommunity(app, client) {
     if (!cfg || !cfg.isApproved) return res.status(404).send('Not available.');
     if (!req.session.user) {
       return res.send(page(cfg, `<div class="hero"><h1>Verify</h1></div>
-        <div class="card center"><p>Log in with Discord first.</p><a class="btn" href="/login">Login with Discord</a></div>`));
+        <div class="card center"><p>Sign in to continue.</p>
+        <p><a class="btn" href="/login">🎮 Login with Discord</a></p>
+        <p><a class="btn" href="/auth/google" style="background:#4285F4">🔵 Sign in with Google</a></p></div>`));
     }
     const challenge = randomBytes(16).toString('hex');
     req.session.pow = { challenge, guildId: cfg.guildId };

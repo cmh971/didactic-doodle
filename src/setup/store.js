@@ -6,6 +6,7 @@ import { TOKEN, TOKEN_NAME } from '../config.js';
 
 const DEFAULT_SETTINGS = () => ({
   logChannel: null,
+  modLogChannel: null, // where /infraction actions are mirrored
   welcomeChannel: null,
   welcomeMessage: 'Welcome {user} to {server}! 🎉',
   goodbyeChannel: null,

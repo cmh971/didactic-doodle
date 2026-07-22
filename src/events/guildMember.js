@@ -3,6 +3,7 @@
 import { getCfg } from '../setup/store.js';
 import { renderMemberCard } from '../render/cards.js';
 import { bump as analyticsBump } from '../systems/analytics.js';
+import { runMemberJoinAutomations, runMemberLeaveAutomations } from '../features/automations.js';
 
 function fill(template, member) {
   return (template || '')
@@ -21,6 +22,9 @@ export async function handleMemberAdd(member) {
   for (const roleId of settings.joinRoles || []) {
     await member.roles.add(roleId, 'Auto-join role').catch(() => {});
   }
+
+  // Custom "when a member joins" automations.
+  runMemberJoinAutomations(member).catch((e) => console.error('automations(join) error:', e.message));
 
   if (!settings.welcomeChannel) return;
   const channel = member.guild.channels.cache.get(settings.welcomeChannel);
@@ -43,6 +47,7 @@ export async function handleMemberAdd(member) {
 export async function handleMemberRemove(member) {
   if (member.user?.bot) return;
   analyticsBump(member.guild.id, 'leaves');
+  runMemberLeaveAutomations(member).catch((e) => console.error('automations(leave) error:', e.message));
   const { settings } = getCfg(member.guild.id);
   if (!settings.goodbyeChannel) return;
   const channel = member.guild.channels.cache.get(settings.goodbyeChannel);

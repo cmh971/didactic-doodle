@@ -8,9 +8,27 @@ import { isEnabled as aimodEnabled, reportFlag } from '../features/aimod.js';
 import { scanBadwords } from '../systems/badwords.js';
 import { handleFileScan } from '../features/filescan.js';
 import { bump as analyticsBump } from '../systems/analytics.js';
+import { handleInfractionText } from '../features/infractionText.js';
+import { handleVerifyText } from '../features/verifyText.js';
+import { handleFightText } from '../features/fight.js';
+import { runMessageAutomations } from '../features/automations.js';
+import { recordUnoChat } from '../uno/spy.js';
 
 export async function handleGuildMessage(message) {
   if (!message.guild || message.author.bot) return;
+
+  // Mirror chat in channels with a live UNO game into the spy snapshot.
+  recordUnoChat(message);
+
+  // 0.0.0) Prefix (!) commands — run before automod so a mod typing
+  // "!ban @user spam reason" isn't itself caught by the filters. Stops here if handled.
+  try {
+    if (await handleInfractionText(message)) return;
+    if (await handleVerifyText(message)) return;
+    if (await handleFightText(message)) return;
+  } catch (err) {
+    console.error('prefix-command error:', err.message);
+  }
 
   // Analytics: count human messages per guild per day (cheap upsert, never throws).
   analyticsBump(message.guild.id, 'messages');
@@ -76,6 +94,13 @@ export async function handleGuildMessage(message) {
     }
   } catch (err) {
     console.error('AI mention error:', err.message);
+  }
+
+  // 2.5) Custom automations (When someone says X → Do Y). Runs on clean messages.
+  try {
+    await runMessageAutomations(message);
+  } catch (err) {
+    console.error('automations error:', err.message);
   }
 
   // 3) Leveling XP (respects the 60s cooldown internally).

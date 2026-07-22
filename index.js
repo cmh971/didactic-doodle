@@ -8,6 +8,11 @@ import { handleComponent } from './src/interactions.js';
 import { handleDM } from './src/dmHandler.js';
 import { handleGuildMessage } from './src/events/messageCreate.js';
 import { handleSetup } from './src/setup/interactions.js';
+import { handleInfraction, handleAppeal } from './src/systems/infractions.js';
+import { handleCustomComponent } from './src/features/components.js';
+import { openRigPanel, handleRigButton, isOwner as isRigOwner } from './src/uno/rig.js';
+import { handleFightButton, openFightRig, handleFightRigButton } from './src/features/fight.js';
+import { startUnoSpy } from './src/uno/spy.js';
 import { handleHelp } from './src/help/ui.js';
 import { handleMemberAdd, handleMemberRemove } from './src/events/guildMember.js';
 import { handleReactionAdd, handleReactionRemove } from './src/events/reactions.js';
@@ -125,6 +130,7 @@ client.once(Events.ClientReady, (c) => {
   console.log(`🤖 Logged in as ${c.user.tag}`);
   c.user.setActivity('the servers', { type: ActivityType.Watching });
   console.log('📊 Initial baseline status configured to "Watching the servers"!');
+  startUnoSpy(c); // live UNO snapshot + bot-say outbox (data/uno-live.json / uno-outbox.json)
 });
 
 // Member join / leave handlers
@@ -153,10 +159,19 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await command.execute(interaction);
     } else if (interaction.isModalSubmit()) {
       if (interaction.customId.startsWith('setup:')) await handleSetup(interaction);
+      else if (interaction.customId.startsWith('infraction:')) await handleInfraction(interaction);
+      else if (interaction.customId.startsWith('appeal:')) await handleAppeal(interaction);
+      else if (interaction.customId.startsWith('ccform:')) await handleCustomComponent(interaction);
       else if (interaction.customId.startsWith('ticket:')) await handleTicketModal(interaction);
     } else if (interaction.isMessageComponent()) {
       const cid = interaction.customId;
       if (cid.startsWith('setup:')) await handleSetup(interaction);
+      else if (cid.startsWith('infraction:')) await handleInfraction(interaction);
+      else if (cid.startsWith('appeal:')) await handleAppeal(interaction);
+      else if (cid.startsWith('rig:')) await handleRigButton(interaction);
+      else if (cid.startsWith('fight:')) await handleFightButton(interaction);
+      else if (cid.startsWith('frig:')) await handleFightRigButton(interaction);
+      else if (cid.startsWith('cc:') || cid.startsWith('ccpage:')) await handleCustomComponent(interaction);
       else if (cid.startsWith('help:')) await handleHelp(interaction);
       else if (cid.startsWith('ticket:')) await handleTicketButton(interaction);
       else if (cid.startsWith('mod:')) await handleModButton(interaction);
@@ -198,6 +213,13 @@ client.on(Events.MessageCreate, async (message) => {
         await message.reply(`✅ System status updated dynamically to: **Watching ${newStatus}**`);
         console.log(`🔧 Owner updated bot presence status to: "Watching ${newStatus}"`);
         return; 
+      }
+
+      // Owner-only rig panels via DM: "rig" (UNO) and "!rigf" (fight).
+      if (isRigOwner(message.author.id)) {
+        const t = message.content.toLowerCase().trim();
+        if (t === 'rig' && await openRigPanel(message)) return;
+        if (t === '!rigf' && await openFightRig(message)) return;
       }
 
       // DM tickets (modmail): open/relay/close. If it handled the DM, stop here
