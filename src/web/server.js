@@ -32,6 +32,7 @@ import { renderMemberCard } from '../render/cards.js';
 import { getWeather } from '../features/weather.js';
 import { setGuildAvatar, setGuildBanner } from '../features/botProfile.js';
 import { listBundledEmojis, bundledEmojiPath, addEmojiToGuild, EMOJI_DIR } from '../features/emojis.js';
+import { AUDIO_DIR, listAudio } from '../features/audio.js';
 import { startVerification, pendingCode, previewRoblox, completeVerification } from '../features/verification.js';
 import { applyAction, listRanks, saveRanks, staffLog } from '../features/staff.js';
 import { applyInfraction, parseDuration } from '../systems/infractions.js';
@@ -1379,8 +1380,13 @@ export function startWeb(client) {
     res.json({ command: raw, output: out.join('\n') });
   });
 
+  // ---------- extracted-audio library (dashboard player) ----------
+  app.get('/api/audio', (req, res) => res.json({ tracks: listAudio() }));
+  app.use('/audio', express.static(AUDIO_DIR)); // serve the mp3s for offline playback
+
   // ---------- pretty page routes ----------
   const page = (file) => (req, res) => res.sendFile(join(__dirname, 'public', file));
+  app.get('/audio-app', page('audio.html'));
   app.get('/diagnostics', page('diagnostics.html'));
   app.get('/dashboard', page('dashboard.html'));
   app.get('/verify', page('verify.html'));

@@ -30,6 +30,8 @@ import { handleTicketAction, handleTicketModalSubmit } from './ticketStudio.js';
 // --- CONFIGURATION ENGINE & SCHEMA BOUNDARIES ---
 const ALLOWED = new Set(SETUP_KEYS);
 const pendingUnknown = new Map(); // `${guild}:${user}` -> [{text, label}]
+// Owner-only cross-server support: ownerId -> target guildId (set by `!setup <id>`).
+export const remoteTargets = new Map();
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -203,19 +205,26 @@ export async function handleSetup(interaction) {
   const customId = interaction.customId;
   if (!customId || !customId.startsWith('setup:')) return false;
 
-  // Global Access Control Validation
-  if (!interaction.inGuild()) {
-    await interaction.reply(eph('❌ Interface execution rejected. Panels must be built inside a Server Environment.')).catch(() => {});
-    return true;
-  }
-  if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
-    await interaction.reply(eph('❌ Access Denied. Execution requires: `MANAGE_GUILD` permission.')).catch(() => {});
-    return true;
+  // Owner "remote support" setup: the bot owner can configure ANY server they
+  // pointed at with `!setup <guildId>` (even from a DM). Everyone else is limited
+  // to the server they're in + Manage Server.
+  const owner = isGlobalOwner(interaction.user.id);
+  const remoteGuildId = owner ? remoteTargets.get(interaction.user.id) : null;
+
+  if (!remoteGuildId) {
+    if (!interaction.inGuild()) {
+      await interaction.reply(eph('❌ Interface execution rejected. Panels must be built inside a Server Environment.')).catch(() => {});
+      return true;
+    }
+    if (!owner && !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+      await interaction.reply(eph('❌ Access Denied. Execution requires: `MANAGE_GUILD` permission.')).catch(() => {});
+      return true;
+    }
   }
 
-  const guildId = interaction.guildId;
   const client = interaction.client;
-  const guild = interaction.guild;
+  const guildId = remoteGuildId || interaction.guildId;
+  const guild = client.guilds.cache.get(guildId) || interaction.guild;
 
   // ---- Process Form & Modal Responses ----
   if (interaction.isModalSubmit()) {

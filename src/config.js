@@ -1,6 +1,17 @@
 // Central config for the economy + moderation items.
 // Numbers are intentionally HUGE — this is a "so much money" server. 🪙
 
+// ---- Optional DB mirror (SQLite stays primary) ----
+// Set either/both in .env to ALSO copy balances + infractions there.
+//   MONGO_URI=mongodb+srv://user:pass@cluster/…   (needs: npm i mongodb)
+//   DATABASE_URL=postgres://user:pass@host:5432/db  (pg already installed)
+export const MONGO_URI = process.env.MONGO_URI || '';
+export const MONGO_DB = process.env.MONGO_DB || 'sentinel';
+export const DATABASE_URL = process.env.DATABASE_URL || '';
+
+// (Music search uses Apple's free, keyless iTunes Search API — no config needed.
+//  Spotify was dropped after its Feb 2026 Developer-Mode Premium requirement.)
+
 export const TOKEN = '🪙';
 export const TOKEN_NAME = 'UNO Tokens';
 

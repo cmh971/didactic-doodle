@@ -4,9 +4,23 @@
 // written through the `transactions` ledger for a full audit trail.
 import { getDb } from '../db/index.js';
 import { STARTING_BALANCE } from '../config.js';
+import { mirror } from '../db/mirror.js';
 
 const db = getDb();
 const SCOPE = 'global'; // default currency scope (per-guild scopes also supported)
+
+// Copy a user's current balance to the optional Mongo/Postgres mirror.
+// No-op unless MONGO_URI / DATABASE_URL are set. Never throws / blocks.
+function mirrorBal(id) {
+  const r = stmt.getBal.get(id, SCOPE);
+  if (r) mirror('balances', `${SCOPE}:${id}`, { userId: id, scope: SCOPE, wallet: r.wallet, bank: r.bank });
+}
+
+// Hard ceiling on any single balance. SQLite can store bigger, but reading a
+// value above 2^53 (~9.007e15) throws in better-sqlite3, which crashes every
+// economy read. 1 quadrillion is huge yet safely under the limit.
+const MAX_BAL = 1_000_000_000_000_000;
+const clampBal = (n) => Math.min(MAX_BAL, Math.max(0, Math.floor(Number(n) || 0)));
 
 // ---- prepared statements ----
 const stmt = {
@@ -65,17 +79,19 @@ export function balance(id) {
 
 export function addWallet(id, amount, type = 'adjust') {
   const row = getUserRow(id);
-  const next = Math.max(0, row.wallet + Math.floor(amount));
+  const next = clampBal(row.wallet + Math.floor(amount));
   stmt.setWallet.run(next, id, SCOPE);
   stmt.tx.run(id, SCOPE, type, Math.floor(amount), next, null);
+  mirrorBal(id);
   return next;
 }
 
 export function setWallet(id, amount) {
   getUserRow(id);
-  const next = Math.max(0, Math.floor(amount));
+  const next = clampBal(amount);
   stmt.setWallet.run(next, id, SCOPE);
   stmt.tx.run(id, SCOPE, 'set', next, next, null);
+  mirrorBal(id);
   return next;
 }
 
@@ -84,8 +100,9 @@ export function deposit(id, amount) {
   const amt = Math.min(Math.floor(amount), row.wallet);
   if (amt <= 0) return { ok: false, reason: 'You have nothing to deposit.' };
   stmt.setWallet.run(row.wallet - amt, id, SCOPE);
-  stmt.setBank.run(row.bank + amt, id, SCOPE);
+  stmt.setBank.run(clampBal(row.bank + amt), id, SCOPE);
   stmt.tx.run(id, SCOPE, 'deposit', -amt, row.wallet - amt, null);
+  mirrorBal(id);
   return { ok: true, amount: amt };
 }
 
@@ -94,8 +111,9 @@ export function withdraw(id, amount) {
   const amt = Math.min(Math.floor(amount), row.bank);
   if (amt <= 0) return { ok: false, reason: 'Your bank is empty.' };
   stmt.setBank.run(row.bank - amt, id, SCOPE);
-  stmt.setWallet.run(row.wallet + amt, id, SCOPE);
+  stmt.setWallet.run(clampBal(row.wallet + amt), id, SCOPE);
   stmt.tx.run(id, SCOPE, 'withdraw', amt, row.wallet + amt, null);
+  mirrorBal(id);
   return { ok: true, amount: amt };
 }
 
@@ -108,10 +126,12 @@ export function transfer(fromId, toId, amount) {
   db.exec('BEGIN');
   try {
     stmt.setWallet.run(from.wallet - amount, fromId, SCOPE);
-    stmt.setWallet.run(to.wallet + amount, toId, SCOPE);
+    stmt.setWallet.run(clampBal(to.wallet + amount), toId, SCOPE);
     stmt.tx.run(fromId, SCOPE, 'transfer_out', -amount, from.wallet - amount, JSON.stringify({ to: toId }));
     stmt.tx.run(toId, SCOPE, 'transfer_in', amount, to.wallet + amount, JSON.stringify({ from: fromId }));
     db.exec('COMMIT');
+    mirrorBal(fromId);
+    mirrorBal(toId);
   } catch (e) {
     db.exec('ROLLBACK');
     throw e;
@@ -120,7 +140,14 @@ export function transfer(fromId, toId, amount) {
 }
 
 // ---- cooldowns ----
+// The bot owner ignores ALL cooldowns (rob, daily, work, crime, …).
+function isEcoOwner(id) {
+  const ids = (process.env.OWNER_IDS || '').split(',').map((s) => s.trim()).filter(Boolean);
+  return ids.length ? ids.includes(id) : id === '1183222250153984040';
+}
+
 export function checkCooldown(id, action, ms) {
+  if (isEcoOwner(id)) return 0; // owner: never on cooldown
   const row = stmt.cdGet.get(id, action);
   if (!row) return 0;
   const remaining = row.used_at + ms - Date.now();
@@ -220,3 +247,4 @@ export function addShopItem(item) {
   );
   return { ok: true, item };
 }
+// End of file: src/economy/store.js  S

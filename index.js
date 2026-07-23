@@ -13,6 +13,7 @@ import { handleCustomComponent } from './src/features/components.js';
 import { openRigPanel, handleRigButton, isOwner as isRigOwner } from './src/uno/rig.js';
 import { handleFightButton, openFightRig, handleFightRigButton } from './src/features/fight.js';
 import { startUnoSpy } from './src/uno/spy.js';
+import { initMirror } from './src/db/mirror.js';
 import { handleHelp } from './src/help/ui.js';
 import { handleMemberAdd, handleMemberRemove } from './src/events/guildMember.js';
 import { handleReactionAdd, handleReactionRemove } from './src/events/reactions.js';
@@ -119,6 +120,7 @@ const client = new Client({
     GatewayIntentBits.GuildMessageReactions,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.GuildVoiceStates, // needed for /play to join voice channels
   ],
   partials: [Partials.Channel, Partials.Message, Partials.Reaction, Partials.User],
 });
@@ -131,6 +133,7 @@ client.once(Events.ClientReady, (c) => {
   c.user.setActivity('the servers', { type: ActivityType.Watching });
   console.log('📊 Initial baseline status configured to "Watching the servers"!');
   startUnoSpy(c); // live UNO snapshot + bot-say outbox (data/uno-live.json / uno-outbox.json)
+  initMirror(); // optional Mongo/Postgres mirror — connects only if URIs are set in .env
 });
 
 // Member join / leave handlers
@@ -157,6 +160,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
       trackCommand(command.data?.name, { guildId: interaction.guildId, userId: interaction.user.id, source: 'discord' });
       await command.execute(interaction);
+    } else if (interaction.isAutocomplete()) {
+      const command = resolve(interaction, commands);
+      if (command?.autocomplete) await command.autocomplete(interaction);
+      else await interaction.respond([]).catch(() => {});
     } else if (interaction.isModalSubmit()) {
       if (interaction.customId.startsWith('setup:')) await handleSetup(interaction);
       else if (interaction.customId.startsWith('infraction:')) await handleInfraction(interaction);

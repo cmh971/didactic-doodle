@@ -4,6 +4,7 @@
 import { EmbedBuilder } from 'discord.js';
 import { startVerification } from './verification.js';
 import { getCfg } from '../setup/store.js';
+import { buildVerifyButtons } from '../commands/roblox/verify.js';
 
 // Returns true if it handled the message (so the caller stops processing it).
 export async function handleVerifyText(message) {
@@ -36,7 +37,8 @@ export async function handleVerifyText(message) {
     )
     .setFooter({ text: 'Sentinel • never share your code with anyone' });
 
-  const dm = await message.author.createDM().then((c) => c.send({ embeds: [embed] }).then(() => true)).catch(() => false);
+  const components = buildVerifyButtons(base, code, link);
+  const dm = await message.author.createDM().then((c) => c.send({ embeds: [embed], components }).then(() => true)).catch(() => false);
 
   // Keep the code private — never echo it into the channel.
   if (dm) await message.reply('📬 Check your DMs — I sent you a verification code and a link.').catch(() => {});

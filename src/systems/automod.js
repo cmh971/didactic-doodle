@@ -7,6 +7,7 @@ import { PermissionFlagsBits } from 'discord.js';
 import { getDb } from '../db/index.js';
 import { cache } from '../db/index.js';
 import { getGuild } from './guilds.js';
+import { mirror } from '../db/mirror.js';
 
 const db = getDb();
 // Migration: add the optional `notes` column to older databases (idempotent —
@@ -29,8 +30,15 @@ const LADDER = [
   { action: 'ban', label: '🔨 Permanent ban' },
 ];
 
+function mirrorInfraction(caseId, guildId, userId, moderatorId, type, reason, expiresAt, notes) {
+  mirror('infractions', `${guildId}:${caseId}`, {
+    caseId, guildId, userId, moderatorId, type, reason, expiresAt, notes, createdAt: new Date().toISOString(),
+  });
+}
+
 export function recordInfraction(guildId, userId, moderatorId, type, reason, expiresAt = null, notes = null) {
-  stmt.add.run(userId, guildId, moderatorId, type, reason, expiresAt, notes);
+  const info = stmt.add.run(userId, guildId, moderatorId, type, reason, expiresAt, notes);
+  mirrorInfraction(Number(info.lastInsertRowid), guildId, userId, moderatorId, type, reason, expiresAt, notes);
   return stmt.count.get(guildId, userId).n;
 }
 
@@ -38,6 +46,7 @@ export function recordInfraction(guildId, userId, moderatorId, type, reason, exp
 // so callers can show the moderator exactly which case they just created.
 export function addInfraction(guildId, userId, moderatorId, type, reason, expiresAt = null, notes = null) {
   const info = stmt.add.run(userId, guildId, moderatorId, type, reason, expiresAt, notes);
+  mirrorInfraction(Number(info.lastInsertRowid), guildId, userId, moderatorId, type, reason, expiresAt, notes);
   return { id: Number(info.lastInsertRowid), count: stmt.count.get(guildId, userId).n };
 }
 
