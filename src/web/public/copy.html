@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Copying… • Sentinel</title>
+<style>
+  :root { --bg:#0b0d13; --card:#151925; --accent:#5865f2; --ok:#3ba55d; --text:#e7eaf2; --muted:#98a0b3; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; }
+  body {
+    background:radial-gradient(1200px 600px at 50% -10%, #1c2233 0%, var(--bg) 60%);
+    color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Ubuntu,sans-serif;
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .card {
+    background:var(--card); border:1px solid #232a3b; border-radius:18px; padding:28px 26px;
+    width:100%; max-width:420px; box-shadow:0 20px 60px rgba(0,0,0,.5); text-align:center;
+  }
+  .logo { font-size:38px; }
+  h1 { font-size:20px; margin:10px 0 4px; }
+  p.sub { color:var(--muted); margin:0 0 20px; font-size:14px; }
+  .value {
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:22px; letter-spacing:1px;
+    background:#0e1119; border:1px dashed #333c52; border-radius:12px; padding:14px; word-break:break-all;
+    margin-bottom:14px; color:#fff;
+  }
+  button {
+    width:100%; border:0; border-radius:12px; padding:14px; font-size:15px; font-weight:700;
+    cursor:pointer; color:#fff; margin-top:8px; transition:transform .05s, background .15s;
+  }
+  button:active { transform:scale(.98); }
+  .primary { background:var(--accent); }
+  .primary.copied { background:var(--ok); }
+  .ghost { background:#232a3b; }
+  .hint { color:var(--muted); font-size:12px; margin-top:16px; }
+  a { color:#8b93ff; text-decoration:none; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">🔐</div>
+    <h1 id="title">Copying your code…</h1>
+    <p class="sub" id="sub">One tap and we'll pop you back to Discord.</p>
+    <div class="value" id="value">…</div>
+    <button class="primary" id="copyBtn">📋 Copy</button>
+    <button class="ghost" id="backBtn">↩ Return to Discord</button>
+    <p class="hint" id="hint">Your code expires in 30 minutes. Never share it with anyone.</p>
+  </div>
+<script>
+  const q = new URLSearchParams(location.search);
+  const type = q.get('type') === 'link' ? 'link' : 'code';
+  const code = q.get('code') || '';
+  const link = q.get('link') || '';
+  const ret  = q.get('return') || 'dm';
+  const g = q.get('g') || '';
+  const c = q.get('c') || '';
+  const toCopy = type === 'link' ? (link || code) : code;
+
+  // Deep link back into the Discord app (falls back to web).
+  const deep = ret === 'channel' && g && c ? `discord://-/channels/${g}/${c}` : 'discord://-/channels/@me';
+  const web  = ret === 'channel' && g && c ? `https://discord.com/channels/${g}/${c}` : 'https://discord.com/channels/@me';
+
+  const $ = (id) => document.getElementById(id);
+  $('title').textContent = type === 'link' ? 'Copy your verify link' : 'Copy your verification code';
+  $('value').textContent = toCopy || '(nothing to copy)';
+  $('copyBtn').textContent = type === 'link' ? '🔗 Copy link' : '📋 Copy code';
+
+  async function doCopy() {
+    try {
+      await navigator.clipboard.writeText(toCopy);
+      markCopied();
+    } catch {
+      // Clipboard API blocked (needs gesture / http) — fall back to selection copy.
+      const t = document.createElement('textarea');
+      t.value = toCopy; document.body.appendChild(t); t.select();
+      try { document.execCommand('copy'); markCopied(); } catch { /* user can copy manually */ }
+      t.remove();
+    }
+  }
+  let copied = false;
+  function markCopied() {
+    if (copied) return; copied = true;
+    const b = $('copyBtn');
+    b.classList.add('copied'); b.textContent = '✅ Copied!';
+    $('sub').textContent = 'Copied to your clipboard — heading back to Discord…';
+    // Give them a beat to see it, then bounce back to Discord.
+    setTimeout(goBack, 1400);
+  }
+  function goBack() {
+    // Try the native app first; if it doesn't take over, open web Discord.
+    location.href = deep;
+    setTimeout(() => { location.href = web; }, 700);
+  }
+
+  $('copyBtn').addEventListener('click', doCopy);
+  $('backBtn').addEventListener('click', goBack);
+  // Attempt an automatic copy on arrival (works on most mobile browsers after the tap that opened us).
+  window.addEventListener('load', () => { doCopy(); });
+</script>
+</body>
+</html>

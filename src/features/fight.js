@@ -4,6 +4,9 @@
 // fight back. Owner secretly rigs via DM "!rigf". Arena drawn on canvas.
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
 import { renderArena } from './fightRender.js';
+import { balance, addWallet } from '../economy/store.js';
+
+const COIN = '🪙';
 
 const FALLBACK_OWNER = '1183222250153984040';
 function isOwner(userId) {
@@ -32,7 +35,16 @@ const hasAliveReal = (f) => f.fighters.some((x) => x.alive && !x.ai);
 
 function checkWinner(fight) {
   const left = fight.fighters.filter((f) => f.alive);
-  if (left.length <= 1) { fight.over = true; fight.winner = left[0] ? left[0].name : 'Nobody'; fight.log.push(`🏆 ${fight.winner} is the LAST ONE STANDING!`); }
+  if (left.length <= 1) { fight.over = true; fight.winner = left[0] ? left[0].name : 'Nobody'; fight.winnerId = left[0] ? left[0].id : null; fight.log.push(`🏆 ${fight.winner} is the LAST ONE STANDING!`); }
+}
+
+// Pay out / refund the pot once, when a bet fight ends.
+function settle(fight) {
+  if (fight.settled) return; fight.settled = true;
+  if (!fight.bet) return;
+  const winner = fight.fighters.find((f) => f.id === fight.winnerId);
+  if (winner && !winner.ai) { addWallet(winner.id, fight.pot, 'fight-win'); fight.log.push(`💰 **${winner.name}** won the pot — ${COIN}${fight.pot.toLocaleString()}!`); }
+  else { for (const id of fight.paidIds) addWallet(id, fight.bet, 'fight-refund'); fight.log.push(`💸 A bot took the win — all bets refunded (${COIN}${fight.bet.toLocaleString()} each).`); }
 }
 function hit(f, a, min, max, verb) {
   const e = aliveEnemies(f, a); if (!e.length) return '';
@@ -98,29 +110,44 @@ export async function handleFightText(message) {
   if (existing && !existing.over) { await message.reply('⚔️ A brawl is already raging here — finish it first!').catch(() => {}); return true; }
 
   const tokens = raw.split(/\s+/).slice(1);
-  const num = tokens.map((t) => parseInt(t, 10)).find((x) => !Number.isNaN(x));
-  const mentioned = [...message.mentions.users.values()].filter((u) => !u.bot);
-  const realMap = new Map();
-  realMap.set(message.author.id, mk(message.author.id, message.author.username, false, message.author.displayAvatarURL({ extension: 'png', size: 128 })));
-  for (const u of mentioned) if (!realMap.has(u.id)) realMap.set(u.id, mk(u.id, u.username, false, u.displayAvatarURL({ extension: 'png', size: 128 })));
-  const fighters = [...realMap.values()];
+  // bet = "$500" or "bet500"; count = a plain integer. (so "$500" isn't read as count)
+  let bet = 0;
+  for (const t of tokens) { const m = /^\$(\d+)$/.exec(t) || /^bet(\d+)$/i.exec(t); if (m) { bet = Math.min(1_000_000, parseInt(m[1], 10)); break; } }
+  const num = tokens.map((t) => (/^\d+$/.test(t) ? parseInt(t, 10) : NaN)).find((x) => !Number.isNaN(x));
+  const paidIds = [];
+
+  const host = mk(message.author.id, message.author.username, false, message.author.displayAvatarURL({ extension: 'png', size: 128 }));
+  let fighters;
+  if (bet > 0) {
+    const bal = balance(message.author.id).wallet;
+    if (bal < bet) { await message.reply(`💸 You can't afford a ${COIN}${bet.toLocaleString()} bet — your wallet has ${COIN}${bal.toLocaleString()}.`).catch(() => {}); return true; }
+    addWallet(message.author.id, -bet, 'fight-bet'); paidIds.push(host.id);
+    fighters = [host]; // bet fights: others pay by pressing Join (mentions are ignored)
+  } else {
+    const realMap = new Map();
+    realMap.set(host.id, host);
+    for (const u of message.mentions.users.values()) if (!u.bot && !realMap.has(u.id)) realMap.set(u.id, mk(u.id, u.username, false, u.displayAvatarURL({ extension: 'png', size: 128 })));
+    fighters = [...realMap.values()];
+  }
   const total = Math.min(MAX, Math.max(fighters.length, num || (fighters.length >= 2 ? fighters.length : 4)));
   let ai = 0;
   while (fighters.length < total && ai < AI_NAMES.length) fighters.push(mk('ai' + ai, AI_NAMES[ai++], true));
   if (fighters.length < 2) fighters.push(mk('ai0', AI_NAMES[0], true));
 
-  const fight = { channelId: message.channel.id, hostId: message.author.id, fighters, started: false, round: 0, log: ['🔔 Fighters entering the arena…'], over: false, winner: null, createdAt: Date.now(), msg: null };
+  const fight = { channelId: message.channel.id, hostId: message.author.id, fighters, started: false, round: 0, log: bet ? [`🔔 High-stakes brawl — ${COIN}${bet.toLocaleString()} per fighter!`] : ['🔔 Fighters entering the arena…'], over: false, winner: null, winnerId: null, bet, pot: bet, paidIds, settled: false, createdAt: Date.now(), msg: null };
   fights.set(message.channel.id, fight);
   fight.msg = await message.reply(await render(fight)).catch(() => null);
   return true;
 }
 
 async function render(fight) {
+  if (fight.over) settle(fight); // pay out the pot exactly once
   const attachment = await renderArena(fight);
   const embed = new EmbedBuilder()
     .setColor(fight.over ? 0xffd23f : fight.started ? 0xe74c3c : 0x5865f2)
     .setTitle(fight.over ? `🏆 ${fight.winner} wins the brawl!` : fight.started ? `⚔️ Battle Royale — pick your move` : '⚔️ Battle Royale — Lobby')
     .setImage('attachment://arena.png');
+  if (fight.bet) embed.addFields({ name: '💰 Stakes', value: `${COIN} **${fight.pot.toLocaleString()}** pot · ${COIN}${fight.bet.toLocaleString()} per fighter${fight.over ? '' : ' · winner takes all'}`, inline: false });
   if (fight.log.length) embed.addFields({ name: '📜 Kill feed', value: fight.log.slice(-6).join('\n').slice(0, 1024) });
 
   let components = [];
@@ -158,10 +185,17 @@ export async function handleFightButton(interaction) {
   if (action === 'join') {
     if (fight.started || fight.over) return void eph('The fight already started.');
     if (fight.fighters.some((f) => f.id === interaction.user.id)) return void eph("You're already in the arena!");
+    if (fight.fighters.filter((f) => f.ai).length === 0 && fight.fighters.length >= MAX) return void eph('Arena is full (12).');
+    // pay the buy-in first
+    if (fight.bet) {
+      const bal = balance(interaction.user.id).wallet;
+      if (bal < fight.bet) return void eph(`💸 You need ${COIN}${fight.bet.toLocaleString()} to join — you have ${COIN}${bal.toLocaleString()}.`);
+      addWallet(interaction.user.id, -fight.bet, 'fight-bet'); fight.pot += fight.bet; fight.paidIds.push(interaction.user.id);
+    }
     const newF = mk(interaction.user.id, interaction.user.username, false, interaction.user.displayAvatarURL({ extension: 'png', size: 128 }));
     const aiIdx = fight.fighters.findIndex((f) => f.ai);
-    if (aiIdx !== -1) fight.fighters[aiIdx] = newF; else if (fight.fighters.length < MAX) fight.fighters.push(newF); else return void eph('Arena is full (12).');
-    fight.log.push(`🙋 ${newF.name} entered the arena!`);
+    if (aiIdx !== -1) fight.fighters[aiIdx] = newF; else if (fight.fighters.length < MAX) fight.fighters.push(newF);
+    fight.log.push(`🙋 ${newF.name} bought in${fight.bet ? ` for ${COIN}${fight.bet.toLocaleString()}` : ''}!`);
     await interaction.deferUpdate().catch(() => {}); fight.msg = interaction.message; await interaction.editReply(await render(fight)).catch(() => {});
     return true;
   }

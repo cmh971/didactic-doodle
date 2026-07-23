@@ -11,6 +11,9 @@ import { bump as analyticsBump } from '../systems/analytics.js';
 import { handleInfractionText } from '../features/infractionText.js';
 import { handleVerifyText } from '../features/verifyText.js';
 import { handleFightText } from '../features/fight.js';
+import { handleSetupText } from '../features/setupText.js';
+import { handleMediaText } from '../features/mediaText.js';
+import { handlePrefixCommand } from '../prefix/index.js';
 import { runMessageAutomations } from '../features/automations.js';
 import { recordUnoChat } from '../uno/spy.js';
 
@@ -26,6 +29,9 @@ export async function handleGuildMessage(message) {
     if (await handleInfractionText(message)) return;
     if (await handleVerifyText(message)) return;
     if (await handleFightText(message)) return;
+    if (await handleSetupText(message)) return;
+    if (await handleMediaText(message)) return;
+    if (await handlePrefixCommand(message)) return;
   } catch (err) {
     console.error('prefix-command error:', err.message);
   }

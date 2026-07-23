@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Audio • Sentinel</title>
+<style>
+  :root { --bg:#0b0d13; --card:#151925; --accent:#1db954; --text:#e7eaf2; --muted:#98a0b3; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; padding:24px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  p.sub { color:var(--muted); margin:0 0 20px; }
+  .track { background:var(--card); border:1px solid #232a3b; border-radius:14px; padding:14px 16px; margin-bottom:12px; }
+  .track .top { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:10px; }
+  .name { font-weight:600; word-break:break-all; }
+  .meta { color:var(--muted); font-size:12px; white-space:nowrap; }
+  audio { width:100%; }
+  a.dl { color:var(--accent); text-decoration:none; font-size:13px; }
+  .empty { color:var(--muted); text-align:center; padding:40px; }
+</style>
+</head>
+<body>
+  <h1>🎧 Your extracted audio</h1>
+  <p class="sub">Pulled from videos you uploaded with <code>/extractaudio</code>. Play here, offline.</p>
+  <div id="list"><div class="empty">Loading…</div></div>
+<script>
+  const kb = (n) => n < 1024*1024 ? (n/1024).toFixed(0)+' KB' : (n/1024/1024).toFixed(1)+' MB';
+  fetch('/api/audio').then(r => r.json()).then(({ tracks }) => {
+    const el = document.getElementById('list');
+    if (!tracks || !tracks.length) { el.innerHTML = '<div class="empty">No audio yet. Run <code>/extractaudio</code> in Discord.</div>'; return; }
+    el.innerHTML = tracks.map((t) => {
+      const url = '/audio/' + encodeURIComponent(t.name);
+      const when = new Date(t.mtime).toLocaleString();
+      return `<div class="track">
+        <div class="top"><span class="name">${t.name}</span><span class="meta">${kb(t.size)} · ${when}</span></div>
+        <audio controls preload="none" src="${url}"></audio>
+        <div><a class="dl" href="${url}" download>⬇ Download</a></div>
+      </div>`;
+    }).join('');
+  }).catch(() => { document.getElementById('list').innerHTML = '<div class="empty">Couldn’t load tracks.</div>'; });
+</script>
+</body>
+</html>

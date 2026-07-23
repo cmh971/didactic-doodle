@@ -1,6 +1,25 @@
-import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { startVerification } from '../../features/verification.js';
 import { getCfg } from '../../setup/store.js';
+
+// Build the "copy" button row. Discord buttons can't touch the clipboard, so
+// these are LINK buttons that open our /copy page — it copies the code/link to
+// the clipboard, flashes "Copied!", then deep-links back into Discord.
+export function buildVerifyButtons(base, code, link) {
+  if (!base) return []; // no public URL configured → no link buttons possible
+  const copyUrl = (type) =>
+    `${base}/copy.html?type=${type}&code=${encodeURIComponent(code)}&link=${encodeURIComponent(link || '')}&return=dm`;
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setStyle(ButtonStyle.Link).setEmoji('📋').setLabel('Copy Code').setURL(copyUrl('code')),
+  );
+  if (link) {
+    row.addComponents(
+      new ButtonBuilder().setStyle(ButtonStyle.Link).setEmoji('🔗').setLabel('Copy Link').setURL(copyUrl('link')),
+      new ButtonBuilder().setStyle(ButtonStyle.Link).setEmoji('🌐').setLabel('Verify Page').setURL(link),
+    );
+  }
+  return [row];
+}
 
 const eph = (content) => ({ content, flags: MessageFlags.Ephemeral });
 
@@ -35,9 +54,10 @@ export async function execute(interaction) {
     )
     .setFooter({ text: 'Sentinel • never share your code with anyone' });
 
-  const dm = await interaction.user.createDM().then((c) => c.send({ embeds: [embed] }).then(() => true)).catch(() => false);
-  if (dm) return interaction.reply(eph('📬 Check your DMs — I sent you a verification code and a link.'));
+  const components = buildVerifyButtons(base, code, link);
+  const dm = await interaction.user.createDM().then((c) => c.send({ embeds: [embed], components }).then(() => true)).catch(() => false);
+  if (dm) return interaction.reply(eph('📬 Check your DMs — I sent you a verification code, a link, and a one-tap **Copy Code** button.'));
 
   // DMs closed: hand the code back ephemerally so they can still verify.
-  return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+  return interaction.reply({ embeds: [embed], components, flags: MessageFlags.Ephemeral });
 }
