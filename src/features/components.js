@@ -8,7 +8,7 @@
 import { randomBytes } from 'node:crypto';
 import {
   ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder,
-  ModalBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, MessageFlags,
+  ModalBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder, MessageFlags, PermissionFlagsBits,
 } from 'discord.js';
 import { getDb } from '../db/index.js';
 
@@ -62,7 +62,7 @@ export function buildMessageComponents(guildId, spec) {
       const questions = (c.questions || []).filter((q) => q && q.label).slice(0, 20)
         .map((q, i) => ({ id: `q${i}`, label: String(q.label).slice(0, 45), paragraph: !!q.paragraph, required: q.required !== false }));
       if (!questions.length) continue;
-      const id = store(guildId, 'form', { title: String(c.title || c.label || 'Form').slice(0, 45), channelId: c.channelId || null, questions });
+      const id = store(guildId, 'form', { title: String(c.title || c.label || 'Form').slice(0, 45), channelId: c.channelId || null, resultsChannelId: c.results || null, questions });
       const b = new ButtonBuilder().setStyle(STYLE[c.style] || ButtonStyle.Primary).setLabel(String(c.label || 'Open Form').slice(0, 80)).setCustomId(`cc:${id}`);
       setEmoji(b, c.emoji); pushButton(b);
     } else if (kind === 'rolemenu') {
@@ -127,6 +127,27 @@ function formModal(id, cfg, page) {
   return modal;
 }
 
+// Apply an approve/deny decision: mark the review embed, announce to the results
+// channel, and DM the applicant. Shared by the instant Approve and the Deny-reason flow.
+async function finalizeDecision({ reviewMsg, approved, reviewerId, reviewerTag, applicantId, title, cfg, guild, client, reason }) {
+  if (reviewMsg?.embeds?.[0]) {
+    try {
+      const e = EmbedBuilder.from(reviewMsg.embeds[0]);
+      e.setColor(approved ? 0x2ecc71 : 0xe74c3c);
+      e.addFields({ name: approved ? '✅ Approved' : '⛔ Denied', value: `by <@${reviewerId}> • <t:${Math.floor(Date.now() / 1000)}:R>${reason ? `\n**Reason:** ${reason.slice(0, 900)}` : ''}` });
+      await reviewMsg.edit({ embeds: [e], components: [] });
+    } catch { /* message gone */ }
+  }
+  const decision = new EmbedBuilder()
+    .setColor(approved ? 0x2ecc71 : 0xe74c3c)
+    .setTitle(approved ? '✅ Application Accepted' : '⛔ Application Denied')
+    .setDescription(`<@${applicantId}>, your **${title}** application was **${approved ? 'ACCEPTED' : 'DENIED'}**.${reason ? `\n\n**Reason:** ${reason.slice(0, 1500)}` : ''}`)
+    .setFooter({ text: `Reviewed by ${reviewerTag}` }).setTimestamp();
+  const resCh = cfg.resultsChannelId && guild?.channels.cache.get(cfg.resultsChannelId);
+  if (resCh?.isTextBased?.()) await resCh.send({ content: `<@${applicantId}>`, embeds: [decision], allowedMentions: { users: [applicantId] } }).catch(() => {});
+  try { const u = await client.users.fetch(applicantId); await u.send({ embeds: [decision] }); } catch { /* DMs closed */ }
+}
+
 // Route an interaction on a custom component. Returns true if handled.
 export async function handleCustomComponent(interaction) {
   const cid = interaction.customId;
@@ -188,10 +209,73 @@ export async function handleCustomComponent(interaction) {
       .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL?.() })
       .addFields(cfg.questions.map((q) => ({ name: q.label.slice(0, 256), value: (bucket.answers[q.id] || '—').slice(0, perField) || '—' })))
       .setFooter({ text: `From ${interaction.user.id}` }).setTimestamp();
+    // Staff review buttons — Approve / Deny / Note (applicant id rides in the customId).
+    const reviewRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`appdec:${id}:${interaction.user.id}:approve`).setLabel('Approve').setEmoji('✅').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId(`appdec:${id}:${interaction.user.id}:deny`).setLabel('Deny').setEmoji('⛔').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId(`appdec:${id}:${interaction.user.id}:note`).setLabel('Note').setEmoji('📝').setStyle(ButtonStyle.Secondary),
+    );
     let posted = false;
     const ch = cfg.channelId && interaction.guild?.channels.cache.get(cfg.channelId);
-    if (ch?.isTextBased?.()) { await ch.send({ embeds: [embed] }).catch(() => {}); posted = true; }
+    if (ch?.isTextBased?.()) { await ch.send({ embeds: [embed], components: [reviewRow] }).catch(() => {}); posted = true; }
     await interaction.reply(eph(posted ? '✅ Application submitted — thank you!' : '✅ Submitted! (No destination channel was set, so staff may not see it — tell an admin.)')).catch(() => {});
+    return true;
+  }
+
+  // ---- application decisions: Approve / Deny / Note ----
+  if (cid.startsWith('appdec:')) {
+    const [, id, applicantId, action] = cid.split(':');
+    if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+      await interaction.reply(eph('🔒 Only staff (Manage Server) can review applications.')).catch(() => {});
+      return true;
+    }
+    const row = getStmt.get(id);
+    const cfg = row ? JSON.parse(row.config) : {};
+    const title = cfg.title || 'Application';
+
+    // Note button → modal (carry the review message id so we can edit it on submit).
+    if (action === 'note') {
+      const modal = new ModalBuilder().setCustomId(`appdec:${id}:${applicantId}:notemodal:${interaction.message.id}`).setTitle('Add a staff note');
+      modal.addComponents(new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('note').setLabel('Note (added to the application)').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(500)));
+      await interaction.showModal(modal).catch(() => {});
+      return true;
+    }
+    if (action === 'notemodal' && interaction.isModalSubmit()) {
+      const note = field(interaction, 'note');
+      const msgId = cid.split(':')[4];
+      try {
+        const msg = await interaction.channel.messages.fetch(msgId);
+        const e = EmbedBuilder.from(msg.embeds[0]);
+        e.addFields({ name: `📝 Note by ${interaction.user.tag}`, value: note.slice(0, 1024) });
+        await msg.edit({ embeds: [e] });
+      } catch { /* message gone */ }
+      await interaction.reply(eph('📝 Note added.')).catch(() => {});
+      return true;
+    }
+
+    // Deny → ask for an optional reason first (shown to the applicant).
+    if (action === 'deny') {
+      const modal = new ModalBuilder().setCustomId(`appdec:${id}:${applicantId}:denyreason:${interaction.message.id}`).setTitle('Deny — reason (optional)');
+      modal.addComponents(new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('reason').setLabel('Reason (shown to the applicant)').setStyle(TextInputStyle.Paragraph).setRequired(false).setMaxLength(500)));
+      await interaction.showModal(modal).catch(() => {});
+      return true;
+    }
+    if (action === 'denyreason' && interaction.isModalSubmit()) {
+      const reason = field(interaction, 'reason');
+      let reviewMsg = null;
+      try { reviewMsg = await interaction.channel.messages.fetch(cid.split(':')[4]); } catch { /* gone */ }
+      await finalizeDecision({ reviewMsg, approved: false, reviewerId: interaction.user.id, reviewerTag: interaction.user.tag, applicantId, title, cfg, guild: interaction.guild, client: interaction.client, reason });
+      await interaction.reply(eph('⛔ Application denied.')).catch(() => {});
+      return true;
+    }
+    // Approve → instant.
+    if (action === 'approve') {
+      await interaction.deferUpdate().catch(() => {});
+      await finalizeDecision({ reviewMsg: interaction.message, approved: true, reviewerId: interaction.user.id, reviewerTag: interaction.user.tag, applicantId, title, cfg, guild: interaction.guild, client: interaction.client });
+      return true;
+    }
     return true;
   }
 
