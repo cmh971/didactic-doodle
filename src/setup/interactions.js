@@ -48,6 +48,8 @@ export const METADATA = {
   // Identity Settings
   'identity.name': { label: 'Bot Username', max: 32, style: TextInputStyle.Short, required: true },
   'identity.avatar': { label: 'Avatar Image URL', max: 500, style: TextInputStyle.Short, required: true },
+  'identity.bio': { label: 'Global Bio / About Me (all servers)', max: 400, style: TextInputStyle.Paragraph, required: false },
+  'identity.serverbio': { label: 'Server Bio (this server only)', max: 400, style: TextInputStyle.Paragraph, required: false },
   'identity.nick': { label: 'Server Nickname', max: 32, style: TextInputStyle.Short, required: false },
   'identity.guildavatar': { label: 'Server Avatar Image URL', max: 500, style: TextInputStyle.Short, required: true },
   
@@ -86,6 +88,7 @@ function fetchStateValue(key, cfg, client) {
     const guild = client.guilds.cache.get(cfg.guildId);
     if (key === 'identity.name') return client.user.username;
     if (key === 'identity.avatar') return '';
+    if (key === 'identity.bio') return client.application?.description || '';
     if (key === 'identity.nick') return guild?.members?.me?.nickname || '';
   }
   
@@ -273,13 +276,13 @@ export async function handleSetup(interaction) {
     // then do the slow work, then editReply. Local saves stay on the fast path.
     // Defense in depth: block global identity saves from non-owners (the modal
     // button already blocks it, but never trust the client).
-    if ((targetKey === 'identity.name' || targetKey === 'identity.avatar') && !isGlobalOwner(interaction.user.id)) {
-      await interaction.reply(eph('🔒 Only the bot owner can change the global username/avatar.')).catch(() => {});
+    if ((targetKey === 'identity.name' || targetKey === 'identity.avatar' || targetKey === 'identity.bio') && !isGlobalOwner(interaction.user.id)) {
+      await interaction.reply(eph('🔒 Only the bot owner can change the global username/avatar/bio.')).catch(() => {});
       return true;
     }
 
-    const isSlow = targetKey === 'identity.name' || targetKey === 'identity.avatar'
-      || targetKey === 'identity.nick' || targetKey === 'identity.guildavatar';
+    const isSlow = targetKey === 'identity.name' || targetKey === 'identity.avatar' || targetKey === 'identity.bio'
+      || targetKey === 'identity.nick' || targetKey === 'identity.guildavatar' || targetKey === 'identity.serverbio';
     if (isSlow) await interaction.deferUpdate().catch(() => {});
 
     try {
@@ -292,8 +295,17 @@ export async function handleSetup(interaction) {
 
       if (targetKey === 'identity.name') await client.user.setUsername(cleanedValue);
       else if (targetKey === 'identity.avatar') await client.user.setAvatar(cleanedValue);
+      else if (targetKey === 'identity.bio') await client.application.edit({ description: cleanedValue }); // bot "About Me"
       else if (targetKey === 'identity.guildavatar') await setGuildAvatar(guild, cleanedValue); // this server only
       else if (targetKey === 'identity.nick') await guild.members.me.setNickname(cleanedValue || null);
+      else if (targetKey === 'identity.serverbio') {
+        // Store it (shows in /botinfo) AND try to set the bot's real per-server
+        // profile bio. Discord may not accept a bio for a bot member — if so, the
+        // stored value is the working fallback, so we swallow the error.
+        setNested(guildId, 'identity', 'serverbio', cleanedValue);
+        // Literal @me route — Routes.guildMember would URL-encode it to %40me.
+        try { await client.rest.patch(`/guilds/${guild.id}/members/@me`, { body: { bio: cleanedValue } }); } catch { /* not supported for bots → stored value still works */ }
+      }
       else if (targetKey.includes('.')) {
         const [root, branch] = targetKey.split('.');
         setNested(guildId, root, branch, cleanedValue);

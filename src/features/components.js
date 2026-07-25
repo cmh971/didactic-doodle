@@ -59,7 +59,7 @@ export function buildMessageComponents(guildId, spec) {
       const b = new ButtonBuilder().setStyle(STYLE[c.style] || ButtonStyle.Secondary).setLabel(String(c.label || 'Role').slice(0, 80)).setCustomId(`cc:${id}`);
       setEmoji(b, c.emoji); pushButton(b);
     } else if (kind === 'form') {
-      const questions = (c.questions || []).filter((q) => q && q.label).slice(0, 5)
+      const questions = (c.questions || []).filter((q) => q && q.label).slice(0, 20)
         .map((q, i) => ({ id: `q${i}`, label: String(q.label).slice(0, 45), paragraph: !!q.paragraph, required: q.required !== false }));
       if (!questions.length) continue;
       const id = store(guildId, 'form', { title: String(c.title || c.label || 'Form').slice(0, 45), channelId: c.channelId || null, questions });
@@ -108,10 +108,38 @@ export function buildPagesMessage(guildId, pages) {
   return { embeds: [pageEmbed(clean[0])], components: [pageRow(id, 0, clean.length)] };
 }
 
+// ---- paginated application forms (Discord modals cap at 5 inputs, so >5
+// questions are collected 5-at-a-time across multiple modal "pages") ----
+const FORM_PAGE = 5;
+const pendingForms = new Map(); // `${userId}:${formId}` -> { answers, at }
+
+function formModal(id, cfg, page) {
+  const total = cfg.questions.length;
+  const pages = Math.ceil(total / FORM_PAGE);
+  const slice = cfg.questions.slice(page * FORM_PAGE, page * FORM_PAGE + FORM_PAGE);
+  const title = (pages > 1 ? `${cfg.title} (${page + 1}/${pages})` : cfg.title).slice(0, 45);
+  const modal = new ModalBuilder().setCustomId(`ccform:${id}:${page}`).setTitle(title);
+  for (const q of slice) {
+    modal.addComponents(new ActionRowBuilder().addComponents(
+      new TextInputBuilder().setCustomId(q.id).setLabel(q.label.slice(0, 45)).setStyle(q.paragraph ? TextInputStyle.Paragraph : TextInputStyle.Short).setRequired(q.required !== false).setMaxLength(1000),
+    ));
+  }
+  return modal;
+}
+
 // Route an interaction on a custom component. Returns true if handled.
 export async function handleCustomComponent(interaction) {
   const cid = interaction.customId;
   if (!cid) return false;
+
+  // "Continue →" between form pages: open the next modal page.
+  if (cid.startsWith('cccont:')) {
+    const [, id, pageStr] = cid.split(':');
+    const row = getStmt.get(id);
+    if (!row) { await interaction.reply(eph('This form is no longer available.')).catch(() => {}); return true; }
+    await interaction.showModal(formModal(id, JSON.parse(row.config), Number(pageStr) || 0)).catch(() => {});
+    return true;
+  }
 
   // Page navigation for a paginated panel: ccpage:<id>:<targetIndex>
   if (cid.startsWith('ccpage:')) {
@@ -125,19 +153,45 @@ export async function handleCustomComponent(interaction) {
     return true;
   }
 
-  // Form modal submit → post the answers to the configured channel.
+  // Form modal submit (one page of up to 5 answers) → collect, then continue or post.
   if (cid.startsWith('ccform:') && interaction.isModalSubmit()) {
-    const row = getStmt.get(cid.slice(7));
+    const parts = cid.slice(7).split(':');
+    const id = parts[0];
+    const page = Number(parts[1]) || 0;
+    const row = getStmt.get(id);
     if (!row) { await interaction.reply(eph('This form is no longer available.')).catch(() => {}); return true; }
     const cfg = JSON.parse(row.config);
-    const embed = new EmbedBuilder().setColor(0x5865f2).setTitle(`📝 ${cfg.title}`)
+
+    // Merge this page's answers into the user's in-progress bucket.
+    const key = `${interaction.user.id}:${id}`;
+    const bucket = pendingForms.get(key) || { answers: {}, at: Date.now() };
+    for (const q of cfg.questions.slice(page * FORM_PAGE, page * FORM_PAGE + FORM_PAGE)) bucket.answers[q.id] = field(interaction, q.id);
+    bucket.at = Date.now();
+
+    // More questions left → offer a Continue button to open the next page.
+    if ((page + 1) * FORM_PAGE < cfg.questions.length) {
+      pendingForms.set(key, bucket);
+      // prune abandoned in-progress forms (>20 min old)
+      for (const [k, v] of pendingForms) if (Date.now() - v.at > 20 * 60_000) pendingForms.delete(k);
+      const left = cfg.questions.length - (page + 1) * FORM_PAGE;
+      const cont = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`cccont:${id}:${page + 1}`).setLabel(`Continue → (${left} more)`).setEmoji('➡️').setStyle(ButtonStyle.Primary));
+      await interaction.reply({ ...eph(`✅ Saved part ${page + 1}. **${left}** question(s) to go — tap Continue.`), components: [cont] }).catch(() => {});
+      return true;
+    }
+
+    // Final page → compile every answer and post. Keep the embed under Discord's
+    // 6000-char cap by sizing each field to the number of questions.
+    pendingForms.delete(key);
+    const perField = Math.min(1024, Math.max(120, Math.floor(5500 / cfg.questions.length)));
+    const embed = new EmbedBuilder().setColor(0x5865f2).setTitle(`📝 ${cfg.title}`.slice(0, 256))
       .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL?.() })
-      .addFields(cfg.questions.map((q) => ({ name: q.label.slice(0, 256), value: (field(interaction, q.id) || '—').slice(0, 1024) })))
+      .addFields(cfg.questions.map((q) => ({ name: q.label.slice(0, 256), value: (bucket.answers[q.id] || '—').slice(0, perField) || '—' })))
       .setFooter({ text: `From ${interaction.user.id}` }).setTimestamp();
     let posted = false;
     const ch = cfg.channelId && interaction.guild?.channels.cache.get(cfg.channelId);
     if (ch?.isTextBased?.()) { await ch.send({ embeds: [embed] }).catch(() => {}); posted = true; }
-    await interaction.reply(eph(posted ? '✅ Submitted — thank you!' : '✅ Submitted! (No destination channel was set, so staff may not see it — tell an admin.)')).catch(() => {});
+    await interaction.reply(eph(posted ? '✅ Application submitted — thank you!' : '✅ Submitted! (No destination channel was set, so staff may not see it — tell an admin.)')).catch(() => {});
     return true;
   }
 
@@ -172,15 +226,9 @@ export async function handleCustomComponent(interaction) {
     return true;
   }
 
-  // Form button → open the modal.
+  // Form button → open the first modal page (pagination handles >5 questions).
   if (row.type === 'form' && interaction.isButton()) {
-    const modal = new ModalBuilder().setCustomId(`ccform:${row.id}`).setTitle(cfg.title.slice(0, 45));
-    for (const q of cfg.questions) {
-      modal.addComponents(new ActionRowBuilder().addComponents(
-        new TextInputBuilder().setCustomId(q.id).setLabel(q.label.slice(0, 45)).setStyle(q.paragraph ? TextInputStyle.Paragraph : TextInputStyle.Short).setRequired(q.required !== false).setMaxLength(1000),
-      ));
-    }
-    await interaction.showModal(modal);
+    await interaction.showModal(formModal(row.id, cfg, 0));
     return true;
   }
 

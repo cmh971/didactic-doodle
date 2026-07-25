@@ -1,8 +1,9 @@
-/* Minimal service worker — makes the dashboard installable as an app and gives
-   a fast, offline-tolerant shell. Network-first for everything, falling back to
-   cache so the app still opens without a connection. API calls are never cached. */
+/* Service worker — installable dashboard shell (network-first) PLUS an offline
+   audio cache so saved tracks play with no connection (e.g. on a plane).
+   API calls are never cached; saved mp3s are served cache-first. */
 const CACHE = 'dash-shell-v1';
-const SHELL = ['/dashboard', '/', '/style.css', '/app.js', '/icon-192.png', '/icon-512.png', '/manifest.json'];
+const AUDIO = 'sentinel-audio-v1'; // populated by the audio player's "Save offline"
+const SHELL = ['/dashboard', '/', '/style.css', '/app.js', '/icon-192.png', '/icon-512.png', '/manifest.json', '/audio-app'];
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
@@ -10,8 +11,9 @@ self.addEventListener('install', (e) => {
 });
 
 self.addEventListener('activate', (e) => {
+  const keep = [CACHE, AUDIO]; // never delete the offline audio cache
   e.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => !keep.includes(k)).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
 });
@@ -21,6 +23,18 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+
+  // Saved audio → cache-first so it plays offline. Serve the cached full file
+  // even for the media element's Range requests (ignoreVary/ignoreSearch).
+  if (url.pathname.startsWith('/audio/')) {
+    e.respondWith(
+      caches.open(AUDIO)
+        .then((c) => c.match(url.pathname, { ignoreVary: true, ignoreSearch: true }))
+        .then((hit) => hit || fetch(req)),
+    );
+    return;
+  }
+
   // Never cache API / auth traffic — always hit the network.
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/') ||
       ['/login', '/callback', '/logout'].includes(url.pathname)) return;
@@ -32,6 +46,6 @@ self.addEventListener('fetch', (e) => {
         caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
         return res;
       })
-      .catch(() => caches.match(req).then((r) => r || caches.match('/dashboard'))),
+      .catch(() => caches.match(req).then((r) => r || caches.match('/audio-app') || caches.match('/dashboard'))),
   );
 });

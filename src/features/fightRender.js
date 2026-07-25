@@ -29,6 +29,30 @@ function initials(name) {
   return String(name || '?').replace(/[^a-z0-9 ]/gi, '').split(/\s+/).map((s) => s[0] || '').join('').slice(0, 2).toUpperCase() || '?';
 }
 
+// Heart path inside a w×h box (emoji don't render on canvas, so we draw them).
+function heartPath(ctx, x, y, w, h) {
+  const t = h * 0.3;
+  ctx.beginPath();
+  ctx.moveTo(x + w / 2, y + t);
+  ctx.bezierCurveTo(x + w / 2, y, x, y, x, y + t);
+  ctx.bezierCurveTo(x, y + (h + t) / 2, x + w / 2, y + (h + t) / 1.4, x + w / 2, y + h);
+  ctx.bezierCurveTo(x + w / 2, y + (h + t) / 1.4, x + w, y + (h + t) / 2, x + w, y + t);
+  ctx.bezierCurveTo(x + w, y, x + w / 2, y, x + w / 2, y + t);
+  ctx.closePath();
+}
+
+// Draw a row of 5 heart pips (filled = remaining hearts).
+function drawHearts(ctx, x, y, hp, maxHp, dead) {
+  const perHeart = maxHp / 5;
+  const filled = dead ? 0 : Math.max(0, Math.min(5, Math.ceil(hp / perHeart)));
+  const s = 13; const gap = 5;
+  for (let i = 0; i < 5; i++) {
+    heartPath(ctx, x + i * (s + gap), y, s, s);
+    if (i < filled) { ctx.fillStyle = '#ff4d6d'; ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = '#ff7d97'; ctx.stroke(); }
+    else { ctx.fillStyle = '#2a1620'; ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = '#4a2634'; ctx.stroke(); }
+  }
+}
+
 // Draw one fighter cell.
 function drawFighter(ctx, f, avatarImg, x, y, w, h) {
   const dead = !f.alive;
@@ -73,6 +97,9 @@ function drawFighter(ctx, f, avatarImg, x, y, w, h) {
   roundRect(ctx, tx, y + 44, chipW, 22, 11); ctx.fillStyle = dead ? '#333' : wp.color + '33'; ctx.fill();
   ctx.strokeStyle = dead ? '#444' : wp.color; ctx.lineWidth = 1; ctx.stroke();
   ctx.fillStyle = dead ? '#777' : '#fff'; ctx.textAlign = 'center'; ctx.fillText(wp.name, tx + chipW / 2, y + 59);
+
+  // hearts (5 pips) just above the HP bar
+  drawHearts(ctx, tx, y + h - 52, f.hp, f.maxHp, dead);
 
   // HP bar
   const bx = tx; const by = y + h - 30; const bw = w - (tx - x) - 18; const bh = 16;

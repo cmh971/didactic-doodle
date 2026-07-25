@@ -412,7 +412,7 @@
           <label class="check big"><input type="checkbox" id="an-useembed" checked /> <span>Include a rich embed</span></label>
           <div class="embed-fields">
             <label class="field"><span>Title</span><input id="an-title" class="input" maxlength="256" placeholder="Big news!" /></label>
-            <label class="field"><span>Description</span><textarea id="an-desc" class="input" rows="6" maxlength="4096" placeholder="Write your announcement… **markdown** works."></textarea></label>
+            <label class="field"><span>Description</span><textarea id="an-desc" class="input" rows="6" maxlength="4096" placeholder="Write your announcement… **markdown** works."></textarea><div class="tk-tools"><button type="button" class="tk-divider-btn" id="an-desc-divider" title="Insert a solid line divider">▬ Insert solid line</button></div></label>
             <div class="two-col">
               <label class="field"><span>Accent color</span><input id="an-color" type="color" value="#5865f2" class="input color-input" /></label>
               <label class="field"><span>Footer</span><input id="an-footer" class="input" maxlength="2048" placeholder="Posted via dashboard" /></label>
@@ -459,10 +459,9 @@
             </div>
             <label class="field cf cf-channel" hidden><span>Post form answers to</span><select id="an-cf-channel" class="select"></select></label>
             <div class="cf cf-questions" hidden>
-              <span class="muted">Form questions (fill 1–5)</span>
-              <input class="input an-q" data-q="0" maxlength="45" placeholder="Question 1" style="margin-top:6px" />
-              <input class="input an-q" data-q="1" maxlength="45" placeholder="Question 2 (optional)" style="margin-top:6px" />
-              <input class="input an-q" data-q="2" maxlength="45" placeholder="Question 3 (optional)" style="margin-top:6px" />
+              <span class="muted">Application questions (add up to 20 — shown 5 per page in Discord)</span>
+              <div id="an-q-list"></div>
+              <button type="button" class="btn small" id="an-q-add" style="margin-top:6px">➕ Add question</button>
             </div>
             <button class="btn block" id="an-comp-add" style="margin-top:8px">➕ Add component</button>
           </div>
