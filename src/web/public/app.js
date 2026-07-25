@@ -1251,6 +1251,7 @@ async function loadAnnounce() {
   const chanOpts = channels.map((c) => `<option value="${esc(c.id)}">#${esc(c.name)}</option>`).join('') || '<option value="">No channels</option>';
   sel.innerHTML = chanOpts;
   if ($('an-cf-channel')) $('an-cf-channel').innerHTML = chanOpts;
+  if ($('an-cf-results')) $('an-cf-results').innerHTML = '<option value="">— none (DM only) —</option>' + chanOpts;
   const roleOpts = roles.map((r) => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('') || '<option value="">No roles</option>';
   if ($('an-cf-role')) $('an-cf-role').innerHTML = roleOpts;
   if ($('an-menu-role')) $('an-menu-role').innerHTML = roleOpts;
@@ -1335,6 +1336,7 @@ function syncCompFields() {
     'cf-ph': kind === 'rolemenu',
     'cf-roles': kind === 'rolemenu',
     'cf-channel': kind === 'form',
+    'cf-results': kind === 'form',
     'cf-questions': kind === 'form',
   };
   Object.entries(show).forEach(([cls, vis]) => { const el = qs('.' + cls); if (el) el.hidden = !vis; });
@@ -1362,7 +1364,7 @@ function addAnnComponent() {
     const questions = qsa('.an-q').map((i) => i.value.trim()).filter(Boolean).map((q) => ({ label: q, paragraph: true, required: true }));
     if (!questions.length) return toast('Add at least one form question', 'error');
     comp.label = label || 'Open Form'; comp.style = style; comp.title = label || 'Form';
-    comp.channelId = $('an-cf-channel')?.value || null; comp.questions = questions;
+    comp.channelId = $('an-cf-channel')?.value || null; comp.results = $('an-cf-results')?.value || null; comp.questions = questions;
   }
   announceComponents.push(comp);
   renderAnnComponents();

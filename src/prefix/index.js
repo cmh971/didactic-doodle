@@ -36,7 +36,8 @@ function helpText() {
 // messageCreate hook. Returns true if it handled a "?" command.
 export async function handlePrefixCommand(message) {
   const raw = (message.content || '').trim();
-  if (!raw.startsWith('?') || raw.length < 2) return false;
+  // Both "?" and "," trigger the command pack (some people type "," naturally).
+  if (!(raw.startsWith('?') || raw.startsWith(',')) || raw.length < 2) return false;
   const [word, ...restArr] = raw.slice(1).split(/\s+/);
   const name = word.toLowerCase();
 

@@ -179,7 +179,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (interaction.customId.startsWith('setup:')) await handleSetup(interaction);
       else if (interaction.customId.startsWith('infraction:')) await handleInfraction(interaction);
       else if (interaction.customId.startsWith('appeal:')) await handleAppeal(interaction);
-      else if (interaction.customId.startsWith('ccform:')) await handleCustomComponent(interaction);
+      else if (interaction.customId.startsWith('ccform:') || interaction.customId.startsWith('appdec:')) await handleCustomComponent(interaction);
       else if (interaction.customId.startsWith('ticket:')) await handleTicketModal(interaction);
       else if (interaction.customId.startsWith('fight:')) await handleFightButton(interaction);
       else if (interaction.customId.startsWith('session:')) await handleSessionInteraction(interaction);
@@ -192,7 +192,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       else if (cid.startsWith('fight:')) await handleFightButton(interaction);
       else if (cid.startsWith('frig:')) await handleFightRigButton(interaction);
       else if (cid.startsWith('session:')) await handleSessionInteraction(interaction);
-      else if (cid.startsWith('cc:') || cid.startsWith('ccpage:') || cid.startsWith('cccont:')) await handleCustomComponent(interaction);
+      else if (cid.startsWith('cc:') || cid.startsWith('ccpage:') || cid.startsWith('cccont:') || cid.startsWith('appdec:')) await handleCustomComponent(interaction);
       else if (cid.startsWith('help:')) await handleHelp(interaction);
       else if (cid.startsWith('ticket:')) await handleTicketButton(interaction);
       else if (cid.startsWith('mod:')) await handleModButton(interaction);

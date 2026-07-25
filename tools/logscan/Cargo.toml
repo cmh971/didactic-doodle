@@ -1,0 +1,13 @@
+[package]
+name = "logscan"
+version = "0.1.0"
+edition = "2021"
+description = "Fast Sentinel log analyzer — buckets PM2/bot log lines by severity."
+
+[[bin]]
+name = "logscan"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
