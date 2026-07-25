@@ -2,7 +2,7 @@
 // Once STARTed, every render shows 20 move buttons: punch, kick, fire gun, throw
 // a Boeing 737, drop a nuke, etc. Any alive fighter clicks a move to act; the AI
 // fight back. Owner secretly rigs via DM "!rigf". Arena drawn on canvas.
-import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } from 'discord.js';
+import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
 import { renderArena } from './fightRender.js';
 import { balance, addWallet } from '../economy/store.js';
 
@@ -26,7 +26,9 @@ const WEAPONS = [
   { name: 'Grenade', color: '#d35400' }, { name: 'Minigun', color: '#2ecc71' }, { name: 'Katana', color: '#e84393' },
 ];
 const rndW = () => WEAPONS[Math.floor(Math.random() * WEAPONS.length)];
-const mk = (id, name, ai, avatar) => ({ id, name: String(name).slice(0, 24), ai: !!ai, avatar: avatar || null, weapon: rndW(), hp: 100, maxHp: 100, alive: true, rage: 0 });
+// 5 hearts, 40 HP each = 200 max. Double the old 100, so fights run ~2x longer.
+const MAX_HP = 200;
+const mk = (id, name, ai, avatar) => ({ id, name: String(name).slice(0, 24), ai: !!ai, avatar: avatar || null, weapon: rndW(), hp: MAX_HP, maxHp: MAX_HP, alive: true, rage: 0 });
 
 // ---- combat helpers ----
 const rnd = (n) => Math.floor(Math.random() * n);
@@ -46,12 +48,25 @@ function settle(fight) {
   if (winner && !winner.ai) { addWallet(winner.id, fight.pot, 'fight-win'); fight.log.push(`💰 **${winner.name}** won the pot — ${COIN}${fight.pot.toLocaleString()}!`); }
   else { for (const id of fight.paidIds) addWallet(id, fight.bet, 'fight-refund'); fight.log.push(`💸 A bot took the win — all bets refunded (${COIN}${fight.bet.toLocaleString()} each).`); }
 }
+// 🤫 Subtle owner rig ("rigged a little bit"): the owner hits ~30% harder,
+// takes ~30% less, and dodges 18% of the time. Not a guaranteed win — just an edge.
+const isRigged = (fighter) => fighter && !fighter.ai && isOwner(fighter.id);
+function riggedDamage(a, t, d) {
+  if (isRigged(a)) d = Math.floor(d * 1.3);
+  if (isRigged(t)) {
+    if (Math.random() < 0.18) return 0; // dodged
+    d = Math.floor(d * 0.7);
+  }
+  return d;
+}
 function hit(f, a, min, max, verb) {
   const e = aliveEnemies(f, a); if (!e.length) return '';
   const t = e[rnd(e.length)];
   let d = min + rnd(max - min + 1);
   if (a.rage > 0) { d = Math.floor(d * 1.5); a.rage--; }
   const crit = Math.random() < 0.15; if (crit) d = Math.floor(d * 1.6);
+  d = riggedDamage(a, t, d);
+  if (d <= 0) return `🍀 ${t.name} dodged ${a.name}'s attack!`;
   t.hp -= d;
   if (t.hp <= 0) { t.hp = 0; t.alive = false; checkWinner(f); return `💀 ${a.name} ${verb || 'hit'} ${t.name} for ${d} — **ELIMINATED!**`; }
   return `${crit ? '💥 CRIT! ' : ''}${a.name} ${verb || 'hit'} ${t.name} for ${d}`;
@@ -60,7 +75,7 @@ function aoe(f, a, min, max, count, verb) {
   let e = aliveEnemies(f, a); if (!e.length) return '';
   e = e.sort(() => Math.random() - 0.5).slice(0, count);
   const parts = [];
-  for (const t of e) { let d = min + rnd(max - min + 1); if (a.rage > 0) d = Math.floor(d * 1.5); t.hp -= d; if (t.hp <= 0) { t.hp = 0; t.alive = false; } parts.push(`${t.name}(${d})`); }
+  for (const t of e) { let d = min + rnd(max - min + 1); if (a.rage > 0) d = Math.floor(d * 1.5); d = riggedDamage(a, t, d); t.hp -= d; if (t.hp <= 0) { t.hp = 0; t.alive = false; } parts.push(`${t.name}(${d})`); }
   if (a.rage > 0) a.rage--;
   checkWinner(f);
   return `💥 ${a.name} ${verb || 'blasted'} ${parts.join(', ')}`;
@@ -87,7 +102,7 @@ const MOVES = [
   { key: 'laser', label: 'Laser', emoji: '⚡', style: 4, act: (f, a) => hit(f, a, 25, 45, 'lasered') },
   { key: '737', label: 'Throw 737', emoji: '✈️', style: 4, act: (f, a) => aoe(f, a, 40, 70, 1, '✈️ THREW A BOEING 737 at') },
   { key: 'meteor', label: 'Meteor', emoji: '☄️', style: 4, act: (f, a) => aoe(f, a, 30, 55, 3, '☄️ called a meteor down on') },
-  { key: 'nuke', label: 'NUKE', emoji: '☢️', style: 4, act: (f, a) => { let n = 0; for (const t of f.fighters) if (t.alive && t.id !== a.id) { t.hp = 0; t.alive = false; n++; } checkWinner(f); return `☢️ **${a.name} DROPPED A NUKE** — ${n} fighter(s) vaporized!`; } },
+  { key: 'nuke', label: 'NUKE', emoji: '☢️', style: 4, act: (f, a) => { const parts = []; let downed = 0; for (const t of f.fighters) { if (!t.alive || t.id === a.id) continue; let d = 110 + rnd(31); if (a.rage > 0) d = Math.floor(d * 1.5); d = riggedDamage(a, t, d); t.hp -= d; if (t.hp <= 0) { t.hp = 0; t.alive = false; downed++; } parts.push(`${t.name}(${d})`); } checkWinner(f); return `☢️ **${a.name} DROPPED A NUKE** — massive blast! ${parts.join(', ')}${downed ? ` — ${downed} down!` : ' — everyone survived… barely. Hit them AGAIN! ☢️☢️'}`; } },
   { key: 'fingerguns', label: 'Finger Guns', emoji: '😎', style: 2, act: (f, a) => { const e = aliveEnemies(f, a); if (!e.length) return ''; const t = e[rnd(e.length)]; if (Math.random() < 0.05) { t.hp = 0; t.alive = false; checkWinner(f); return `😎 ${a.name} finger-gunned ${t.name}… and **INSTANTLY KO'd them?!**`; } t.hp = Math.max(0, t.hp - 1); if (t.hp <= 0) { t.alive = false; checkWinner(f); } return `😎 ${a.name} finger-gunned ${t.name} for 1`; } },
 ];
 const STYLE = { 1: ButtonStyle.Primary, 2: ButtonStyle.Secondary, 3: ButtonStyle.Success, 4: ButtonStyle.Danger };
@@ -101,6 +116,43 @@ function aiTurn(f) {
   checkWinner(f);
 }
 function autoResolve(f) { let g = 0; while (!f.over && g++ < 80) { for (const ai of f.fighters) { if (!ai.alive || f.over) continue; const l = hit(f, ai, 8, 24); if (l) f.log.push(l); } checkWinner(f); } }
+
+// ---- ready check ----
+// Everyone must be ready before the brawl starts. Real fighters click ✅ Ready;
+// AI fighters "warm up" for a random 1–2 minutes, then ready themselves.
+async function refreshMsg(f) { if (f.msg) await f.msg.edit(await render(f)).catch(() => {}); }
+
+function allReady(f) { return f.fighters.length > 0 && f.fighters.every((x) => x.ready); }
+
+function maybeStart(f) {
+  if (f.started || f.over || !allReady(f)) return false;
+  f.started = true;
+  f.log.push('🔫 Everyone is ready — weapons hot!');
+  return true;
+}
+
+function scheduleAiReady(f) {
+  for (const ai of f.fighters) {
+    if (!ai.ai || ai.ready || ai.readyTimer) continue;
+    const delay = 60_000 + Math.floor(Math.random() * 60_000); // 1–2 minutes
+    ai.readyAt = Date.now() + delay;
+    ai.readyTimer = setTimeout(async () => {
+      ai.readyTimer = null; ai.ready = true; ai.readyAt = null;
+      if (f.started || f.over) return;
+      f.log.push(`✅ ${ai.name} finished warming up — ready!`);
+      maybeStart(f);
+      await refreshMsg(f);
+    }, delay);
+  }
+}
+
+function readyStatusText(f) {
+  return f.fighters.map((x) => {
+    if (x.ready) return `✅ ${x.ai ? '🤖' : '🧑'} ${x.name}`;
+    if (x.ai) { const s = Math.max(0, Math.round(((x.readyAt || Date.now()) - Date.now()) / 1000)); return `⏳ 🤖 ${x.name} _(warming up… ~${s}s)_`; }
+    return `⬜ 🧑 ${x.name} _(not ready)_`;
+  }).join('\n').slice(0, 1024);
+}
 
 // ---------------------------------------------------------------------------
 export async function handleFightText(message) {
@@ -137,6 +189,7 @@ export async function handleFightText(message) {
   const fight = { channelId: message.channel.id, hostId: message.author.id, fighters, started: false, round: 0, log: bet ? [`🔔 High-stakes brawl — ${COIN}${bet.toLocaleString()} per fighter!`] : ['🔔 Fighters entering the arena…'], over: false, winner: null, winnerId: null, bet, pot: bet, paidIds, settled: false, createdAt: Date.now(), msg: null };
   fights.set(message.channel.id, fight);
   fight.msg = await message.reply(await render(fight)).catch(() => null);
+  scheduleAiReady(fight); // AI fighters warm up for 1–2 min, then ready themselves
   return true;
 }
 
@@ -148,17 +201,23 @@ async function render(fight) {
     .setTitle(fight.over ? `🏆 ${fight.winner} wins the brawl!` : fight.started ? `⚔️ Battle Royale — pick your move` : '⚔️ Battle Royale — Lobby')
     .setImage('attachment://arena.png');
   if (fight.bet) embed.addFields({ name: '💰 Stakes', value: `${COIN} **${fight.pot.toLocaleString()}** pot · ${COIN}${fight.bet.toLocaleString()} per fighter${fight.over ? '' : ' · winner takes all'}`, inline: false });
+  if (!fight.started && !fight.over) {
+    embed.addFields({ name: '🫡 Ready check — everyone must ready up', value: readyStatusText(fight) });
+    embed.setFooter({ text: 'Click ✅ Ready. AI opponents warm up for 1–2 min. Fight auto-starts when all are ready.' });
+  }
   if (fight.log.length) embed.addFields({ name: '📜 Kill feed', value: fight.log.slice(-6).join('\n').slice(0, 1024) });
 
+  const chatBtn = new ButtonBuilder().setCustomId('fight:chat').setLabel('Chat').setEmoji('💬').setStyle(ButtonStyle.Secondary);
   let components = [];
   if (!fight.over) {
     if (!fight.started) {
       components = [new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('fight:join').setLabel('Join').setEmoji('🙋').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('fight:start').setLabel('START').setEmoji('▶️').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('fight:ready').setLabel('Ready').setEmoji('✅').setStyle(ButtonStyle.Success),
+        chatBtn,
       )];
     } else {
-      // 20 move buttons → 4 rows of 5
+      // 20 move buttons → 4 rows of 5, plus a chat row (5 rows = Discord max)
       for (let r = 0; r < 4; r++) {
         const row = new ActionRowBuilder();
         for (let c = 0; c < 5; c++) {
@@ -167,6 +226,7 @@ async function render(fight) {
         }
         components.push(row);
       }
+      components.push(new ActionRowBuilder().addComponents(chatBtn));
     }
   }
   return { embeds: [embed], files: [attachment], attachments: [], components };
@@ -194,16 +254,43 @@ export async function handleFightButton(interaction) {
     }
     const newF = mk(interaction.user.id, interaction.user.username, false, interaction.user.displayAvatarURL({ extension: 'png', size: 128 }));
     const aiIdx = fight.fighters.findIndex((f) => f.ai);
-    if (aiIdx !== -1) fight.fighters[aiIdx] = newF; else if (fight.fighters.length < MAX) fight.fighters.push(newF);
+    if (aiIdx !== -1) { const old = fight.fighters[aiIdx]; if (old.readyTimer) clearTimeout(old.readyTimer); fight.fighters[aiIdx] = newF; }
+    else if (fight.fighters.length < MAX) fight.fighters.push(newF);
     fight.log.push(`🙋 ${newF.name} bought in${fight.bet ? ` for ${COIN}${fight.bet.toLocaleString()}` : ''}!`);
     await interaction.deferUpdate().catch(() => {}); fight.msg = interaction.message; await interaction.editReply(await render(fight)).catch(() => {});
     return true;
   }
-  if (action === 'start') {
-    if (fight.started || fight.over) return void eph('Already started.');
-    fight.started = true; fight.log.push('🔫 Weapons hot — pick your moves!');
-    await interaction.deferUpdate().catch(() => {}); fight.msg = interaction.message; await interaction.editReply(await render(fight)).catch(() => {});
+  if (action === 'ready') {
+    if (fight.started || fight.over) return void eph('The fight already started.');
+    const me = fight.fighters.find((f) => f.id === interaction.user.id);
+    if (!me) return void eph('Join the fight first with 🙋 Join.');
+    if (me.ready) return void eph("You're already ready! ✅");
+    me.ready = true;
+    fight.log.push(`✅ ${me.name} is ready!`);
+    maybeStart(fight); // auto-starts once EVERYONE (incl. AI) is ready
+    await interaction.deferUpdate().catch(() => {});
+    fight.msg = interaction.message;
+    await interaction.editReply(await render(fight)).catch(() => {});
     return true;
+  }
+
+  // ---- in-fight chat: Chat → private prompt → Write button → modal → public msg ----
+  if (action === 'chat') {
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('fight:chatwrite').setLabel('Write message').setEmoji('✍️').setStyle(ButtonStyle.Primary));
+    return void interaction.reply({ content: '💬 Only you can see this. Tap the button, type your message, and it posts to the arena with your name.', components: [row], flags: MessageFlags.Ephemeral }).catch(() => {});
+  }
+  if (action === 'chatwrite') {
+    const modal = new ModalBuilder().setCustomId('fight:chatmsg').setTitle('Arena Chat');
+    modal.addComponents(new ActionRowBuilder().addComponents(
+      new TextInputBuilder().setCustomId('msg').setLabel('Your message').setStyle(TextInputStyle.Paragraph).setMaxLength(200).setRequired(true)));
+    return void interaction.showModal(modal).catch(() => {});
+  }
+  if (action === 'chatmsg') {
+    const msg = (interaction.fields?.getTextInputValue('msg') || '').trim().slice(0, 200);
+    const name = interaction.member?.displayName || interaction.user.username;
+    if (msg) await interaction.channel.send({ content: `💬 **${name}:** ${msg}`, allowedMentions: { parse: [] } }).catch(() => {});
+    return void interaction.reply({ content: 'Sent! ✅', flags: MessageFlags.Ephemeral }).catch(() => {});
   }
 
   // a move

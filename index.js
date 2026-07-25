@@ -12,6 +12,7 @@ import { handleInfraction, handleAppeal } from './src/systems/infractions.js';
 import { handleCustomComponent } from './src/features/components.js';
 import { openRigPanel, handleRigButton, isOwner as isRigOwner } from './src/uno/rig.js';
 import { handleFightButton, openFightRig, handleFightRigButton } from './src/features/fight.js';
+import { handleSessionInteraction } from './src/features/session.js';
 import { startUnoSpy } from './src/uno/spy.js';
 import { initMirror } from './src/db/mirror.js';
 import { handleHelp } from './src/help/ui.js';
@@ -111,6 +112,16 @@ async function registerCommands() {
   }
 }
 
+// ---- Global crash guards: one bad command / stray promise must NEVER take
+// down the whole bot. We log and keep running; PM2 is still the backstop for a
+// truly fatal, unrecoverable state. ----
+process.on('unhandledRejection', (reason) => {
+  console.error('⚠️ Unhandled promise rejection (caught — bot stays up):', reason?.stack || reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('⚠️ Uncaught exception (caught — bot stays up):', err?.stack || err);
+});
+
 // ---- Create client ----
 const client = new Client({
   intents: [
@@ -170,6 +181,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       else if (interaction.customId.startsWith('appeal:')) await handleAppeal(interaction);
       else if (interaction.customId.startsWith('ccform:')) await handleCustomComponent(interaction);
       else if (interaction.customId.startsWith('ticket:')) await handleTicketModal(interaction);
+      else if (interaction.customId.startsWith('fight:')) await handleFightButton(interaction);
+      else if (interaction.customId.startsWith('session:')) await handleSessionInteraction(interaction);
     } else if (interaction.isMessageComponent()) {
       const cid = interaction.customId;
       if (cid.startsWith('setup:')) await handleSetup(interaction);
@@ -178,7 +191,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       else if (cid.startsWith('rig:')) await handleRigButton(interaction);
       else if (cid.startsWith('fight:')) await handleFightButton(interaction);
       else if (cid.startsWith('frig:')) await handleFightRigButton(interaction);
-      else if (cid.startsWith('cc:') || cid.startsWith('ccpage:')) await handleCustomComponent(interaction);
+      else if (cid.startsWith('session:')) await handleSessionInteraction(interaction);
+      else if (cid.startsWith('cc:') || cid.startsWith('ccpage:') || cid.startsWith('cccont:')) await handleCustomComponent(interaction);
       else if (cid.startsWith('help:')) await handleHelp(interaction);
       else if (cid.startsWith('ticket:')) await handleTicketButton(interaction);
       else if (cid.startsWith('mod:')) await handleModButton(interaction);

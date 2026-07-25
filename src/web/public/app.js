@@ -273,11 +273,19 @@ async function refreshStats() {
 function prepCanvas(canvas) {
   if (!canvas) return null;
   const dpr = window.devicePixelRatio || 1;
-  const w = canvas.clientWidth || canvas.parentElement?.clientWidth || 300;
-  const h = Number(canvas.getAttribute('height')) || 150;
-  canvas.width = w * dpr; canvas.height = h * dpr;
+  // Capture the intended height ONCE. The old code read the `height` attribute
+  // and then overwrote it with h*dpr below — so on mobile (dpr>1) h grew every
+  // redraw, making the chart taller and taller until the tab crashed (":("). We
+  // cache it so it can never be re-read after being overwritten.
+  if (!canvas.dataset.baseH) canvas.dataset.baseH = String(Number(canvas.getAttribute('height')) || 150);
+  const h = Number(canvas.dataset.baseH);
+  // Lock the CSS display size so the backing store never drives layout.
+  canvas.style.width = '100%';
+  canvas.style.height = h + 'px';
+  const w = Math.max(1, Math.floor(canvas.clientWidth || canvas.parentElement?.clientWidth || 300));
+  canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
   const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // absolute (not compounding like scale())
   return { ctx, w, h };
 }
 function themeColor(name) {
@@ -1136,7 +1144,11 @@ function renderTicketForm() {
       } else if (f.type === 'role') {
         html += `<label class="field${wide}"><span>${esc(f.label)}</span><select id="${id}" class="select">${optionList(state.tkRoles, val, 'role')}</select></label>`;
       } else if (f.type === 'textarea') {
-        html += `<label class="field${wide}"><span>${esc(f.label)}</span><textarea id="${id}" class="input" rows="3">${esc(val)}</textarea></label>`;
+        // The description gets a one-tap "solid line divider" injector.
+        const tools = f.k === 'description'
+          ? `<div class="tk-tools"><button type="button" class="tk-divider-btn" data-target="${id}" title="Insert a solid line divider">▬ Insert solid line</button></div>`
+          : '';
+        html += `<label class="field${wide}"><span>${esc(f.label)}</span><textarea id="${id}" class="input" rows="3">${esc(val)}</textarea>${tools}</label>`;
       } else {
         const t = f.type === 'number' ? 'number' : 'text';
         html += `<label class="field${wide}"><span>${esc(f.label)}</span><input id="${id}" type="${t}" class="input" value="${esc(val)}" /></label>`;
@@ -1158,6 +1170,22 @@ function renderTicketForm() {
     if (el.id === 'tkf-menuOptions') renderCategoryRoles();
     updateTicketPreview();
   }));
+  // "Insert solid line" divider buttons.
+  form.querySelectorAll('.tk-divider-btn').forEach((b) => on(b, 'click', () => insertTicketDivider(b.dataset.target)));
+}
+// A solid horizontal divider — black-bar chars (▬) sit flush with no gaps, so it
+// renders as ONE continuous solid line in Discord (not a row of dashes).
+const TICKET_DIVIDER = '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬';
+function insertTicketDivider(id) {
+  const ta = document.getElementById(id); if (!ta) return;
+  const start = ta.selectionStart ?? ta.value.length;
+  const end = ta.selectionEnd ?? ta.value.length;
+  const before = ta.value.slice(0, start);
+  const chunk = (before && !before.endsWith('\n') ? '\n' : '') + TICKET_DIVIDER + '\n';
+  ta.value = before + chunk + ta.value.slice(end);
+  const pos = start + chunk.length;
+  ta.focus(); ta.setSelectionRange(pos, pos);
+  updateTicketPreview();
 }
 // Render one role picker per menu option so each ticket type can ping a different team.
 function renderCategoryRoles() {
@@ -1340,7 +1368,7 @@ function addAnnComponent() {
   renderAnnComponents();
   // reset the small inputs
   ['an-cf-label', 'an-cf-emoji', 'an-cf-url', 'an-cf-ph'].forEach((id) => { if ($(id)) $(id).value = ''; });
-  qsa('.an-q').forEach((i) => { i.value = ''; });
+  const ql = document.getElementById('an-q-list'); if (ql) { ql.innerHTML = ''; seedQuestions(); }
   if (kind === 'rolemenu') { menuRoles = []; renderMenuRoles(); }
   toast('Component added', 'success');
 }
@@ -1360,11 +1388,46 @@ function updateAnnouncePreview() {
   if (footer) html += `<div class="ep-footer">${esc(footer)}</div>`;
   p.innerHTML = html || '<span class="muted">Empty embed…</span>';
 }
+// Insert a solid-line divider (▬ black bars, no gaps) into any textarea at the cursor.
+function insertSolidLine(id, onUpdate) {
+  const ta = document.getElementById(id); if (!ta) return;
+  const start = ta.selectionStart ?? ta.value.length;
+  const end = ta.selectionEnd ?? ta.value.length;
+  const before = ta.value.slice(0, start);
+  const chunk = (before && !before.endsWith('\n') ? '\n' : '') + '▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬' + '\n';
+  ta.value = before + chunk + ta.value.slice(end);
+  const pos = start + chunk.length;
+  ta.focus(); ta.setSelectionRange(pos, pos);
+  if (onUpdate) onUpdate();
+}
+// Dynamic application questions (up to 20).
+function addQuestionInput(value = '') {
+  const list = document.getElementById('an-q-list'); if (!list) return;
+  if (list.children.length >= 20) { toast('Max 20 questions', 'error'); return; }
+  const n = list.children.length + 1;
+  const row = document.createElement('div');
+  row.className = 'row'; row.style.cssText = 'gap:6px;margin-top:6px;align-items:center';
+  const inp = document.createElement('input');
+  inp.className = 'input an-q'; inp.maxLength = 45; inp.placeholder = `Question ${n}`; inp.value = value; inp.style.flex = '1';
+  on(inp, 'input', updateAnnouncePreview);
+  const rm = document.createElement('button');
+  rm.type = 'button'; rm.className = 'btn small danger'; rm.textContent = '✕'; rm.title = 'Remove';
+  on(rm, 'click', () => row.remove());
+  row.append(inp, rm); list.appendChild(row);
+}
+function seedQuestions() {
+  const list = document.getElementById('an-q-list');
+  if (list && !list.children.length) { addQuestionInput(); addQuestionInput(); addQuestionInput(); }
+}
+
 function setupAnnounce() {
   ['an-content', 'an-title', 'an-desc', 'an-footer', 'an-image', 'an-color'].forEach((id) => on($(id), 'input', updateAnnouncePreview));
   on($('an-useembed'), 'change', updateAnnouncePreview);
   on($('an-comp-kind'), 'change', syncCompFields);
   on($('an-comp-add'), 'click', addAnnComponent);
+  on($('an-q-add'), 'click', () => addQuestionInput());
+  on($('an-desc-divider'), 'click', () => insertSolidLine('an-desc', updateAnnouncePreview));
+  seedQuestions();
   on($('an-menu-add'), 'click', addMenuRole);
   on($('an-addpage'), 'click', addAnnPage);
   on($('an-send'), 'click', () => {

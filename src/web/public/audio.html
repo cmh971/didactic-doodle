@@ -3,41 +3,96 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#0b0d13" />
+<link rel="manifest" href="/manifest.json" />
 <title>Audio • Sentinel</title>
 <style>
   :root { --bg:#0b0d13; --card:#151925; --accent:#1db954; --text:#e7eaf2; --muted:#98a0b3; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; padding:24px; }
   h1 { font-size:22px; margin:0 0 4px; }
-  p.sub { color:var(--muted); margin:0 0 20px; }
+  p.sub { color:var(--muted); margin:0 0 16px; }
+  #status { font-size:13px; margin:0 0 18px; padding:8px 12px; border-radius:10px; background:#151925; display:inline-block; }
   .track { background:var(--card); border:1px solid #232a3b; border-radius:14px; padding:14px 16px; margin-bottom:12px; }
   .track .top { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:10px; }
   .name { font-weight:600; word-break:break-all; }
   .meta { color:var(--muted); font-size:12px; white-space:nowrap; }
-  audio { width:100%; }
-  a.dl { color:var(--accent); text-decoration:none; font-size:13px; }
+  audio { width:100%; margin-bottom:8px; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  a.dl, button.save { font-size:13px; border:0; cursor:pointer; text-decoration:none; border-radius:8px; padding:6px 12px; }
+  a.dl { color:var(--accent); background:#122a1c; }
+  button.save { color:#fff; background:#2b3242; }
+  button.save.saved { background:var(--accent); }
   .empty { color:var(--muted); text-align:center; padding:40px; }
 </style>
 </head>
 <body>
-  <h1>🎧 Your extracted audio</h1>
-  <p class="sub">Pulled from videos you uploaded with <code>/extractaudio</code>. Play here, offline.</p>
+  <h1>🎧 Your audio</h1>
+  <p class="sub">Extracted with <code>/extractaudio</code> · <b>Save offline</b> to play with no signal ✈️</p>
+  <div id="status">…</div>
   <div id="list"><div class="empty">Loading…</div></div>
 <script>
+  const AUDIO_CACHE = 'sentinel-audio-v1';
+  const LS_KEY = 'sentinel_tracks';
+  const LS_SAVED = 'sentinel_saved';
   const kb = (n) => n < 1024*1024 ? (n/1024).toFixed(0)+' KB' : (n/1024/1024).toFixed(1)+' MB';
-  fetch('/api/audio').then(r => r.json()).then(({ tracks }) => {
+  const savedSet = () => new Set(JSON.parse(localStorage.getItem(LS_SAVED) || '[]'));
+  const setStatus = (t) => { document.getElementById('status').textContent = t; };
+
+  // Register the SW so cached audio is served offline.
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+
+  async function saveOffline(name, btn) {
+    const url = '/audio/' + encodeURIComponent(name);
+    try {
+      btn.textContent = '⏳ Saving…';
+      const cache = await caches.open(AUDIO_CACHE);
+      await cache.add(url); // fetches the full file (200) and stores it
+      const s = savedSet(); s.add(name); localStorage.setItem(LS_SAVED, JSON.stringify([...s]));
+      btn.textContent = '✅ Saved offline'; btn.classList.add('saved');
+    } catch (e) { btn.textContent = '⚠️ Failed — retry'; }
+  }
+
+  function render(tracks, offline) {
     const el = document.getElementById('list');
-    if (!tracks || !tracks.length) { el.innerHTML = '<div class="empty">No audio yet. Run <code>/extractaudio</code> in Discord.</div>'; return; }
-    el.innerHTML = tracks.map((t) => {
+    const saved = savedSet();
+    const show = offline ? tracks.filter((t) => saved.has(t.name)) : tracks;
+    if (!show.length) {
+      el.innerHTML = '<div class="empty">' + (offline ? 'No tracks saved offline yet. Save some while you have signal!' : 'No audio yet — run <code>/extractaudio</code> in Discord.') + '</div>';
+      return;
+    }
+    el.innerHTML = show.map((t) => {
       const url = '/audio/' + encodeURIComponent(t.name);
-      const when = new Date(t.mtime).toLocaleString();
+      const isSaved = saved.has(t.name);
+      const when = t.mtime ? new Date(t.mtime).toLocaleString() : '';
       return `<div class="track">
-        <div class="top"><span class="name">${t.name}</span><span class="meta">${kb(t.size)} · ${when}</span></div>
+        <div class="top"><span class="name">${t.name}</span><span class="meta">${t.size ? kb(t.size) : ''} ${when ? '· ' + when : ''}</span></div>
         <audio controls preload="none" src="${url}"></audio>
-        <div><a class="dl" href="${url}" download>⬇ Download</a></div>
+        <div class="row">
+          <a class="dl" href="${url}" download>⬇ Download</a>
+          <button class="save ${isSaved ? 'saved' : ''}" data-name="${t.name}">${isSaved ? '✅ Saved offline' : '💾 Save offline'}</button>
+        </div>
       </div>`;
     }).join('');
-  }).catch(() => { document.getElementById('list').innerHTML = '<div class="empty">Couldn’t load tracks.</div>'; });
+    el.querySelectorAll('button.save').forEach((b) => {
+      if (b.classList.contains('saved')) return;
+      b.addEventListener('click', () => saveOffline(b.dataset.name, b));
+    });
+  }
+
+  // Try the live list; if offline, fall back to the last-saved list from localStorage.
+  fetch('/api/audio')
+    .then((r) => r.json())
+    .then(({ tracks }) => {
+      localStorage.setItem(LS_KEY, JSON.stringify(tracks || []));
+      setStatus(navigator.onLine ? '🟢 Online — save tracks below for the flight' : '✈️ Offline');
+      render(tracks || [], false);
+    })
+    .catch(() => {
+      const cached = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+      setStatus('✈️ Offline — playing your saved tracks');
+      render(cached, true);
+    });
 </script>
 </body>
 </html>

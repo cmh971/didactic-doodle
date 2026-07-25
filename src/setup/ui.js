@@ -142,6 +142,8 @@ export const PAGES = [
         `🏠 **This server only**: nickname & a server avatar — safe to change freely.\n\n` +
         `**Username:** ${me?.username ?? '—'}\n` +
         `**Global avatar:** ${avatarSet}\n` +
+        `**Global bio (About Me 🌍):** ${client.application?.description ? 'Set' : '_none_'}\n` +
+        `**Server bio (this server 🏠):** ${cfg.settings?.identity?.serverbio ? 'Set' : '_none_'}\n` +
         `**Nickname (this server):** ${nick || '_none_'}\n` +
         `**Server avatar:** ${guildAvatar}`;
 
@@ -149,10 +151,12 @@ export const PAGES = [
         new ActionRowBuilder().addComponents(
           btn('setup:modal:identity.name:1', 'Set Username 🌍', ButtonStyle.Danger, { emoji: '✏️' }),
           btn('setup:modal:identity.avatar:1', 'Set Global Avatar 🌍', ButtonStyle.Danger, { emoji: '🖼️' }),
+          btn('setup:modal:identity.bio:1', 'Set Global Bio 🌍', ButtonStyle.Danger, { emoji: '📝' }),
         ),
         new ActionRowBuilder().addComponents(
           btn('setup:modal:identity.guildavatar:1', 'Set Server Avatar', ButtonStyle.Success, { emoji: '🏠' }),
           btn('setup:identity:resetavatar:1', 'Reset Server Avatar', ButtonStyle.Secondary, { emoji: '↩️' }),
+          btn('setup:modal:identity.serverbio:1', 'Set Server Bio', ButtonStyle.Success, { emoji: '📝' }),
         ),
         new ActionRowBuilder().addComponents(
           btn('setup:modal:identity.nick:1', 'Set Nickname', ButtonStyle.Secondary, { emoji: '🏷️' }),

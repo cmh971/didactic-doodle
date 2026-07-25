@@ -9,6 +9,21 @@ import { gameManager } from './GameManager.js';
 import { cardLabel } from './Deck.js';
 import { renderPanel } from '../setup/ui.js';
 import { getFights } from '../features/fight.js';
+import { getCfg } from '../setup/store.js';
+import { getGuild } from '../systems/guilds.js';
+
+const CHTYPE = { 0: 'text', 2: 'voice', 4: 'category', 5: 'announcement', 13: 'stage', 15: 'forum' };
+// Strip anything secret-looking from the config dump before it hits the snapshot.
+function redact(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(redact);
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (/key|secret|token|password|enc/i.test(k)) out[k] = v ? '***redacted***' : v;
+    else out[k] = redact(v);
+  }
+  return out;
+}
 
 const DATA_DIR = join(process.cwd(), 'data');
 const LIVE = join(DATA_DIR, 'uno-live.json');
@@ -96,15 +111,28 @@ async function drainOutbox(client) {
 function writeInsight(client) {
   if (!client) return;
   try {
-    const guilds = [...client.guilds.cache.values()].map((g) => ({
-      id: g.id,
-      name: g.name,
-      members: g.memberCount,
-      online: [...g.members.cache.values()]
-        .filter((m) => m.presence && m.presence.status && m.presence.status !== 'offline' && !m.user.bot)
-        .slice(0, 60)
-        .map((m) => ({ name: m.user.username, status: m.presence.status })),
-    }));
+    const guilds = [...client.guilds.cache.values()].map((g) => {
+      let config = null;
+      try { const c = getCfg(g.id); const gg = getGuild(g.id); config = { language: c.language, modules: gg.modules, settings: redact(c.settings) }; } catch { /* config unavailable */ }
+      return {
+        id: g.id,
+        name: g.name,
+        members: g.memberCount,
+        online: [...g.members.cache.values()]
+          .filter((m) => m.presence && m.presence.status && m.presence.status !== 'offline' && !m.user.bot)
+          .slice(0, 60)
+          .map((m) => ({ name: m.user.username, status: m.presence.status })),
+        // Read-only visibility so setup guidance can be precise.
+        config,
+        channels: [...g.channels.cache.values()]
+          .sort((a, b) => (a.rawPosition ?? 0) - (b.rawPosition ?? 0))
+          .slice(0, 250)
+          .map((c) => ({ id: c.id, name: c.name, type: CHTYPE[c.type] || c.type, parentId: c.parentId || null })),
+        roles: [...g.roles.cache.values()].filter((r) => r.name !== '@everyone')
+          .sort((a, b) => b.position - a.position).slice(0, 120)
+          .map((r) => ({ id: r.id, name: r.name })),
+      };
+    });
     const mem = process.memoryUsage();
     const data = {
       updatedAt: new Date().toISOString(),

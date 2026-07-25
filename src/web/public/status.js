@@ -24,9 +24,14 @@ function themeColor(name) {
 function drawChart() {
   const c = $('s-chart'); if (!c) return;
   const dpr = window.devicePixelRatio || 1;
-  const w = c.clientWidth || 600, h = Number(c.getAttribute('height')) || 160;
-  c.width = w * dpr; c.height = h * dpr;
-  const ctx = c.getContext('2d'); ctx.scale(dpr, dpr);
+  // Cache the base height once — the old code overwrote the height attribute with
+  // h*dpr, so re-reading it grew the chart every redraw until mobile crashed.
+  if (!c.dataset.baseH) c.dataset.baseH = String(Number(c.getAttribute('height')) || 160);
+  const h = Number(c.dataset.baseH);
+  c.style.width = '100%'; c.style.height = h + 'px';
+  const w = Math.max(1, Math.floor(c.clientWidth || 600));
+  c.width = Math.round(w * dpr); c.height = Math.round(h * dpr);
+  const ctx = c.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, w, h);
   if (pings.length < 2) return;
   const max = Math.max(60, ...pings) * 1.15, pad = 8;

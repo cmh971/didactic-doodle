@@ -803,6 +803,9 @@ body.landing, body.legal-page { display: block; }
 .tk-group { border: 1px solid var(--border-soft); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
 .tk-group > h4 { margin: 0 0 10px; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; }
 .tk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+.tk-tools { margin-top: 6px; }
+.tk-divider-btn { font-size: 0.8rem; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border-soft); background: var(--bg-soft, #1c2030); color: var(--text, #e7eaf2); cursor: pointer; }
+.tk-divider-btn:hover { border-color: var(--accent, #5865f2); }
 @media (max-width: 560px) { .tk-grid { grid-template-columns: 1fr; } .two-col { grid-template-columns: 1fr; } }
 .tk-grid .field.wide { grid-column: 1 / -1; }
 .tk-flags { display: flex; flex-wrap: wrap; gap: 8px; }
