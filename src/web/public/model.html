@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>3D Viewer • Sentinel</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0b0d13; color: #e7eaf2; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+  #stage, model-viewer { position: fixed; inset: 0; width: 100%; height: 100%; }
+  #hud { position: fixed; top: 12px; left: 12px; z-index: 10; background: rgba(10,13,20,.72); border: 1px solid #232a3b; border-radius: 12px; padding: 10px 14px; max-width: 320px; backdrop-filter: blur(6px); }
+  #hud h1 { font-size: 15px; margin: 0 0 4px; }
+  #hud .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #1d2740; color: #8b93ff; margin-bottom: 6px; }
+  #hud p { font-size: 12px; color: #98a0b3; margin: 4px 0 0; line-height: 1.4; }
+  #hud button { margin-top: 8px; font-size: 12px; font-weight: 600; border: 0; border-radius: 8px; padding: 7px 12px; cursor: pointer; color: #fff; background: #5865f2; }
+  #err { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; text-align: center; padding: 30px; color: #f88; }
+</style>
+</head>
+<body>
+  <div id="hud">
+    <div class="badge" id="badge">…</div>
+    <h1 id="name">3D model</h1>
+    <p id="help">Loading…</p>
+    <button id="walkBtn" style="display:none">🚶 Walk inside</button>
+  </div>
+  <div id="stage"></div>
+  <div id="err"></div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "/vendor/three/build/three.module.js",
+      "three/addons/": "/vendor/three/examples/jsm/",
+      "gsplat": "/vendor/gsplat/dist/index.es.js"
+    }
+  }
+  </script>
+  <script type="module" src="/vendor/model-viewer/dist/model-viewer.min.js"></script>
+
+  <script type="module">
+    const q = new URLSearchParams(location.search);
+    const src = q.get('src');
+    const type = (q.get('type') || '').toLowerCase();
+    const name = q.get('name') || '3D model';
+    document.getElementById('name').textContent = name;
+    const setBadge = (t) => { document.getElementById('badge').textContent = t; };
+    const setHelp = (t) => { document.getElementById('help').innerHTML = t; };
+    const fail = (m) => { document.getElementById('err').style.display = 'flex'; document.getElementById('err').textContent = '⚠️ ' + m; setHelp('failed'); };
+
+    if (!src) { fail('No model source given.'); }
+    // ---- auto-pick the renderer by file type ----
+    else if (type === 'splat' || type === 'ply-splat') { initSplat(); }
+    else if (type === 'glb' || type === 'gltf') { initModelViewer(); }
+    else { initThree(type); }
+
+    // === Gaussian Splats → gsplat ===
+    async function initSplat() {
+      setBadge('gsplat • gaussian splat');
+      setHelp('Drag to orbit · scroll to zoom.');
+      try {
+        const SPLAT = await import('gsplat');
+        const renderer = new SPLAT.WebGLRenderer();
+        renderer.setSize(innerWidth, innerHeight);
+        document.getElementById('stage').appendChild(renderer.canvas);
+        const scene = new SPLAT.Scene();
+        const camera = new SPLAT.Camera();
+        const controls = new SPLAT.OrbitControls(camera, renderer.canvas);
+        await SPLAT.Loader.LoadAsync(src, scene, () => {});
+        addEventListener('resize', () => renderer.setSize(innerWidth, innerHeight));
+        (function loop() { controls.update(); renderer.render(scene, camera); requestAnimationFrame(loop); })();
+      } catch (e) { fail('splat load failed: ' + e.message); }
+    }
+
+    // === GLB / GLTF → Google model-viewer (orbit like Google's 3D) + Walk toggle ===
+    function initModelViewer() {
+      setBadge('@google/model-viewer • GLB');
+      setHelp('Drag to orbit around the model · scroll to zoom · pinch on mobile.');
+      const mv = document.createElement('model-viewer');
+      mv.setAttribute('src', src);
+      mv.setAttribute('camera-controls', '');
+      mv.setAttribute('auto-rotate', '');
+      mv.setAttribute('shadow-intensity', '1');
+      mv.setAttribute('environment-image', 'neutral');
+      mv.setAttribute('ar', '');
+      document.getElementById('stage').appendChild(mv);
+      const walk = document.getElementById('walkBtn');
+      walk.style.display = 'inline-block';
+      walk.onclick = () => { mv.remove(); walk.style.display = 'none'; initThree('glb', true); };
+    }
+
+    // === Meshes (glb walk-mode, obj, stl, ply, fbx) → three.js orbit + first-person walk ===
+    async function initThree(ext, walkStart = false) {
+      setBadge('three.js • ' + ext);
+      const THREE = await import('three');
+      const { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
+      const { PointerLockControls } = await import('three/addons/controls/PointerLockControls.js');
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(devicePixelRatio); renderer.setSize(innerWidth, innerHeight);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      document.getElementById('stage').appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene(); scene.background = new THREE.Color(0x0b0d13);
+      scene.add(new THREE.HemisphereLight(0xffffff, 0x334455, 1.1));
+      const dir = new THREE.DirectionalLight(0xffffff, 1.4); dir.position.set(3, 10, 6); scene.add(dir);
+      scene.add(new THREE.GridHelper(40, 40, 0x223, 0x223));
+
+      const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.01, 5000);
+      camera.position.set(3, 2, 5);
+      let orbit = new OrbitControls(camera, renderer.domElement); orbit.enableDamping = true;
+
+      try {
+        const obj = await loadByExt(THREE, ext, src);
+        // center + frame the model
+        const box = new THREE.Box3().setFromObject(obj);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        obj.position.sub(center);
+        const radius = Math.max(size.x, size.y, size.z) || 1;
+        camera.position.set(0, radius * 0.4, radius * 1.8); orbit.target.set(0, 0, 0);
+        camera.near = radius / 100; camera.far = radius * 100; camera.updateProjectionMatrix();
+        scene.add(obj);
+        setHelp('🖱️ Drag to orbit · scroll to zoom · right-drag to pan.<br>Or hit <b>🚶 Walk inside</b> to explore first-person.');
+      } catch (e) { fail('model load failed: ' + e.message); return; }
+
+      // ---- first-person "walk around the room like Street View" ----
+      let walking = false; const plc = new PointerLockControls(camera, document.body);
+      const keys = {}; addEventListener('keydown', (e) => keys[e.code] = true); addEventListener('keyup', (e) => keys[e.code] = false);
+      const walkBtn = document.getElementById('walkBtn'); walkBtn.style.display = 'inline-block';
+      walkBtn.onclick = () => plc.lock();
+      plc.addEventListener('lock', () => { walking = true; orbit.enabled = false; setHelp('WASD to move · mouse to look · ESC to exit walk mode.'); });
+      plc.addEventListener('unlock', () => { walking = false; orbit.enabled = true; setHelp('🖱️ Drag to orbit · scroll to zoom · <b>🚶 Walk inside</b> for first-person.'); });
+      scene.add(plc.getObject ? plc.getObject() : plc.object || new THREE.Object3D());
+      if (walkStart) setTimeout(() => plc.lock(), 300);
+
+      const clock = new THREE.Clock();
+      addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+      (function loop() {
+        const d = clock.getDelta();
+        if (walking) {
+          const s = 3 * d * (Math.max(1, 0));
+          const spd = 3 * d;
+          if (keys.KeyW) plc.moveForward(spd); if (keys.KeyS) plc.moveForward(-spd);
+          if (keys.KeyA) plc.moveRight(-spd); if (keys.KeyD) plc.moveRight(spd);
+        } else { orbit.update(); }
+        renderer.render(scene, camera); requestAnimationFrame(loop);
+      })();
+    }
+
+    async function loadByExt(THREE, ext, url) {
+      if (ext === 'glb' || ext === 'gltf') {
+        const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
+        const g = await new GLTFLoader().loadAsync(url); return g.scene;
+      }
+      if (ext === 'obj') { const { OBJLoader } = await import('three/addons/loaders/OBJLoader.js'); return new OBJLoader().loadAsync(url); }
+      if (ext === 'stl') { const { STLLoader } = await import('three/addons/loaders/STLLoader.js'); const geo = await new STLLoader().loadAsync(url); geo.computeVertexNormals(); return new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.1, roughness: 0.8 })); }
+      if (ext === 'ply') { const { PLYLoader } = await import('three/addons/loaders/PLYLoader.js'); const geo = await new PLYLoader().loadAsync(url); geo.computeVertexNormals(); return new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xcccccc, vertexColors: !!geo.getAttribute('color') })); }
+      if (ext === 'fbx') { const { FBXLoader } = await import('three/addons/loaders/FBXLoader.js'); return new FBXLoader().loadAsync(url); }
+      throw new Error('unsupported type: ' + ext);
+    }
+  </script>
+</body>
+</html>

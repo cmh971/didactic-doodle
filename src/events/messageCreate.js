@@ -3,6 +3,7 @@ import { scan } from '../systems/automod.js';
 import { awardMessageXp, applyAutoRole } from '../systems/leveling.js';
 import { getGuild } from '../systems/guilds.js';
 import { chatWithAI, isProfane, moderationFlag } from '../ai/gemini.js';
+import { askAsh, imagePartsFromMessage, registerAshMessage } from '../ai/ash.js';
 import { isActive as antiswearActive } from '../features/antiswear.js';
 import { isEnabled as aimodEnabled, reportFlag } from '../features/aimod.js';
 import { scanBadwords } from '../systems/badwords.js';
@@ -20,6 +21,13 @@ import { handleLuaText } from '../features/luaText.js';
 import { handlePyText } from '../features/pyText.js';
 import { handleTagText } from '../features/tagText.js';
 import { handleRenderText } from '../features/renderText.js';
+import { handlePathText } from '../features/pathText.js';
+import { handleNavText } from '../features/navigate.js';
+import { handleModelText } from '../features/modelText.js';
+import { handleSearchText } from '../features/searchText.js';
+import { handleSourceText } from '../features/sourceText.js';
+import { handlePutFileText } from '../features/putFileText.js';
+import { handleBackupText } from '../features/serverBackup.js';
 import { runMessageAutomations } from '../features/automations.js';
 import { recordUnoChat } from '../uno/spy.js';
 
@@ -43,6 +51,13 @@ export async function handleGuildMessage(message) {
     if (await handlePyText(message)) return;
     if (await handleTagText(message)) return;
     if (await handleRenderText(message)) return;
+    if (await handlePathText(message)) return;
+    if (await handleNavText(message)) return;
+    if (await handleModelText(message)) return;
+    if (await handleSearchText(message)) return;
+    if (await handleSourceText(message)) return;
+    if (await handlePutFileText(message)) return;
+    if (await handleBackupText(message)) return;
     if (await handlePrefixCommand(message)) return;
   } catch (err) {
     console.error('prefix-command error:', err.message);
@@ -102,13 +117,27 @@ export async function handleGuildMessage(message) {
     console.error('aimod error:', err.message);
   }
 
-  // 2) AI chat — reply when the bot is @mentioned (not @everyone).
+  // 2) AI chat (Ash) — reply when the bot is @mentioned (not @everyone).
+  // Ash can search the web, see attached images, remember the chat, and answer
+  // with embeds/forms. Common lines are handled locally to save Gemini tokens.
   try {
     if (message.mentions.has(message.client.user) && !message.mentions.everyone) {
       const prompt = message.content.replace(/<@!?\d+>/g, '').trim() || 'Hi!';
       await message.channel.sendTyping().catch(() => {});
-      const reply = await chatWithAI(message.author.id, prompt);
-      await message.reply(reply.slice(0, 2000)).catch(() => {});
+      const images = await imagePartsFromMessage(message).catch(() => []);
+      const { text, embed, components } = await askAsh({
+        channelId: message.channel.id,
+        authorTag: message.author.username,
+        text: prompt,
+        images,
+      });
+      const payload = {};
+      if (text) payload.content = text.slice(0, 2000);
+      if (embed) payload.embeds = [embed];
+      if (components) payload.components = components;
+      if (!payload.content && !payload.embeds) payload.content = '🤖';
+      const sent = await message.reply(payload).catch(() => null);
+      if (sent) registerAshMessage(sent.id, message.channel.id);
     }
   } catch (err) {
     console.error('AI mention error:', err.message);

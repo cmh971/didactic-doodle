@@ -9,6 +9,8 @@
 // A returned string is sent as a reply; commands may also reply themselves.
 // ============================================================================
 
+import { createHash } from 'node:crypto';
+
 const rint = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const need = (s, usage) => { if (!s || !s.trim()) throw new Error(`Usage: \`${usage}\``); return s.trim(); };
@@ -97,6 +99,37 @@ const COMMANDS = [
   { name: 'ping', category: 'qutil', description: 'Show the bot’s gateway latency', run: ({ message }) => `🏓 Pong! Gateway ping: **${Math.round(message.client.ws.ping)}ms**` },
   { name: 'urlencode', aliases: ['urlenc'], category: 'qutil', description: 'Percent-encode text for URLs', run: ({ args }) => encodeURIComponent(need(args, '?urlencode <text>')) },
   { name: 'urldecode', aliases: ['urldec'], category: 'qutil', description: 'Decode a percent-encoded URL', run: ({ args }) => decodeURIComponent(need(args, '?urldecode <text>')) },
+
+  // ---------------- added batch: more distinct text / math / util / fun ----------------
+  { name: 'snake', category: 'qtext', description: 'text → snake_case', run: ({ args }) => need(args, '?snake <text>').replace(/[^a-zA-Z0-9]+/g, ' ').trim().replace(/\s+/g, '_').toLowerCase() },
+  { name: 'kebab', category: 'qtext', description: 'text → kebab-case', run: ({ args }) => need(args, '?kebab <text>').replace(/[^a-zA-Z0-9]+/g, ' ').trim().replace(/\s+/g, '-').toLowerCase() },
+  { name: 'camel', category: 'qtext', description: 'text → camelCase', run: ({ args }) => need(args, '?camel <text>').replace(/[^a-zA-Z0-9]+/g, ' ').trim().split(/\s+/).map((x, i) => i ? x[0].toUpperCase() + x.slice(1).toLowerCase() : x.toLowerCase()).join('') },
+  { name: 'pascal', category: 'qtext', description: 'text → PascalCase', run: ({ args }) => need(args, '?pascal <text>').replace(/[^a-zA-Z0-9]+/g, ' ').trim().split(/\s+/).map((x) => x[0].toUpperCase() + x.slice(1).toLowerCase()).join('') },
+  { name: 'slugify', aliases: ['slug'], category: 'qtext', description: 'Make a URL slug', run: ({ args }) => need(args, '?slugify <text>').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') },
+  { name: 'caesar', category: 'qtext', description: '?caesar <shift> <text> — Caesar cipher', run: ({ argv }) => { const n = (((parseInt(argv[0], 10) || 0) % 26) + 26) % 26; const t = argv.slice(1).join(' '); if (!t) throw new Error('Usage: `?caesar <shift> <text>`'); return t.replace(/[a-z]/gi, (c) => { const b = c <= 'Z' ? 65 : 97; return String.fromCharCode(((c.charCodeAt(0) - b + n) % 26) + b); }); } },
+  { name: 'atbash', category: 'qtext', description: 'Atbash cipher (a↔z)', run: ({ args }) => need(args, '?atbash <text>').replace(/[a-z]/gi, (c) => { const b = c <= 'Z' ? 65 : 97; return String.fromCharCode(b + 25 - (c.charCodeAt(0) - b)); }) },
+  { name: 'nato', category: 'qtext', description: 'Spell with the NATO alphabet', run: ({ args }) => { const N = { a: 'Alfa', b: 'Bravo', c: 'Charlie', d: 'Delta', e: 'Echo', f: 'Foxtrot', g: 'Golf', h: 'Hotel', i: 'India', j: 'Juliett', k: 'Kilo', l: 'Lima', m: 'Mike', n: 'November', o: 'Oscar', p: 'Papa', q: 'Quebec', r: 'Romeo', s: 'Sierra', t: 'Tango', u: 'Uniform', v: 'Victor', w: 'Whiskey', x: 'X-ray', y: 'Yankee', z: 'Zulu' }; return [...need(args, '?nato <text>').toLowerCase()].map((c) => N[c] || c).join(' '); } },
+  { name: 'piglatin', aliases: ['pig'], category: 'qtext', description: 'Translate to Pig Latin', run: ({ args }) => need(args, '?piglatin <text>').split(/\s+/).map((w) => { const m = w.match(/^([^aeiou]+)(.*)$/i); return m && m[2] ? m[2] + m[1] + 'ay' : w + 'way'; }).join(' ') },
+  { name: 'upsidedown', aliases: ['fliptext'], category: 'qtext', description: 'Flip text upside-down', run: ({ args }) => { const F = { a: 'ɐ', b: 'q', c: 'ɔ', d: 'p', e: 'ǝ', f: 'ɟ', g: 'ƃ', h: 'ɥ', i: 'ᴉ', j: 'ɾ', k: 'ʞ', l: 'l', m: 'ɯ', n: 'u', o: 'o', p: 'd', q: 'b', r: 'ɹ', s: 's', t: 'ʇ', u: 'n', v: 'ʌ', w: 'ʍ', x: 'x', y: 'ʎ', z: 'z', '?': '¿', '.': '˙', '!': '¡' }; return [...need(args, '?upsidedown <text>').toLowerCase()].reverse().map((c) => F[c] || c).join(''); } },
+  { name: 'bytes', category: 'qutil', description: 'Byte length of text (UTF-8)', run: ({ args }) => `📏 **${Buffer.byteLength(need(args, '?bytes <text>'), 'utf8')}** bytes` },
+  { name: 'hexencode', aliases: ['tohex'], category: 'qutil', description: 'Text → hex bytes', run: ({ args }) => Buffer.from(need(args, '?hexencode <text>'), 'utf8').toString('hex') },
+  { name: 'hexdecode', aliases: ['fromhex'], category: 'qutil', description: 'Hex bytes → text', run: ({ args }) => { try { return Buffer.from(need(args, '?hexdecode <hex>').replace(/\s+/g, ''), 'hex').toString('utf8'); } catch { throw new Error('Bad hex.'); } } },
+  { name: 'sha256', category: 'qutil', description: 'SHA-256 hash of text', run: ({ args }) => createHash('sha256').update(need(args, '?sha256 <text>')).digest('hex') },
+  { name: 'md5', category: 'qutil', description: 'MD5 hash of text', run: ({ args }) => createHash('md5').update(need(args, '?md5 <text>')).digest('hex') },
+  { name: 'lcm', category: 'qmath', description: 'Least common multiple', run: ({ argv }) => { let [a, b] = nums(argv); if (a == null || b == null) throw new Error('Usage: `?lcm 4 6`'); a = Math.abs(a); b = Math.abs(b); const g = (x, y) => { while (y) { [x, y] = [y, x % y]; } return x; }; return `🔗 LCM = **${(a / g(a, b)) * b}**`; } },
+  { name: 'sqrt', category: 'qmath', description: 'Square root', run: ({ argv }) => { const n = nums(argv)[0]; if (n == null || n < 0) throw new Error('Give a number ≥ 0.'); return `√${n} = **${Math.sqrt(n)}**`; } },
+  { name: 'pow', category: 'qmath', description: '?pow <base> <exp>', run: ({ argv }) => { const [a, b] = nums(argv); if (a == null || b == null) throw new Error('Usage: `?pow 2 10`'); return `${a}^${b} = **${Math.pow(a, b)}**`; } },
+  { name: 'hypot', category: 'qmath', description: 'Hypotenuse √(a²+b²)', run: ({ argv }) => { const [a, b] = nums(argv); if (a == null || b == null) throw new Error('Usage: `?hypot 3 4`'); return `📐 **${Math.hypot(a, b)}**`; } },
+  { name: 'deg2rad', category: 'qmath', description: 'Degrees → radians', run: ({ argv }) => { const d = nums(argv)[0]; if (d == null) throw new Error('Usage: `?deg2rad 90`'); return `${d}° = **${((d * Math.PI) / 180).toFixed(4)} rad**`; } },
+  { name: 'rad2deg', category: 'qmath', description: 'Radians → degrees', run: ({ argv }) => { const r = nums(argv)[0]; if (r == null) throw new Error('Usage: `?rad2deg 1.5708`'); return `${r} rad = **${((r * 180) / Math.PI).toFixed(2)}°**`; } },
+  { name: 'ft2m', category: 'qmath', description: 'Feet → meters', run: ({ argv }) => { const f = nums(argv)[0]; if (f == null) throw new Error('Usage: `?ft2m 6`'); return `📏 ${f} ft = **${(f * 0.3048).toFixed(2)} m**`; } },
+  { name: 'm2ft', category: 'qmath', description: 'Meters → feet', run: ({ argv }) => { const m = nums(argv)[0]; if (m == null) throw new Error('Usage: `?m2ft 2`'); return `📏 ${m} m = **${(m / 0.3048).toFixed(2)} ft**`; } },
+  { name: 'bmi', category: 'qmath', description: '?bmi <kg> <m> — body mass index', run: ({ argv }) => { const [w, h] = nums(argv); if (w == null || h == null || h <= 0) throw new Error('Usage: `?bmi <kg> <height m>`'); return `⚖️ BMI = **${(w / (h * h)).toFixed(1)}**`; } },
+  { name: 'digitsum', category: 'qmath', description: 'Sum of a number’s digits', run: ({ argv }) => { const n = argv[0]; if (!/^\d+$/.test(n || '')) throw new Error('Usage: `?digitsum 12345`'); return `➕ **${[...n].reduce((a, d) => a + +d, 0)}**`; } },
+  { name: 'collatz', category: 'qmath', description: 'Collatz steps to reach 1', run: ({ argv }) => { let n = nums(argv)[0]; if (n == null || n < 1 || n > 1e7) throw new Error('Give 1–10,000,000.'); let s = 0; while (n !== 1) { n = n % 2 ? 3 * n + 1 : n / 2; s++; } return `🌀 **${s}** steps`; } },
+  { name: 'primefactors', aliases: ['factorize'], category: 'qmath', description: 'Prime factorization', run: ({ argv }) => { let n = nums(argv)[0]; if (n == null || n < 2 || n > 1e12) throw new Error('Give 2–1e12.'); const f = []; for (let d = 2; d * d <= n; d++) while (n % d === 0) { f.push(d); n /= d; } if (n > 1) f.push(n); return `🔢 ${f.join(' × ')}`; } },
+  { name: 'motivate', aliases: ['motivation'], category: 'qfun', description: 'A motivational line', run: () => `💪 ${pick(['You’ve survived 100% of your worst days.', 'Small progress is still progress.', 'Discipline beats motivation — start anyway.', 'The work you avoid is the work that grows you.', 'Future-you is begging you to start now.'])}` },
+  { name: 'advice', category: 'qfun', description: 'A bit of advice', run: () => `🧠 ${pick(['Drink some water. Seriously.', 'Sleep on big decisions.', 'Do the 2-minute task now.', 'Back up your work. (You know who you are.)', 'Touch grass, then touch code.'])}` },
 ];
 
 export default COMMANDS;

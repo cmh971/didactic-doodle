@@ -33,6 +33,7 @@ import { getWeather } from '../features/weather.js';
 import { setGuildAvatar, setGuildBanner } from '../features/botProfile.js';
 import { listBundledEmojis, bundledEmojiPath, addEmojiToGuild, EMOJI_DIR } from '../features/emojis.js';
 import { AUDIO_DIR, listAudio } from '../features/audio.js';
+import { MODELS_DIR } from '../features/modelText.js';
 import { startVerification, pendingCode, previewRoblox, completeVerification } from '../features/verification.js';
 import { applyAction, listRanks, saveRanks, staffLog } from '../features/staff.js';
 import { applyInfraction, parseDuration } from '../systems/infractions.js';
@@ -52,6 +53,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const MANAGE_GUILD = 1n << 5n; // 0x20
 const db = getDb();
 const txStmt = db.prepare('SELECT user_id, type, amount, balance_after, created_at FROM transactions ORDER BY id DESC LIMIT ?');
+// Read integer columns as BigInt so historical test rows with values beyond 2^53
+// (e.g. an owner-`set` balance of 8.85e18) don't make node:sqlite throw
+// "Value is too large to be represented as a JavaScript number" on every read.
+txStmt.setReadBigInts(true);
+// Convert BigInt → plain number for JSON (lossy for absurd test values, but never throws).
+const txRow = (r) => ({ user_id: r.user_id, type: r.type, amount: Number(r.amount), balance_after: r.balance_after == null ? null : Number(r.balance_after), created_at: Number(r.created_at) });
 const infStmt = db.prepare('SELECT * FROM infractions WHERE guild_id = ? ORDER BY id DESC LIMIT ?');
 const infUserStmt = db.prepare('SELECT * FROM infractions WHERE guild_id = ? AND user_id LIKE ? ORDER BY id DESC LIMIT ?');
 
@@ -545,7 +552,7 @@ export function startWeb(client) {
 
   app.get('/api/transactions', requireAuth, (req, res) => {
     if (!isOwner(req)) return res.status(403).json({ error: 'Owner only' });
-    const rows = txStmt.all(Number(req.query.limit) || 25);
+    const rows = txStmt.all(Number(req.query.limit) || 25).map(txRow);
     res.json(rows);
   });
 
@@ -1384,8 +1391,17 @@ export function startWeb(client) {
   app.get('/api/audio', (req, res) => res.json({ tracks: listAudio() }));
   app.use('/audio', express.static(AUDIO_DIR)); // serve the mp3s for offline playback
 
+  // ---------- 3D models: uploaded files + vendored WebGL libs (three/gsplat/model-viewer) ----------
+  const projectRoot = join(__dirname, '..', '..');
+  app.use('/models', express.static(MODELS_DIR)); // uploaded .glb/.gltf/.ply/.splat…
+  app.use('/vendor/three', express.static(join(projectRoot, 'node_modules', 'three')));
+  app.use('/vendor/gsplat', express.static(join(projectRoot, 'node_modules', 'gsplat')));
+  app.use('/vendor/model-viewer', express.static(join(projectRoot, 'node_modules', '@google', 'model-viewer')));
+
   // ---------- pretty page routes ----------
   const page = (file) => (req, res) => res.sendFile(join(__dirname, 'public', file));
+  app.get('/model', page('model.html')); // the auto-picking 3D viewer
+  app.get('/make3d', page('make3d.html')); // photo → AI depth → 3D depth-mesh
   app.get('/audio-app', page('audio.html'));
   app.get('/diagnostics', page('diagnostics.html'));
   app.get('/dashboard', page('dashboard.html'));

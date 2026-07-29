@@ -30,3 +30,10 @@ Thumbs.db
 # polyglot tool build artifacts
 tools/*.exe
 tools/logscan/target/
+
+tools/dist/
+
+# ===== Side projects — NOT part of the bot (keep out of GitHub) =====
+1234/
+xplane12-addon/
+raid-evidence-*.txt

@@ -13,6 +13,11 @@ import { handleCustomComponent } from './src/features/components.js';
 import { openRigPanel, handleRigButton, isOwner as isRigOwner } from './src/uno/rig.js';
 import { handleFightButton, openFightRig, handleFightRigButton } from './src/features/fight.js';
 import { handleSessionInteraction } from './src/features/session.js';
+import { handleNavButton } from './src/features/navigate.js';
+import { handleSearchButton, handleSearchDM } from './src/features/searchText.js';
+import { handleSourceText } from './src/features/sourceText.js';
+import { handlePutFileText } from './src/features/putFileText.js';
+import { handleAshComponent, handleAshModal, handleAshReaction } from './src/ai/ash.js';
 import { startUnoSpy } from './src/uno/spy.js';
 import { initMirror } from './src/db/mirror.js';
 import { handleHelp } from './src/help/ui.js';
@@ -152,7 +157,10 @@ client.on(Events.GuildMemberAdd, (member) => handleMemberAdd(member).catch((e) =
 client.on(Events.GuildMemberRemove, (member) => handleMemberRemove(member).catch((e) => console.error('memberRemove:', e.message)));
 
 // Reaction handling hooks
-client.on(Events.MessageReactionAdd, (r, u) => handleReactionAdd(r, u).catch((e) => console.error('reactionAdd:', e.message)));
+client.on(Events.MessageReactionAdd, (r, u) => {
+  handleReactionAdd(r, u).catch((e) => console.error('reactionAdd:', e.message));
+  handleAshReaction(r, u).catch((e) => console.error('ashReaction:', e.message)); // Ash notices reactions to its messages
+});
 client.on(Events.MessageReactionRemove, (r, u) => handleReactionRemove(r, u).catch((e) => console.error('reactionRemove:', e.message)));
 
 // Cache deleted messages for /snipe
@@ -181,6 +189,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       else if (interaction.customId.startsWith('appeal:')) await handleAppeal(interaction);
       else if (interaction.customId.startsWith('ccform:') || interaction.customId.startsWith('appdec:')) await handleCustomComponent(interaction);
       else if (interaction.customId.startsWith('ticket:')) await handleTicketModal(interaction);
+      else if (interaction.customId.startsWith('ash:')) await handleAshModal(interaction);
       else if (interaction.customId.startsWith('fight:')) await handleFightButton(interaction);
       else if (interaction.customId.startsWith('session:')) await handleSessionInteraction(interaction);
     } else if (interaction.isMessageComponent()) {
@@ -192,9 +201,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
       else if (cid.startsWith('fight:')) await handleFightButton(interaction);
       else if (cid.startsWith('frig:')) await handleFightRigButton(interaction);
       else if (cid.startsWith('session:')) await handleSessionInteraction(interaction);
+      else if (cid.startsWith('nav:')) await handleNavButton(interaction);
+      else if (cid.startsWith('search:')) await handleSearchButton(interaction);
       else if (cid.startsWith('cc:') || cid.startsWith('ccpage:') || cid.startsWith('cccont:') || cid.startsWith('appdec:')) await handleCustomComponent(interaction);
       else if (cid.startsWith('help:')) await handleHelp(interaction);
       else if (cid.startsWith('ticket:')) await handleTicketButton(interaction);
+      else if (cid.startsWith('ash:')) await handleAshComponent(interaction);
       else if (cid.startsWith('mod:')) await handleModButton(interaction);
       else if (cid.startsWith('bwban:')) await handleBadwordBanButton(interaction);
       else if (cid.startsWith('gw:enter:')) {
@@ -242,6 +254,15 @@ client.on(Events.MessageCreate, async (message) => {
         if (t === 'rig' && await openRigPanel(message)) return;
         if (t === '!rigf' && await openFightRig(message)) return;
       }
+
+      // Owner search-engine key management via DM (encrypted): "!search key …".
+      if (await handleSearchDM(message)) return;
+
+      // Owner "!source" — DM yourself source files to read on a remote desktop.
+      if (await handleSourceText(message)) return;
+
+      // Owner "!putfile <path>" — write an uploaded file/code block into the project.
+      if (await handlePutFileText(message)) return;
 
       // DM tickets (modmail): open/relay/close. If it handled the DM, stop here
       // so the message isn't also forwarded to the Gemini chat.

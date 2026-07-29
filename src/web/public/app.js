@@ -2304,3 +2304,4 @@ async function boot() {
 }
 
 boot();
+// End of file: src/web/public/app.js
