@@ -272,6 +272,10 @@ export async function handleTicketButton(interaction) {
     const id = interaction.customId || '';
     const [, action, ...rest] = id.split(':');
 
+    // DM modmail server picker (works in DMs — no guild context).
+    if (interaction.isStringSelectMenu?.() && action === 'dmpick') {
+      return openPickedDmTicket(interaction);
+    }
     if (interaction.isStringSelectMenu?.() && action === 'menu') {
       const t = tk(interaction.guildId);
       const opts = String(t.menuOptions || '').split(',').map((s) => s.trim()).filter(Boolean);
@@ -603,25 +607,85 @@ function logEvent(guild, t, text) {
 
 /* ============================================================= DM MODMAIL */
 
-// Find a guild (shared with this user) that has DM tickets enabled. Cache-first so
-// a casual DM doesn't trigger a member fetch against every guild the bot is in.
-async function resolveDmGuild(client, userId) {
-  let candidates = [];
+// Guilds that have DM tickets enabled (cheap cache filter — no member fetches).
+function dmEnabledGuilds(client) {
   try {
-    candidates = [...client.guilds.cache.values()].filter((g) => {
+    return [...client.guilds.cache.values()].filter((g) => {
       const t = tk(g.id);
       return t.enabled && (t.mode === 'dm' || t.mode === 'both') && t.dmStaffChannelId;
     });
-  } catch { return null; }
+  } catch { return []; }
+}
 
+// Of those guilds, the ones this user is actually a member of (cache-first, then fetch).
+async function memberOfGuilds(candidates, userId) {
+  const out = [];
   for (const guild of candidates) {
-    try { if (guild.members.cache.has(userId)) return { guild, t: tk(guild.id) }; } catch { ignore(); }
+    try { if (guild.members.cache.has(userId)) out.push(guild); } catch { ignore(); }
   }
+  const have = new Set(out.map((g) => g.id));
   for (const guild of candidates) {
+    if (have.has(guild.id)) continue;
     const member = await guild.members.fetch(userId).catch(() => null);
-    if (member) return { guild, t: tk(guild.id) };
+    if (member) out.push(guild);
   }
-  return null;
+  return out;
+}
+
+// When a user shares MULTIPLE DM-ticket servers, they must pick which one. We stash
+// their original message here until they choose from the server menu.
+const pendingDmSelections = new Map(); // userId -> { content, at }
+
+// Actually open a DM ticket for a specific guild. Shared by the direct path and the
+// server-picker path. Returns { ok, msg }.
+async function createDmTicket(client, user, guild, t, body) {
+  const staffChannel = await guild.channels.fetch(t.dmStaffChannelId).catch(() => null);
+  if (!staffChannel?.threads) return { ok: false, msg: '❌ Sorry, DM tickets are misconfigured on that server (no staff channel).' };
+
+  let thread;
+  try {
+    thread = await staffChannel.threads.create({
+      name: `dm-${user.username}`.slice(0, 90),
+      type: ChannelType.PrivateThread,
+      invitable: false,
+      reason: `DM ticket opened by ${user.tag}`,
+    });
+  } catch {
+    thread = await staffChannel.threads.create({ name: `dm-${user.username}`.slice(0, 90) }).catch(() => null);
+  }
+  if (!thread) return { ok: false, msg: '❌ Could not open a ticket right now. Please try again later.' };
+
+  store.put({ user_id: user.id, guild_id: guild.id, thread_id: thread.id, channel_id: staffChannel.id, opened_at: Date.now() });
+
+  const header = new EmbedBuilder().setColor(parseColor(t.color)).setTitle('📨 New DM Ticket')
+    .setDescription(clamp(body || '*(no message)*', 4000))
+    .addFields({ name: 'User', value: clamp(`${user.tag} \`${user.id}\``, 1024), inline: true })
+    .setFooter({ text: 'Reply in this thread to message the user • they type your close command to end it' }).setTimestamp();
+  const staffPing = t.staffRoleId ? `<@&${t.staffRoleId}>` : '';
+  await thread.send({ content: staffPing, embeds: [header] }).catch(ignore);
+
+  return { ok: true, msg: clamp(t.dmReply || 'Thanks! Your message was sent to our staff team.', 2000) };
+}
+
+// Called when the user picks a server from the modmail server menu (customId ticket:dmpick).
+async function openPickedDmTicket(interaction) {
+  const guildId = interaction.values?.[0];
+  const guild = interaction.client.guilds.cache.get(guildId);
+  const t = guildId ? tk(guildId) : null;
+  const pending = pendingDmSelections.get(interaction.user.id);
+  pendingDmSelections.delete(interaction.user.id);
+
+  if (store.byUser(interaction.user.id)) {
+    return safeUpdate(interaction, { content: '📨 You already have an open ticket — just keep typing here.', components: [] });
+  }
+  if (!guild || !t) {
+    return safeUpdate(interaction, { content: '❌ That server is no longer available. DM me again to retry.', components: [] });
+  }
+  const cmd = String(t.dmCommand || '!ticket').toLowerCase();
+  const raw = pending?.content || '';
+  const body = raw.toLowerCase().startsWith(cmd) ? raw.slice(cmd.length).trim() : raw.trim();
+  const res = await createDmTicket(interaction.client, interaction.user, guild, t, body);
+  return safeUpdate(interaction, { content: res.ok ? `✅ Ticket opened for **${clamp(guild.name, 100)}**. ${res.msg}` : res.msg, components: [] });
 }
 
 // Called for every DM to the bot. Returns true if it handled a ticket action.
@@ -657,41 +721,41 @@ export async function handleDMTicket(message) {
       return true;
     }
 
-    // Not in a ticket yet → only open when the command prefix is used.
-    const resolved = await resolveDmGuild(message.client, message.author.id);
-    if (!resolved) return false;
-    const { guild, t } = resolved;
-    const cmd = String(t.dmCommand || '!ticket').toLowerCase();
-    if (!content.toLowerCase().startsWith(cmd)) return false;
+    // Not in a ticket yet → only open when a server's ticket command prefix is used.
+    const candidates = dmEnabledGuilds(message.client);
+    if (!candidates.length) return false;
 
-    const body = content.slice(cmd.length).trim();
-    const staffChannel = await guild.channels.fetch(t.dmStaffChannelId).catch(() => null);
-    if (!staffChannel?.threads) return message.reply('❌ Sorry, DM tickets are misconfigured on that server (no staff channel).').catch(ignore);
+    // Cheap early-out: don't fetch members unless this DM starts with some
+    // server's ticket command.
+    const lc = content.toLowerCase();
+    const matchesCmd = (g) => lc.startsWith(String(tk(g.id).dmCommand || '!ticket').toLowerCase());
+    if (!candidates.some(matchesCmd)) return false;
 
-    let thread;
-    try {
-      thread = await staffChannel.threads.create({
-        name: `dm-${message.author.username}`.slice(0, 90),
-        type: ChannelType.PrivateThread,
-        invitable: false,
-        reason: `DM ticket opened by ${message.author.tag}`,
-      });
-    } catch {
-      thread = await staffChannel.threads.create({ name: `dm-${message.author.username}`.slice(0, 90) }).catch(() => null);
+    // Which of those servers is the user actually in AND typed the command for?
+    const mine = await memberOfGuilds(candidates, message.author.id);
+    const matching = mine.filter(matchesCmd);
+    if (!matching.length) return false;
+
+    // Shares exactly ONE ticket server → open it straight away.
+    if (matching.length === 1) {
+      const guild = matching[0];
+      const t = tk(guild.id);
+      const body = content.slice(String(t.dmCommand || '!ticket').length).trim();
+      const res = await createDmTicket(message.client, message.author, guild, t, body);
+      if (!res.ok) return message.reply(res.msg).catch(ignore);
+      await message.react(t.dmAck || '✅').catch(ignore);
+      return message.reply(res.msg).catch(ignore);
     }
-    if (!thread) return message.reply('❌ Could not open a ticket right now. Please try again later.').catch(ignore);
 
-    store.put({ user_id: message.author.id, guild_id: guild.id, thread_id: thread.id, channel_id: staffChannel.id, opened_at: Date.now() });
-
-    const header = new EmbedBuilder().setColor(parseColor(t.color)).setTitle('📨 New DM Ticket')
-      .setDescription(clamp(body || '*(no message)*', 4000))
-      .addFields({ name: 'User', value: clamp(`${message.author.tag} \`${message.author.id}\``, 1024), inline: true })
-      .setFooter({ text: 'Reply in this thread to message the user • they type your close command to end it' }).setTimestamp();
-    const staffPing = t.staffRoleId ? `<@&${t.staffRoleId}>` : '';
-    await thread.send({ content: staffPing, embeds: [header] }).catch(ignore);
-
-    await message.react(t.dmAck || '✅').catch(ignore);
-    return message.reply(clamp(t.dmReply || 'Thanks! Your message was sent to our staff team.', 2000)).catch(ignore);
+    // Shares MULTIPLE ticket servers → ask which one (fixes the "bot just guesses" bug).
+    pendingDmSelections.set(message.author.id, { content, at: Date.now() });
+    const menu = new StringSelectMenuBuilder().setCustomId('ticket:dmpick')
+      .setPlaceholder('Choose the server this ticket is for…')
+      .addOptions(matching.slice(0, 25).map((g) => ({ label: clamp(g.name, 100), value: g.id })));
+    return message.reply({
+      content: '📨 You share **multiple servers** with me — which one is this ticket for?',
+      components: [new ActionRowBuilder().addComponents(menu)],
+    }).catch(ignore);
   } catch (err) {
     console.error('DM ticket error:', err?.message);
     return false; // fall through to normal DM handling

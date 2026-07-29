@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Photo → 3D • Sentinel</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0b0d13; color: #e7eaf2; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+  #stage { position: fixed; inset: 0; }
+  #panel { position: fixed; top: 14px; left: 14px; z-index: 10; background: rgba(10,13,20,.78); border: 1px solid #232a3b; border-radius: 14px; padding: 14px 16px; max-width: 340px; backdrop-filter: blur(6px); }
+  h1 { font-size: 16px; margin: 0 0 6px; }
+  p { font-size: 12.5px; color: #98a0b3; margin: 6px 0; line-height: 1.45; }
+  input[type=file] { font-size: 12px; }
+  button { font-size: 13px; font-weight: 700; border: 0; border-radius: 9px; padding: 9px 14px; cursor: pointer; color: #fff; background: #5865f2; margin-top: 8px; }
+  button:disabled { opacity: .5; cursor: default; }
+  #status { font-size: 12px; color: #8b93ff; margin-top: 8px; min-height: 16px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+  <div id="panel">
+    <h1>📷 → 🧊 Photo to 3D</h1>
+    <p>Upload one photo. An AI depth model (Depth-Anything) runs <b>in your browser</b>, then I build a 3D depth-mesh you can orbit. No apps.</p>
+    <input type="file" id="file" accept="image/*" />
+    <div class="row">
+      <button id="go" disabled>Make 3D</button>
+      <button id="export" disabled style="background:#1db954">Export .glb</button>
+    </div>
+    <div id="status">Loading the depth model… (first time downloads it, ~1 min)</div>
+    <p style="opacity:.7">Real AI depth → navigable 2.5D. Not full photogrammetry. To import an existing true-3D scan instead, use the <b>3D viewer</b> / <code>!3d</code>.</p>
+  </div>
+  <div id="stage"></div>
+
+  <script type="importmap">
+  { "imports": { "three": "/vendor/three/build/three.module.js", "three/addons/": "/vendor/three/examples/jsm/" } }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+    import { pipeline, RawImage } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3';
+
+    const $ = (id) => document.getElementById(id);
+    const setStatus = (t) => { $('status').textContent = t; };
+
+    // ---- three.js scene ----
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(devicePixelRatio); renderer.setSize(innerWidth, innerHeight);
+    $('stage').appendChild(renderer.domElement);
+    const scene = new THREE.Scene(); scene.background = new THREE.Color(0x0b0d13);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x334455, 1.3));
+    const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.01, 100);
+    camera.position.set(0, 0, 2.2);
+    const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true;
+    let mesh = null;
+    addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+    (function loop() { controls.update(); renderer.render(scene, camera); requestAnimationFrame(loop); })();
+
+    // ---- load the depth model once ----
+    let depthEstimator = null;
+    try {
+      depthEstimator = await pipeline('depth-estimation', 'onnx-community/depth-anything-v2-small', { device: 'webgpu' }).catch(
+        () => pipeline('depth-estimation', 'onnx-community/depth-anything-v2-small')); // fall back to WASM if no WebGPU
+      setStatus('Ready — pick a photo and hit Make 3D.');
+      $('go').disabled = false;
+    } catch (e) { setStatus('⚠️ Could not load the depth model: ' + e.message); }
+
+    let currentFile = null;
+    $('file').onchange = (e) => { currentFile = e.target.files[0]; if (currentFile && depthEstimator) $('go').disabled = false; };
+
+    $('go').onclick = async () => {
+      if (!currentFile) return;
+      $('go').disabled = true; setStatus('🧠 Estimating depth…');
+      try {
+        const url = URL.createObjectURL(currentFile);
+        const image = await RawImage.fromURL(url);
+        const out = await depthEstimator(image);
+        const depth = out.depth; // RawImage, grayscale (near = bright)
+        setStatus('🧊 Building 3D mesh…');
+        buildMesh(image, depth);
+        setStatus('✅ Done — drag to orbit, scroll to zoom. Export .glb to import via !3d.');
+        $('export').disabled = false;
+      } catch (err) { setStatus('⚠️ ' + err.message); $('go').disabled = false; }
+    };
+
+    function buildMesh(colorImg, depthImg) {
+      if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); }
+      const W = depthImg.width, H = depthImg.height;
+      const dData = depthImg.data; const dCh = depthImg.channels || (dData.length / (W * H));
+      const aspect = colorImg.width / colorImg.height;
+      const segX = Math.min(255, W - 1), segY = Math.min(255, H - 1);
+      const geo = new THREE.PlaneGeometry(aspect, 1, segX, segY);
+      const pos = geo.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        const u = pos.getX(i) / aspect + 0.5;   // 0..1
+        const v = 0.5 - pos.getY(i);            // 0..1 (flip)
+        const px = Math.min(W - 1, Math.max(0, Math.round(u * (W - 1))));
+        const py = Math.min(H - 1, Math.max(0, Math.round(v * (H - 1))));
+        const d = dData[(py * W + px) * dCh] / 255; // 0..1, near = 1
+        pos.setZ(i, d * 0.5); // displacement depth
+      }
+      geo.computeVertexNormals();
+      // color texture from the original photo
+      const cCanvas = document.createElement('canvas'); cCanvas.width = colorImg.width; cCanvas.height = colorImg.height;
+      const cx = cCanvas.getContext('2d');
+      const cImgData = cx.createImageData(colorImg.width, colorImg.height);
+      const src = colorImg.data; const sCh = colorImg.channels || (src.length / (colorImg.width * colorImg.height));
+      for (let i = 0; i < colorImg.width * colorImg.height; i++) {
+        cImgData.data[i * 4] = src[i * sCh]; cImgData.data[i * 4 + 1] = src[i * sCh + 1] ?? src[i * sCh];
+        cImgData.data[i * 4 + 2] = src[i * sCh + 2] ?? src[i * sCh]; cImgData.data[i * 4 + 3] = 255;
+      }
+      cx.putImageData(cImgData, 0, 0);
+      const tex = new THREE.CanvasTexture(cCanvas); tex.colorSpace = THREE.SRGBColorSpace;
+      mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0 }));
+      scene.add(mesh);
+      camera.position.set(0, 0, 2.2); controls.target.set(0, 0, 0);
+    }
+
+    $('export').onclick = () => {
+      if (!mesh) return;
+      new GLTFExporter().parse(mesh, (glb) => {
+        const blob = new Blob([glb], { type: 'model/gltf-binary' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'photo3d.glb'; a.click();
+      }, (e) => setStatus('export failed: ' + e.message), { binary: true });
+    };
+  </script>
+</body>
+</html>

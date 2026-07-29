@@ -4,6 +4,7 @@ import { getCfg } from '../setup/store.js';
 import { renderMemberCard } from '../render/cards.js';
 import { bump as analyticsBump } from '../systems/analytics.js';
 import { runMemberJoinAutomations, runMemberLeaveAutomations } from '../features/automations.js';
+import { antiRaidCheck } from '../systems/antiraid.js';
 
 function fill(template, member) {
   return (template || '')
@@ -15,6 +16,8 @@ function fill(template, member) {
 
 export async function handleMemberAdd(member) {
   if (member.user?.bot) return;
+  // Auto raid defense FIRST — if it removed the member, don't welcome/role a raider.
+  if (await antiRaidCheck(member)) return;
   analyticsBump(member.guild.id, 'joins');
   const { settings } = getCfg(member.guild.id);
 
