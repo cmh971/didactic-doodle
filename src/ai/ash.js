@@ -16,6 +16,7 @@
 import axios from 'axios';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } from 'discord.js';
 import { searchAll } from '../features/search.js';
+import { profileSummary, recordFacts } from './ashMemory.js';
 
 const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 const API_KEY = () => process.env.GEMINI_API_KEY;
@@ -98,12 +99,21 @@ You SHOULD use them proactively whenever they fit — don't just describe them, 
    End your reply with:
        [EMBED]{"title":"...","description":"...","color":"#5865F2","fields":[{"name":"...","value":"..."}]}
 
+4) MEMORY (silent, long-term) — when you learn a DURABLE, useful fact about the user
+   (their real name/nickname, pronouns, interests, hobbies, role/rank, projects,
+   timezone, likes/dislikes, or anything they say to remember), append at the VERY END:
+       [MEMORY]{"facts":["short third-person fact","another"]}
+   Rules: only lasting facts, NOT one-off chit-chat or questions. Write each fact in the
+   third person ("likes flight sims", "is a DOT officer"). The user never sees this tag.
+   You already receive a "[WHAT YOU REMEMBER ABOUT …]" block when you know them — use it
+   to personalize, and only recite it if they ask what you know about them.
+
 === IMAGES ===
 If the user attached an image, you can genuinely SEE it — describe or answer about it directly.
 
 === RULES ===
 • Never invent facts, links, or citations. If unsure → [SEARCH].
-• Emit at most ONE directive per reply. Put [FORM]/[EMBED] at the very END; [SEARCH] must be the whole reply.
+• At most ONE of [FORM]/[EMBED] per reply, at the very END; [SEARCH] must be the whole reply. [MEMORY] is silent and MAY be appended after a normal reply (put it last of all).
 • Keep normal chat answers short to save tokens.
 ================================================================================
 
@@ -499,8 +509,10 @@ async function generate(contents) {
 
 /* ------------------------------------------------------- image ingestion -- */
 // Pull up to 2 image attachments off a message → base64 inline parts for vision.
-export async function imagePartsFromMessage(message) {
-  const imgs = [...message.attachments.values()]
+// Turn any array of Discord attachment-like objects ({url, contentType, name, size})
+// into Gemini image parts. Shared by the message path and the /ask command.
+export async function imagePartsFromAttachments(atts) {
+  const imgs = [...atts]
     .filter((a) => /^image\//.test(a.contentType || '') || /\.(png|jpe?g|webp|gif)$/i.test(a.name || ''))
     .slice(0, 2);
   const parts = [];
@@ -513,6 +525,10 @@ export async function imagePartsFromMessage(message) {
     } catch { /* skip */ }
   }
   return parts;
+}
+
+export async function imagePartsFromMessage(message) {
+  return imagePartsFromAttachments([...message.attachments.values()]);
 }
 
 /* --------------------------------------------------------------- embeds --- */
@@ -571,7 +587,7 @@ export async function handleAshModal(interaction) {
   const spec = formSpecs.get(id);
   await interaction.deferReply().catch(() => {});
   const answers = (spec?.fields || []).map((f, i) => `${f.label || `Field ${i + 1}`}: ${interaction.fields.getTextInputValue(`f${i}`) || '(blank)'}`).join('\n');
-  const { text } = await askAsh({ channelId: interaction.channelId, authorTag: interaction.user.username, text: `[Form submitted]\n${answers}` });
+  const { text } = await askAsh({ channelId: interaction.channelId, authorTag: interaction.user.username, authorId: interaction.user.id, guildId: interaction.guildId || 'dm', text: `[Form submitted]\n${answers}` });
   await interaction.editReply(text?.slice(0, 2000) || 'Got it, thanks! ✅').catch(() => {});
   return true;
 }
@@ -603,7 +619,7 @@ export async function handleAshReaction(reaction, user) {
 }
 
 /* ----------------------------------------------------------------- core --- */
-export async function askAsh({ channelId, authorTag, text, images = [] }) {
+export async function askAsh({ channelId, authorTag, authorId = null, guildId = 'dm', text, images = [], mentions = [] }) {
   const q = String(text || '').trim();
   // 1) local prefilter (no tokens)
   if (!images.length) {
@@ -615,6 +631,18 @@ export async function askAsh({ channelId, authorTag, text, images = [] }) {
   // 2) build contents from memory + this turn (with any images)
   const h = history.get(channelId) || [];
   const contents = h.map((m) => ({ role: m.role, parts: [{ text: m.text }] }));
+  // Long-term per-member memory: remind Ash what it already knows about this person.
+  if (authorId) {
+    const mem = profileSummary(guildId, authorId);
+    if (mem) contents.push({ role: 'user', parts: [{ text: `[WHAT YOU REMEMBER ABOUT ${authorTag}]\n${mem}\n(Use this to personalize your reply. Don't recite it back unless they ask what you know about them.)` }] });
+  }
+  // If they @mentioned other members, remind Ash what it knows about THEM too, so
+  // "what do you know about @user" works for anyone — not just the person asking.
+  for (const m of mentions) {
+    if (!m?.id || m.id === authorId) continue;
+    const mem = profileSummary(guildId, m.id);
+    if (mem) contents.push({ role: 'user', parts: [{ text: `[WHAT YOU REMEMBER ABOUT ${m.name || 'that member'}]\n${mem}` }] });
+  }
   const userParts = [{ text: `${authorTag}: ${q || '(sent an image)'}` }, ...images];
   contents.push({ role: 'user', parts: userParts });
 
@@ -636,6 +664,11 @@ export async function askAsh({ channelId, authorTag, text, images = [] }) {
   let embed = null; let components = null;
   reply = reply.replace(/\[EMBED\]\s*(\{[\s\S]*?\})\s*$/i, (_, j) => { try { embed = buildEmbed(JSON.parse(j)); } catch { /* ignore */ } return ''; });
   reply = reply.replace(/\[FORM\]\s*(\{[\s\S]*?\})\s*$/i, (_, j) => { try { components = [makeFormButton(JSON.parse(j))]; } catch { /* ignore */ } return ''; });
+  // MEMORY directive — Ash saves durable facts it learned about the user (never shown).
+  reply = reply.replace(/\[MEMORY\]\s*(\{[\s\S]*?\})\s*$/i, (_, j) => {
+    try { const o = JSON.parse(j); if (authorId && Array.isArray(o.facts)) recordFacts(guildId, authorId, authorTag, o.facts); } catch { /* ignore */ }
+    return '';
+  });
   reply = reply.trim();
   if (!reply && components) reply = '📝 Tap the button to fill this out:';
   else if (!reply && embed) reply = '';

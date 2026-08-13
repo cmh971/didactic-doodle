@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Playground · Sentinel</title>
+  <link rel="icon" href="favicon.ico" />
+  <style>
+    :root { color-scheme: dark; --bg:#0b0f14; --panel:#0e1c2c; --border:#1e3a55; --text:#e8f0ff; --muted:#7fa8d0; --acc:#37d0a0; --acc2:#5865f2; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:'Segoe UI',system-ui,sans-serif; background:
+      radial-gradient(900px 500px at 85% -10%, rgba(55,208,160,.10), transparent 60%), var(--bg); color:var(--text); }
+    .wrap { max-width: 1000px; margin: 0 auto; padding: 26px 18px 70px; }
+    h1 { margin: 0 0 2px; font-size: 1.7rem; }
+    .sub { color: var(--muted); margin-bottom: 18px; } .sub a { color: var(--acc); text-decoration: none; }
+
+    .keybar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; background:var(--panel); border:1px solid var(--border);
+      border-radius:12px; padding:12px 14px; margin-bottom:6px; position: sticky; top: 8px; z-index: 5; backdrop-filter: blur(6px); }
+    .keybar input { flex:1; min-width:220px; background:#09121c; border:1px solid var(--border); color:var(--text);
+      border-radius:8px; padding:9px 11px; font-family:'Cascadia Code',Consolas,monospace; font-size:13px; }
+    .keybar button { background:var(--acc2); color:#fff; border:0; border-radius:8px; padding:9px 16px; font-weight:700; cursor:pointer; }
+    .keybar button.ghost { background:transparent; border:1px solid var(--border); color:var(--muted); }
+    .hint { color:var(--muted); font-size:.82rem; margin:8px 2px 20px; }
+    .hint b { color:#7fd0ff; }
+
+    .cat { margin: 26px 0 8px; color: var(--muted); font-size:.8rem; text-transform:uppercase; letter-spacing:.1em; font-weight:800; }
+    .ep { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:12px 14px; margin:10px 0; }
+    .ep .top { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .m { font-weight:800; padding:2px 8px; border-radius:6px; font-size:11px; } .get{ background:#14432c; color:var(--acc);} .post{ background:#3a2c14; color:#f5b642;}
+    .path { font-family:'Cascadia Code',Consolas,monospace; font-size:13.5px; color:#cfe6ff; }
+    .desc { color:var(--muted); font-size:.85rem; margin-left: 4px; }
+    .run { margin-left:auto; background:var(--acc); color:#062018; border:0; border-radius:8px; padding:7px 15px; font-weight:800; cursor:pointer; }
+    .run:hover { filter:brightness(1.08); } .run:disabled { opacity:.5; cursor:not-allowed; }
+    .params { display:flex; gap:8px; flex-wrap:wrap; margin-top:9px; }
+    .params label { font-size:.78rem; color:var(--muted); display:flex; flex-direction:column; gap:3px; }
+    .params input { background:#09121c; border:1px solid var(--border); color:var(--text); border-radius:7px; padding:6px 9px; font-family:'Cascadia Code',monospace; font-size:12.5px; width:130px; }
+    .result { margin-top:10px; display:none; }
+    .result.show { display:block; }
+    .status { font-size:.78rem; font-weight:700; margin-bottom:5px; }
+    .ok { color:var(--acc); } .bad { color:#ff6b5e; }
+    pre { background:#070d15; border:1px solid #14283d; border-radius:8px; padding:11px; overflow-x:auto; margin:0; font-size:12.5px; font-family:'Cascadia Code',Consolas,monospace; line-height:1.5; }
+    .k{color:#7fd0ff;} .s{color:#9be7a0;} .n{color:#f5b642;} .b{color:#c58af9;}
+    .copy { float:right; background:transparent; border:1px solid var(--border); color:var(--muted); border-radius:6px; font-size:11px; padding:2px 8px; cursor:pointer; }
+    .empty { color:var(--muted); text-align:center; padding:40px 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🔌 API Playground</h1>
+    <p class="sub">Try every endpoint live, right here — <a href="/developers">full docs →</a></p>
+
+    <div class="keybar">
+      <input id="key" type="text" placeholder="Paste your API key (sk_...) — !apikey new read in Discord" autocomplete="off" spellcheck="false" />
+      <button id="load">Load endpoints</button>
+      <button id="clear" class="ghost">Forget key</button>
+    </div>
+    <p class="hint">🔒 Your key is stored <b>only in this browser</b> (localStorage) and sent straight to your own API — never to anyone else. Read endpoints only; write endpoints live in the <a href="/developers" style="color:var(--acc)">docs</a>.</p>
+
+    <div id="list"><div class="empty">Paste a key and hit <b>Load endpoints</b> to begin. 🚀</div></div>
+  </div>
+
+  <script>
+  (() => {
+    const $ = (s) => document.querySelector(s);
+    const keyEl = $('#key'), listEl = $('#list');
+    const saved = localStorage.getItem('sentinelApiKey');
+    if (saved) keyEl.value = saved;
+
+    const esc = (s) => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    // minimal JSON syntax highlight
+    const hl = (obj) => esc(JSON.stringify(obj, null, 2))
+      .replace(/&quot;(\\.|[^&])*?&quot;(?=\s*:)/g, m => `<span class="k">${m}</span>`)
+      .replace(/: (&quot;(\\.|[^&])*?&quot;)/g, (m, g) => `: <span class="s">${g}</span>`)
+      .replace(/: (-?\d+\.?\d*)/g, (m, g) => `: <span class="n">${g}</span>`)
+      .replace(/: (true|false|null)/g, (m, g) => `: <span class="b">${g}</span>`);
+
+    // Parse an endpoint path into :params and ?query keys.
+    function parsePath(path) {
+      const [base, query] = path.split('?');
+      const params = (base.match(/:(\w+)/g) || []).map(s => s.slice(1));
+      const queries = query ? query.split('&').map(q => q.split('=')[0]).filter(Boolean) : [];
+      return { base, params, queries };
+    }
+    const DEFAULTS = { limit: '10', days: '14', id: '' };
+
+    async function run(ep, card) {
+      const key = keyEl.value.trim();
+      if (!key) return alert('Paste your API key first.');
+      const { base, params, queries } = parsePath(ep.path);
+      let url = base;
+      for (const p of params) { const v = card.querySelector(`[data-p="${p}"]`).value.trim(); if (!v) return alert(`Fill in "${p}" first.`); url = url.replace(':' + p, encodeURIComponent(v)); }
+      const qs = new URLSearchParams({ key });
+      for (const q of queries) { const v = card.querySelector(`[data-q="${q}"]`)?.value.trim(); if (v) qs.set(q, v); }
+      const full = '/api/v1' + url + '?' + qs.toString();
+      const res = card.querySelector('.result'), st = res.querySelector('.status'), pre = res.querySelector('pre');
+      res.classList.add('show'); st.textContent = '⏳ requesting…'; st.className = 'status'; pre.innerHTML = '';
+      const t0 = performance.now();
+      try {
+        const r = await fetch(full, { cache: 'no-store' });
+        const ms = Math.round(performance.now() - t0);
+        const data = await r.json().catch(() => ({ error: 'non-JSON response' }));
+        st.innerHTML = `<span class="${r.ok ? 'ok' : 'bad'}">${r.ok ? '✅' : '⛔'} HTTP ${r.status}</span> · ${ms}ms`;
+        pre.innerHTML = `<button class="copy">copy curl</button>` + hl(data);
+        pre.querySelector('.copy').onclick = () => {
+          const curl = `curl -H "Authorization: Bearer ${key}" "${location.origin}/api/v1${url}${queries.length ? '?' + queries.map(q => { const v = card.querySelector(`[data-q="${q}"]`)?.value.trim(); return v ? q + '=' + v : null; }).filter(Boolean).join('&') : ''}"`;
+          navigator.clipboard.writeText(curl); pre.querySelector('.copy').textContent = 'copied!';
+          setTimeout(() => { const c = pre.querySelector('.copy'); if (c) c.textContent = 'copy curl'; }, 1200);
+        };
+      } catch (e) {
+        st.innerHTML = `<span class="bad">⛔ ${esc(e.message)}</span>`;
+      }
+    }
+
+    function render(eps) {
+      const byScope = eps.filter(e => e.method === 'GET');
+      // group by first path segment
+      const groups = {};
+      for (const e of byScope) { const g = (e.path.split('/')[1] || 'core').split('?')[0]; (groups[g] ??= []).push(e); }
+      listEl.innerHTML = Object.entries(groups).map(([g, arr]) => `
+        <div class="cat">${esc(g)}</div>
+        ${arr.map((e, i) => {
+          const { params, queries } = parsePath(e.path);
+          const inputs = [
+            ...params.map(p => `<label>${p}<input data-p="${p}" placeholder="${p}" value="${DEFAULTS[p] ?? ''}"></label>`),
+            ...queries.map(q => `<label>${q}<input data-q="${q}" placeholder="${q}" value="${DEFAULTS[q] ?? ''}"></label>`),
+          ].join('');
+          return `<div class="ep" data-path="${esc(e.path)}">
+            <div class="top"><span class="m get">GET</span><span class="path">${esc(e.path)}</span><span class="desc">${esc(e.desc || '')}</span>
+              <button class="run">Run ▶</button></div>
+            ${inputs ? `<div class="params">${inputs}</div>` : ''}
+            <div class="result"><div class="status"></div><pre></pre></div>
+          </div>`;
+        }).join('')}
+      `).join('');
+      listEl.querySelectorAll('.ep').forEach(card => {
+        const ep = { path: card.dataset.path };
+        card.querySelector('.run').onclick = () => run(ep, card);
+      });
+    }
+
+    async function load() {
+      const key = keyEl.value.trim();
+      if (!key) return alert('Paste your API key first (make one in Discord: !apikey new read).');
+      localStorage.setItem('sentinelApiKey', key);
+      listEl.innerHTML = '<div class="empty">Loading your endpoints… ⏳</div>';
+      try {
+        const r = await fetch('/api/v1/endpoints?key=' + encodeURIComponent(key), { cache: 'no-store' });
+        if (r.status === 403) { listEl.innerHTML = '<div class="empty">⛔ That key was rejected. Generate a fresh one with <b>!apikey new read</b>.</div>'; return; }
+        const d = await r.json();
+        if (!d.endpoints) { listEl.innerHTML = '<div class="empty">Unexpected response. 🤔</div>'; return; }
+        render(d.endpoints);
+      } catch (e) { listEl.innerHTML = `<div class="empty">⛔ ${esc(e.message)}</div>`; }
+    }
+
+    $('#load').onclick = load;
+    $('#clear').onclick = () => { localStorage.removeItem('sentinelApiKey'); keyEl.value = ''; listEl.innerHTML = '<div class="empty">Key forgotten. Paste one to start again.</div>'; };
+    keyEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') load(); });
+    if (saved) load();
+  })();
+  </script>
+</body>
+</html>

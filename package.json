@@ -9,6 +9,7 @@
     "dev": "node --watch index.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.116.0",
     "@discordjs/voice": "^0.19.2",
     "@google/model-viewer": "^4.3.1",
     "@napi-rs/canvas": "^0.1.65",

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sentinel • Infraction Embed Designer</title>
+<style>
+  :root { --bg:#0d1117; --panel:#161b22; --card:#2b2d31; --accent:#5865f2; --muted:#949ba4; --line:#30363d; --good:#3fb950; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,Segoe UI,Arial,sans-serif; background:var(--bg); color:#e6edf3; }
+  header { padding:20px 28px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  header h1 { font-size:20px; margin:0; }
+  header .sub { color:var(--muted); font-size:13px; }
+  select, input[type=text] { background:#0d1117; border:1px solid var(--line); color:#e6edf3; border-radius:8px; padding:8px 10px; font-size:14px; }
+  .wrap { display:grid; grid-template-columns:minmax(320px,1fr) minmax(360px,1.1fr); gap:24px; padding:24px 28px; align-items:start; }
+  @media(max-width:860px){ .wrap{ grid-template-columns:1fr; } }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:20px; }
+  .panel h2 { font-size:14px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin:0 0 14px; }
+  .row { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid rgba(255,255,255,.05); }
+  .row:last-child { border-bottom:0; }
+  .row label { font-size:14px; }
+  .field { display:block; margin:12px 0; }
+  .field span { display:block; font-size:12px; color:var(--muted); margin-bottom:5px; }
+  .field input[type=text] { width:100%; }
+  .switch { position:relative; width:42px; height:24px; }
+  .switch input { display:none; }
+  .slider { position:absolute; inset:0; background:#484f58; border-radius:24px; cursor:pointer; transition:.2s; }
+  .slider::before { content:''; position:absolute; width:18px; height:18px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s; }
+  input:checked + .slider { background:var(--accent); }
+  input:checked + .slider::before { transform:translateX(18px); }
+  button { background:var(--accent); color:#fff; border:0; border-radius:9px; padding:11px 18px; font-weight:700; font-size:14px; cursor:pointer; }
+  button:hover { filter:brightness(1.1); } button:disabled { opacity:.5; cursor:default; }
+  .save-bar { display:flex; align-items:center; gap:14px; margin-top:14px; }
+  .msg { font-size:14px; } .msg.ok { color:var(--good); } .msg.err { color:#f85149; }
+
+  /* Discord-style embed preview */
+  .discord { background:#313338; border-radius:10px; padding:16px; }
+  .embed { display:grid; grid-template-columns:1fr auto; background:var(--card); border-radius:4px; border-left:4px solid var(--accent); padding:12px 16px; max-width:520px; }
+  .embed .author { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; margin-bottom:6px; }
+  .embed .author img { width:22px; height:22px; border-radius:50%; }
+  .embed .title { font-size:15px; font-weight:700; color:#fff; margin:2px 0 6px; }
+  .embed .desc { font-size:14px; color:#dbdee1; margin-bottom:8px; }
+  .embed .fields { display:flex; flex-wrap:wrap; gap:10px 18px; }
+  .embed .f { min-width:30%; } .embed .f.full { width:100%; }
+  .embed .f .k { font-size:12px; font-weight:700; color:#fff; }
+  .embed .f .v { font-size:13px; color:#dbdee1; }
+  .embed .thumb { width:70px; height:70px; border-radius:8px; object-fit:cover; margin-left:14px; }
+  .embed .banner { grid-column:1/-1; width:100%; border-radius:6px; margin-top:10px; }
+  .embed .footer { grid-column:1/-1; font-size:12px; color:#949ba4; margin-top:10px; display:flex; align-items:center; gap:6px; }
+  .embed .footer img { width:18px; height:18px; border-radius:50%; }
+  .hint { color:var(--muted); font-size:12px; margin-top:8px; }
+  a { color:var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🛡️ Infraction Embed Designer</h1>
+  <span class="sub">Style the embed your <code>!warn / !mute / !kick / !ban</code> commands post.</span>
+  <span style="flex:1"></span>
+  <select id="guild"><option value="">Loading servers…</option></select>
+</header>
+
+<div class="wrap">
+  <div class="panel" id="controls">
+    <h2>Layout</h2>
+    <div class="field"><span>Title (use {emoji} {TYPE} {case} {guild})</span><input type="text" id="titleTemplate"></div>
+    <div class="field"><span>Footer (use {guild})</span><input type="text" id="footerText"></div>
+    <div class="field"><span>Extra note in description (optional)</span><input type="text" id="extraNote"></div>
+    <div class="field"><span>Big banner image URL (optional)</span><input type="text" id="bannerUrl" placeholder="https://…"></div>
+    <div class="field"><span>Thumbnail</span>
+      <select id="thumbnail"><option value="target">Offender's avatar</option><option value="server">Server icon</option><option value="none">None</option></select>
+    </div>
+
+    <h2 style="margin-top:20px">Colour</h2>
+    <div class="row"><label>Colour by action (warn=blue, ban=red…)</label><span class="switch"><input type="checkbox" id="colorByAction"><span class="slider"></span></span></div>
+    <div class="field"><span>Fixed colour (when the above is off)</span><input type="text" id="color" placeholder="#5865f2"></div>
+
+    <h2 style="margin-top:20px">Fields to show</h2>
+    <div class="row"><label>Post the big embed in-channel</label><span class="switch"><input type="checkbox" id="enabled"><span class="slider"></span></span></div>
+    <div class="row"><label>Strike meter 🟥🟥⬜⬜⬜</label><span class="switch"><input type="checkbox" id="showStrikeMeter"><span class="slider"></span></span></div>
+    <div class="row"><label>Escalation ladder</label><span class="switch"><input type="checkbox" id="showEscalation"><span class="slider"></span></span></div>
+    <div class="row"><label>Moderator</label><span class="switch"><input type="checkbox" id="showModerator"><span class="slider"></span></span></div>
+    <div class="row"><label>Total cases</label><span class="switch"><input type="checkbox" id="showTotalCases"><span class="slider"></span></span></div>
+    <div class="row"><label>Reason</label><span class="switch"><input type="checkbox" id="showReason"><span class="slider"></span></span></div>
+    <div class="row"><label>Notes</label><span class="switch"><input type="checkbox" id="showNotes"><span class="slider"></span></span></div>
+    <div class="row"><label>Expires</label><span class="switch"><input type="checkbox" id="showExpires"><span class="slider"></span></span></div>
+    <div class="row"><label>Issued time</label><span class="switch"><input type="checkbox" id="showIssuedAt"><span class="slider"></span></span></div>
+    <div class="row"><label>Case ID</label><span class="switch"><input type="checkbox" id="showOffenderId"><span class="slider"></span></span></div>
+    <div class="row"><label>Ping the offender</label><span class="switch"><input type="checkbox" id="pingOffender"><span class="slider"></span></span></div>
+
+    <div class="save-bar">
+      <button id="save" disabled>Save</button>
+      <span class="msg" id="msg"></span>
+    </div>
+    <div class="hint">Changes apply to future infractions instantly — no bot restart needed.</div>
+  </div>
+
+  <div class="panel">
+    <h2>Live Preview</h2>
+    <div class="discord"><div class="embed" id="prev"></div></div>
+    <div class="hint">This mirrors what gets posted in your channel + mod-log. Sample data shown.</div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const BOOLS = ['enabled','colorByAction','showStrikeMeter','showEscalation','showModerator','showTotalCases','showReason','showNotes','showExpires','showIssuedAt','showOffenderId','pingOffender'];
+const TEXTS = ['titleTemplate','footerText','extraNote','bannerUrl','color'];
+const ACTION = { warn:{e:'⚠️',n:'Warning',c:'#3498db'}, mute:{e:'🔇',n:'Mute',c:'#f1c40f'}, kick:{e:'👢',n:'Kick',c:'#e67e22'}, ban:{e:'🔨',n:'Ban',c:'#e74c3c'} };
+const SAMPLE = { action:'ban', tag:'troublemaker#0007', id:'123456789012345678', mod:'987654321098765432', reason:'Spamming raid links in #general', notes:'3rd offense — auto-flagged', caseId:42, count:3, guild:'Your Server' };
+const strikeMeter = (n) => { n=Math.max(1,Math.min(5,n||1)); return '🟥'.repeat(n)+'⬜'.repeat(5-n); };
+const ladder = (a) => [['warn','Warn'],['mute','Mute'],['kick','Kick'],['ban','Ban']].map(([k,l])=>k===a?'<u><b>'+l+'</b></u>':l).join('  →  ');
+let defaults = {}, current = {};
+
+function readForm() {
+  const c = {};
+  for (const b of BOOLS) c[b] = $(b).checked;
+  for (const t of TEXTS) c[t] = $(t).value;
+  c.thumbnail = $('thumbnail').value;
+  return c;
+}
+function writeForm(c) {
+  for (const b of BOOLS) $(b).checked = !!c[b];
+  for (const t of TEXTS) $(t).value = c[t] ?? '';
+  $('thumbnail').value = c.thumbnail || 'target';
+}
+const fill = (t,v) => String(t||'').replace(/\{(\w+)\}/g,(m,k)=>k in v?v[k]:m);
+
+function renderPreview() {
+  const c = readForm();
+  const a = ACTION[SAMPLE.action];
+  const vars = { emoji:a.e, TYPE:a.n, TYPE_UPPER:a.n.toUpperCase(), type:a.n.toLowerCase(), case:SAMPLE.caseId, guild:SAMPLE.guild, user:SAMPLE.tag };
+  const color = c.colorByAction ? a.c : (/^#?[0-9a-f]{6}$/i.test(c.color)? (c.color[0]==='#'?c.color:'#'+c.color) : '#5865f2');
+  const av = 'https://cdn.discordapp.com/embed/avatars/'+ (Number(SAMPLE.id)%5) +'.png';
+  const fields = [];
+  fields.push(['👤 Offender','@'+SAMPLE.tag,false]);
+  if (c.showModerator) fields.push(['🛡️ Moderator','@moderator',false]);
+  if (c.showTotalCases) fields.push(['📊 Total Cases',String(SAMPLE.count),false]);
+  if (c.showReason) fields.push(['📝 Reason',SAMPLE.reason,true]);
+  if (c.showNotes) fields.push(['🗒️ Notes',SAMPLE.notes,true]);
+  if (c.showExpires) fields.push(['⏳ Expires','in 7 days',false]);
+  if (c.showIssuedAt) fields.push(['🕒 Issued','Today at 2:30 AM',false]);
+  if (c.showOffenderId) fields.push(['🆔 Case','#'+SAMPLE.caseId,false]);
+
+  const thumb = c.thumbnail==='target' ? av : c.thumbnail==='server' ? 'https://cdn.discordapp.com/embed/avatars/1.png' : '';
+  $('prev').style.borderLeftColor = color;
+  $('prev').innerHTML =
+    '<div>' +
+      '<div class="author"><img src="'+av+'">'+SAMPLE.tag+' ('+SAMPLE.id+')</div>' +
+      '<div class="title">'+fill(c.titleTemplate,vars)+'</div>' +
+      '<div class="desc">' +
+        '<div style="opacity:.9">'+a.e+' <b>'+ (SAMPLE.action==='ban'?'Permanently banned':a.n) +'</b> in <b>'+SAMPLE.guild+'</b></div>' +
+        '<div style="color:#4e5058;margin:4px 0">━━━━━━━━━━━━━━━</div>' +
+        (c.showStrikeMeter? '<div><b>Strike '+SAMPLE.count+'</b>&nbsp;&nbsp;'+strikeMeter(SAMPLE.count)+'</div>':'') +
+        (c.showEscalation? '<div>📈 '+ladder(SAMPLE.action)+'</div>':'') +
+        (c.extraNote? '<div style="margin-top:4px">'+fill(c.extraNote,vars)+'</div>':'') +
+      '</div>' +
+      '<div class="fields">' + fields.map(f=>'<div class="f'+(f[2]?' full':'')+'"><div class="k">'+f[0]+'</div><div class="v">'+f[1]+'</div></div>').join('') + '</div>' +
+    '</div>' +
+    (thumb? '<img class="thumb" src="'+thumb+'">':'<div></div>') +
+    (c.bannerUrl && /^https?:\/\//.test(c.bannerUrl)? '<img class="banner" src="'+c.bannerUrl+'">':'') +
+    '<div class="footer"><img src="https://cdn.discordapp.com/embed/avatars/2.png">'+fill(c.footerText,vars)+' • now</div>';
+}
+
+async function loadGuilds() {
+  const r = await fetch('/api/infraction-embed/guilds');
+  if (r.status === 401) { $('guild').innerHTML = '<option>Please sign in first</option>'; document.querySelector('.hint').innerHTML='🔒 <a href="/login">Sign in with Discord</a> to edit your servers.'; return; }
+  const j = await r.json(); defaults = j.defaults || {};
+  if (!j.guilds.length) { $('guild').innerHTML = '<option value="">No manageable servers with Sentinel</option>'; writeForm(defaults); renderPreview(); return; }
+  $('guild').innerHTML = j.guilds.map(g=>'<option value="'+g.id+'">'+g.name+'</option>').join('');
+  const pre = new URLSearchParams(location.search).get('g');
+  if (pre && j.guilds.some(g=>g.id===pre)) $('guild').value = pre;
+  loadConfig();
+}
+async function loadConfig() {
+  const id = $('guild').value; if (!id) return;
+  const r = await fetch('/api/infraction-embed/'+id);
+  const j = await r.json(); current = j.config || j.defaults || defaults;
+  writeForm(current); renderPreview(); $('save').disabled = false;
+}
+async function save() {
+  const id = $('guild').value; if (!id) return;
+  $('save').disabled = true; $('msg').className='msg'; $('msg').textContent='Saving…';
+  const r = await fetch('/api/infraction-embed/'+id, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(readForm()) });
+  const j = await r.json();
+  if (j.ok) { $('msg').className='msg ok'; $('msg').textContent='✅ Saved!'; }
+  else { $('msg').className='msg err'; $('msg').textContent='❌ '+(j.error||'Failed'); }
+  $('save').disabled = false;
+}
+
+document.querySelectorAll('#controls input,#controls select').forEach(el=>el.addEventListener('input',renderPreview));
+$('guild').addEventListener('change', loadConfig);
+$('save').addEventListener('click', save);
+loadGuilds();
+</script>
+</body>
+</html>

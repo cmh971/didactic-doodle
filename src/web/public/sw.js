@@ -1,9 +1,9 @@
 /* Service worker — installable dashboard shell (network-first) PLUS an offline
    audio cache so saved tracks play with no connection (e.g. on a plane).
    API calls are never cached; saved mp3s are served cache-first. */
-const CACHE = 'dash-shell-v1';
+const CACHE = 'dash-shell-v3';
 const AUDIO = 'sentinel-audio-v1'; // populated by the audio player's "Save offline"
-const SHELL = ['/dashboard', '/', '/style.css', '/app.js', '/icon-192.png', '/icon-512.png', '/manifest.json', '/audio-app'];
+const SHELL = ['/dashboard', '/', '/style.css', '/app.js', '/icon-192.png', '/icon-512.png', '/manifest.json', '/audio-app', '/offline.html', '/offline.png'];
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
@@ -46,6 +46,11 @@ self.addEventListener('fetch', (e) => {
         caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
         return res;
       })
-      .catch(() => caches.match(req).then((r) => r || caches.match('/audio-app') || caches.match('/dashboard'))),
+      .catch(() => caches.match(req).then((r) => {
+        if (r) return r;
+        // A page navigation with nothing cached → show the branded offline page.
+        if (req.mode === 'navigate') return caches.match('/offline.html') || caches.match('/dashboard');
+        return caches.match('/dashboard');
+      })),
   );
 });

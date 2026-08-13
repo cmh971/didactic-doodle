@@ -1,0 +1,24 @@
+ER:LC API Documentation
+Build integrations for ER:LC private servers. Fetch live server data, execute commands remotely, and receive real-time event webhooks.
+
+The Private Server API lets you build external applications that interact with your Emergency Response: Liberty County (ER:LC) private server.
+​
+Get started in minutes
+1
+Purchase the ERLC API pack
+
+The API is available to any server that has purchased the ERLC API server pack.
+2
+Get your server key
+
+Join your private server, open Settings, and search for API key under the ER:LC API section. Copy the key — you will need it for every request.
+3
+Make your first request
+
+Send a GET request to https://api.erlc.gg/v2/server with your server key in the server-key header to fetch live server status.
+4
+Explore the full API
+
+Browse the v2 API Reference to discover all available endpoints, or set up Event Webhooks for real-time notifications.
+If you are not an experienced developer, the API documentation is not for you. Instead, use one of our featured partner clients such as Trident, Melonly, or Sonoran.
+-----------------------------------------------------------------------------------------------------------------------------------------

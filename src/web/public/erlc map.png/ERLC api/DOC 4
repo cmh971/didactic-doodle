@@ -1,0 +1,8 @@
+Get Started
+Overview & Access
+Learn what the ER:LC Private Server API is, what it enables you to build, and how to get your server key to authenticate requests.
+
+The Private Server API gives your ER:LC private server a programmable interface to the outside world. Once your server has the ERLC API pack, you can query live server data, execute in-game commands, receive real-time event webhooks, and build custom tools and integrations.
+​
+Who can use it
+Any private server owner who purchases the ERLC API server pack can use this API. You do not need any special approval beyond owning the pack. Your server key, the credential that authenticates your requests, is available directly from the ER:LC in-game settings once the pack is active.

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Setup Center · Sentinel</title>
+  <link rel="icon" href="favicon.ico" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    * { box-sizing: border-box; }
+    body { margin:0; color:var(--text); font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); }
+    .layout { display:grid; grid-template-columns:280px 1fr; min-height:100vh; }
+    @media (max-width:820px){ .layout{ grid-template-columns:1fr; } .nav{ display:none; } }
+
+    .nav { border-right:1px solid var(--border); background:#0b0f14; padding:18px 14px; position:sticky; top:0; height:100vh; overflow-y:auto; }
+    .nav h1 { font-size:1.05rem; margin:4px 6px 4px; } .nav .sub { color:var(--muted); font-size:.72rem; margin:0 6px 14px; }
+    .nav .search { width:100%; background:var(--panel); border:1px solid var(--border); color:var(--text); border-radius:9px; padding:8px 10px; font-size:.85rem; margin-bottom:12px; }
+    .nav .grp { color:var(--muted); font-size:.66rem; text-transform:uppercase; letter-spacing:.1em; font-weight:800; margin:14px 6px 4px; }
+    .nav a { display:block; color:var(--text); text-decoration:none; padding:6px 10px; border-radius:8px; font-size:.86rem; opacity:.85; }
+    .nav a:hover { background:var(--panel); opacity:1; } .nav a.hidden { display:none; }
+
+    .main { padding:34px 40px 80px; max-width:900px; }
+    @media (max-width:820px){ .main{ padding:24px 18px 60px; } }
+    .hero { margin-bottom:8px; }
+    .hero h2 { font-size:2rem; margin:0 0 6px; font-weight:900; letter-spacing:-.02em; }
+    .hero p { color:var(--muted); margin:0 0 6px; }
+    .count { color:var(--accent); font-weight:800; }
+
+    section { scroll-margin-top:20px; border-top:1px solid var(--border); padding:26px 0; }
+    section:first-of-type { border-top:0; }
+    section h3 { font-size:1.3rem; margin:0 0 4px; display:flex; align-items:center; gap:10px; }
+    section .gtag { font-size:.66rem; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; font-weight:800; }
+    section .body { color:var(--text); opacity:.9; line-height:1.65; margin:10px 0; }
+    section .settings { margin:12px 0; }
+    section .settings .lbl { font-size:.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; font-weight:800; margin-bottom:6px; }
+    .chip { display:inline-block; background:var(--panel); border:1px solid var(--border); border-radius:999px; padding:3px 10px; font-size:.78rem; margin:0 5px 6px 0; font-family:'Cascadia Code',monospace; color:#cfe6ff; }
+    .where { display:inline-flex; align-items:center; gap:7px; margin-top:8px; font-size:.85rem; background:rgba(88,101,242,.1); border:1px solid rgba(88,101,242,.35); border-radius:10px; padding:8px 13px; color:#a9b6ff; text-decoration:none; font-weight:600; }
+    .where:hover { background:rgba(88,101,242,.18); }
+    .tip { border-left:3px solid var(--accent-2, #2ecc71); padding:6px 0 6px 12px; color:var(--muted); font-size:.88rem; margin:10px 0; }
+    .noresults { color:var(--muted); padding:40px 0; display:none; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="nav">
+      <h1>⚙️ Setup Center</h1>
+      <div class="sub">Every system, configured properly.</div>
+      <input class="search" id="search" placeholder="🔍 Search settings…" />
+      <div id="navlist"></div>
+    </aside>
+    <main class="main">
+      <div class="hero">
+        <h2>⚙️ Setup Center</h2>
+        <p><span class="count" id="scount">40</span> in-depth sections — each a real system, with its actual settings and where to configure it. No filler.</p>
+      </div>
+      <div id="content"></div>
+      <div class="noresults" id="noresults">No sections match that search. 🔍</div>
+    </main>
+  </div>
+
+  <script>
+  // Every section maps to a REAL configurable system in the bot.
+  const SECTIONS = [
+    { g:'Getting Started', ic:'🚀', t:'Quick Start', body:'New server? The fastest path: run <code>/setup</code> in Discord for the interactive wizard, or open the <b>Dashboard</b> to toggle modules and edit settings with a UI. Start by enabling the modules you want, then set your log, welcome, and level-up channels.', settings:['/setup','Dashboard → Modules'], where:'/dashboard', wl:'Open Dashboard' },
+    { g:'Getting Started', ic:'🧩', t:'Modules Overview', body:'Five master switches gate whole feature groups: <b>Economy</b>, <b>Gamification</b>, <b>Leveling</b>, <b>Moderation</b>, and <b>Automod</b>. Turning a module off disables all its commands and background tasks instantly — nothing runs unless its module is on.', settings:['economy','gamification','leveling','moderation','automod'], where:'/dashboard', wl:'Toggle modules' },
+    { g:'Getting Started', ic:'🛡️', t:'Staff Roles & Permissions', body:'Define who can use admin and mod actions. <b>Admin roles</b> can change settings and run destructive commands; <b>Mod roles</b> can warn, mute, and manage tickets. Most sensitive actions also respect Discord’s native permissions.', settings:['adminRoles','modRoles'], where:'/dashboard', wl:'Set staff roles' },
+    { g:'Getting Started', ic:'📋', t:'Logging Channels', body:'Pick where the bot writes its records. <code>logChannel</code> gets general events; <code>modLogChannel</code> mirrors every infraction (warn/mute/kick/ban) so staff have a paper trail. Set these early — a lot of features are far more useful with a log.', settings:['logChannel','modLogChannel'], where:'/dashboard', wl:'Set log channels' },
+
+    { g:'Economy & Fun', ic:'💰', t:'Economy', body:'The coin system. Members earn from chatting, dailies, and the casino, then spend in the shop or on games. Configure the <b>starting balance</b> new members get and the <b>daily amount</b>. Requires the Economy module ON.', settings:['economy.startingBalance','economy.dailyAmount'], where:'/dashboard', wl:'Economy settings' },
+    { g:'Economy & Fun', ic:'🏷️', t:'Currency Name & Emoji', body:'Rebrand the money. Set <code>currencyName</code> (e.g. “Credits”) and <code>currencyEmoji</code> so every balance, shop, and payout shows your server’s own currency instead of the default.', settings:['currencyName','currencyEmoji'], where:'/dashboard', wl:'Rename currency' },
+    { g:'Economy & Fun', ic:'🛒', t:'Shop', body:'Items members buy with coins. Add items with a name and price; buyers get them in their inventory. Great for roles, perks, or bragging-rights collectibles. View live via the API <code>/api/v1/shop</code>.', settings:['shop items','prices'], where:'/dashboard', wl:'Manage shop' },
+    { g:'Economy & Fun', ic:'🎡', t:'Casino — Daily Wheel', body:'<code>?wheel</code> — one free spin every 24h for coins, from small wins up to a rare MEGA JACKPOT (1% chance). Hitting a jackpot unlocks the 🎰 badge. Powered by the Economy module.', settings:['?wheel cooldown: 24h','jackpot odds'], where:'/assistant', wl:'Ask Echo about it' },
+    { g:'Economy & Fun', ic:'🎟️', t:'Casino — Lottery', body:'<code>?lottery</code> — a growing server pot. Members buy tickets (100 coins each) to enter; every 24h a weighted-random winner takes the whole pot and a fresh round seeds automatically. More tickets = better odds.', settings:['ticket price: 100','draw: every 24h','seed pot: 1,000'], where:'/leaderboard', wl:'See the leaders' },
+    { g:'Economy & Fun', ic:'🔫', t:'Casino — Heists', body:'<code>?heist</code> — a live crew event. Someone starts it, others join within 60s (each antes coins). Success odds rise with crew size (32%→85%); a win splits 1.5–2.5× the pot, a bust loses the ante. Winners unlock the 🔫 badge.', settings:['lobby: 60s','buy-in: configurable'], where:'/assistant', wl:'Ask Echo about it' },
+    { g:'Economy & Fun', ic:'🏅', t:'Achievement Badges', body:'Members unlock badges at milestones — levels (5/10/25/50), wealth (10k/100k/1M coins), heist wins, lottery wins, wheel jackpots. Unlocks announce inline; check any member with <code>?badges</code>.', settings:['10 badge tiers','auto-awarded'], where:'/leaderboard', wl:'View leaderboard' },
+
+    { g:'Leveling & Engagement', ic:'⭐', t:'Leveling / XP', body:'Members earn 15–25 XP per message (60s anti-spam cooldown). The curve is 50·L²+100·L per level. Set the <code>levelUpChannel</code> and a custom <code>levelUpMessage</code> (supports {user} and {level}). Requires the Leveling module.', settings:['levelUpChannel','levelUpMessage'], where:'/dashboard', wl:'Leveling settings' },
+    { g:'Leveling & Engagement', ic:'🎖️', t:'Level Auto-Roles', body:'Reward progress with roles. Map a level to a role (e.g. level 10 → “Regular”) and the bot assigns it automatically on level-up. Stored as <code>autoroles</code> = { "10": roleId }.', settings:['autoroles'], where:'/dashboard', wl:'Set level rewards' },
+    { g:'Leveling & Engagement', ic:'➕', t:'Join Roles', body:'Auto-assign roles the moment someone joins (<code>joinRoles</code>). Perfect for a default member role, a “unverified” holding role, or region pings.', settings:['joinRoles'], where:'/dashboard', wl:'Set join roles' },
+    { g:'Leveling & Engagement', ic:'🏆', t:'Leaderboards', body:'Public ranking pages: coins, XP (with levels), and top officers by citations. Live and auto-refreshing at <b>/leaderboard</b>, with a podium for the top 3 and a server switcher.', settings:['coins','xp','officers'], where:'/leaderboard', wl:'Open leaderboards' },
+
+    { g:'Moderation & Safety', ic:'🔗', t:'Automod — Invite Filter', body:'Auto-deletes Discord invite links from non-staff (<code>automod.invites</code>). Stops advertisers and raid bait cold. Part of the Automod module.', settings:['automod.invites'], where:'/dashboard', wl:'Automod settings' },
+    { g:'Moderation & Safety', ic:'💨', t:'Automod — Anti-Spam', body:'Detects rapid repeated / flooding messages and acts (<code>automod.spam</code>). Escalates with the violation system. Tune alongside the mention limit below.', settings:['automod.spam'], where:'/dashboard', wl:'Automod settings' },
+    { g:'Moderation & Safety', ic:'🚫', t:'Automod — Bad-Word Filter', body:'Matches a block-list (with leetspeak normalization, so “n1gg3r” is caught too) and escalates warn → timeout → kick → ban (<code>automod.badwords</code>). The list is a “block these” filter — that’s why those words are stored; the bot never says them.', settings:['automod.badwords','words.json'], where:'/dashboard', wl:'Automod settings' },
+    { g:'Moderation & Safety', ic:'📣', t:'Automod — Mention Limit', body:'Caps how many pings one message may contain (<code>automod.maxMentions</code>, default 5). Blocks mass-ping raids. Set to your comfort level.', settings:['automod.maxMentions'], where:'/dashboard', wl:'Automod settings' },
+    { g:'Moderation & Safety', ic:'⚖️', t:'Infractions & Warnings', body:'A full case system: every warn/mute/kick/ban gets a numbered case, mirrored to <code>modLogChannel</code>, viewable and deletable from the dashboard. Powers the escalation ladder.', settings:['case log','modLogChannel'], where:'/dashboard', wl:'View cases' },
+    { g:'Moderation & Safety', ic:'🚨', t:'Anti-Raid / Lockdown', body:'When a raid hits: enable phone verification, revoke invites, and mass-ban in one sweep. Cloudflare “Under Attack Mode” protects the website side. Keep a calm-state config so you can flip it fast.', settings:['phone verify','invite revoke','mass ban'], where:'/dashboard', wl:'Server tools' },
+    { g:'Moderation & Safety', ic:'🤖', t:'AI Moderation Watch', body:'Optional: Ash flags suspicious messages for human review (it never auto-acts). Enable per-guild; flagged messages go to staff to approve or dismiss. A safety net on top of the rule-based automod.', settings:['aimod enabled'], where:'/dashboard', wl:'AI mod settings' },
+    { g:'Moderation & Safety', ic:'✅', t:'Verification (Roblox)', body:'Gate your server behind Roblox verification. Set a <code>verifiedRoleId</code> and optional <code>unverifiedRoleId</code>, and optionally sync the member’s nickname to their Roblox name.', settings:['verify.verifiedRoleId','verify.unverifiedRoleId','verify.nickname'], where:'/dashboard', wl:'Verification settings' },
+
+    { g:'Members', ic:'👋', t:'Welcome Messages', body:'Greet new members. Set <code>welcomeChannel</code> and a <code>welcomeMessage</code> with {user} and {server} placeholders. Pairs great with a rendered welcome card.', settings:['welcomeChannel','welcomeMessage'], where:'/dashboard', wl:'Welcome settings' },
+    { g:'Members', ic:'🚪', t:'Goodbye Messages', body:'Acknowledge leavers with <code>goodbyeChannel</code> + <code>goodbyeMessage</code> ({user}). Useful for keeping a visible pulse on churn.', settings:['goodbyeChannel','goodbyeMessage'], where:'/dashboard', wl:'Goodbye settings' },
+    { g:'Members', ic:'🎭', t:'Reaction Roles', body:'Let members self-assign roles by reacting to a message. Map an emoji → role; add or remove as many as you like from the dashboard.', settings:['emoji → role map'], where:'/dashboard', wl:'Reaction roles' },
+    { g:'Members', ic:'🎉', t:'Giveaways', body:'Run timed giveaways with a prize, winner count, and end time. The bot rolls winners from the reactions when it ends and can reroll if needed. Manage from Discord or the dashboard.', settings:['prize','winners','ends_at'], where:'/dashboard', wl:'Manage giveaways' },
+    { g:'Members', ic:'⭐', t:'Starboard', body:'Highlight the best messages: when a message gets enough ⭐ reactions, it’s reposted to a starboard channel. Set the channel and the star threshold.', settings:['starboard channel','threshold'], where:'/dashboard', wl:'Starboard settings' },
+
+    { g:'Tickets', ic:'🎫', t:'Tickets — Appearance', body:'The “ticket studio” lets you fully brand the support panel: <code>title</code>, <code>description</code>, <code>color</code>, image/thumbnail, and a button or dropdown menu with custom labels and emoji.', settings:['title','description','color','component','buttonLabel'], where:'/dashboard', wl:'Ticket studio' },
+    { g:'Tickets', ic:'⚙️', t:'Tickets — Behavior', body:'Control how tickets work: <code>categoryId</code> they open under, channel <code>naming</code>, <code>maxOpen</code> per user, per-user <code>cooldownSeconds</code>, and optional <code>autoCloseMinutes</code>.', settings:['categoryId','naming','maxOpen','cooldownSeconds','autoCloseMinutes'], where:'/dashboard', wl:'Ticket behavior' },
+    { g:'Tickets', ic:'🧾', t:'Tickets — Staff & Transcripts', body:'Set the <code>staffRoleId</code> that can see and claim tickets, choose which buttons appear (close/claim/lock/transcript), and pick a <code>transcriptChannelId</code> where closed-ticket logs are archived.', settings:['staffRoleId','btnClaim','btnTranscript','transcriptChannelId'], where:'/dashboard', wl:'Ticket staff' },
+
+    { g:'ER:LC', ic:'🔑', t:'ER:LC API Key', body:'Link your Emergency Response: Liberty County private server. Add your Server-Key (from in-game Settings → API) — stored AES-256 encrypted. Unlocks live players, commands, and the CAD suite. Uses the current API domain <code>api.erlc.gg</code>.', settings:['erlcKeyEnc (encrypted)'], where:'/dashboard', wl:'Add ER:LC key' },
+    { g:'ER:LC', ic:'🗺️', t:'Dispatch Map', body:'A live map with real moving unit dots (pulled from V2 player coordinates), color-coded by team, plus 911 call markers and a unit roster. Login-gated and rate-limit-safe. Opens at <b>/dispatch</b>.', settings:['auto-refresh: 3s','fall/winter map'], where:'/dispatch', wl:'Open dispatch map' },
+    { g:'ER:LC', ic:'📡', t:'Server Feed', body:'A live timeline of joins, leaves, kills, mod-calls, and commands from your ER:LC server, with filters and a queue count. Login-gated at <b>/feed</b>.', settings:['auto-refresh: 6s'], where:'/feed', wl:'Open server feed' },
+    { g:'ER:LC', ic:'🧭', t:'Regions → Voice Auto-Move', body:'Draw map regions and link each to a voice channel; verified members are auto-moved between VCs based on where they’re standing in Liberty County. Configure regions + the studs-per-pixel scale.', settings:['regions','linked VCs','studsPerPixel'], where:'/dashboard', wl:'ER:LC regions' },
+    { g:'ER:LC', ic:'🚓', t:'CAD / MDT', body:'The full computer-aided-dispatch + mobile-data-terminal suite: civilians, vehicles, citations, BOLOs, reports, mugshots, and the penal code. Set access roles with <code>!cadaccess</code>. Opens at <b>/cad-hub</b>.', settings:['CAD access roles'], where:'/cad-hub', wl:'Open CAD hub' },
+
+    { g:'AI', ic:'🧠', t:'Ash (Gemini AI)', body:'The cloud AI assistant — web search, image vision, embeds, and forms. Talk to it with <code>/ask</code>. Requires a GEMINI_API_KEY in the environment. A big local prefilter answers greetings/FAQ for free to save tokens.', settings:['GEMINI_API_KEY','/ask'], where:'/assistant', wl:'Or try local Echo' },
+    { g:'AI', ic:'💾', t:'Ash Memory & Profiles', body:'Ash builds durable per-member memory — it silently remembers lasting facts (name, interests, role) and personalizes replies. Ask “what do you know about @user”, or use <code>?aboutme</code> / <code>?whois</code> / <code>?forgetme</code>.', settings:['?aboutme','?whois','?forgetme'], where:'/assistant', wl:'Learn more' },
+    { g:'AI', ic:'💬', t:'Echo (Local Assistant)', body:'A fully offline assistant — no Gemini, no API. It scans your message, detects intent, and answers setup questions right in the browser at <b>/assistant</b>. Great for a quick, private, always-on helper.', settings:['runs client-side','no API key needed'], where:'/assistant', wl:'Chat with Echo' },
+    { g:'AI', ic:'🎙️', t:'Ash Voice', body:'Ash can join a voice channel and speak. Hop in a VC and use <code>!ashsay &lt;text&gt;</code> — it synthesizes speech and talks, then auto-leaves. Supports multiple languages (<code>!ashsay es Hola</code>). Needs Connect + Speak perms.', settings:['!ashsay','!ashleave'], where:'/assistant', wl:'Ask Echo about it' },
+
+    { g:'Developer & Automation', ic:'🔌', t:'Developer API', body:'A 26-endpoint REST API at <b>/api/v1</b> for stats, economy, live ER:LC data and more. Mint keys with <code>!apikey new read|write</code>, read the docs at <b>/developers</b>, and try it live in the <b>/playground</b>.', settings:['read/write scopes','!apikey'], where:'/playground', wl:'Open API playground' },
+    { g:'Developer & Automation', ic:'⚡', t:'Automations', body:'“When X happens → do Y” rules built visually. Trigger on messages, member events, or ER:LC events (region enter, 911 call, plate used) and respond with roles, messages, or actions. Owner-approved for safety.', settings:['triggers','actions'], where:'/dashboard', wl:'Build automations' },
+    { g:'Developer & Automation', ic:'📊', t:'Weekly Recap', body:'Every Sunday (17:00 UTC) the bot DMs the owner a summary of the home server’s week — messages with a sparkline, member growth, and top XP + richest members. Run it anytime with <code>?recap</code>.', settings:['auto: Sundays','?recap'], where:'/dashboard', wl:'Learn more' },
+    { g:'Developer & Automation', ic:'🌦️', t:'Weather Hub', body:'An all-in-one weather site — radar, cams, forecast, and tornado tracking, keyless via server-side proxies. Opens at <b>/wx</b>. Uses your OPENWEATHER_API_KEY on the server (never the browser).', settings:['OPENWEATHER_API_KEY'], where:'/wx', wl:'Open weather hub' },
+  ];
+
+  const groups = [...new Set(SECTIONS.map(s => s.g))];
+  const slug = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+  document.getElementById('scount').textContent = SECTIONS.length;
+
+  const nav = document.getElementById('navlist');
+  nav.innerHTML = groups.map(g => `<div class="grp">${g}</div>` +
+    SECTIONS.filter(s=>s.g===g).map(s=>`<a href="#${slug(s.t)}" data-t="${(s.t+' '+s.settings.join(' ')).toLowerCase()}">${s.ic} ${s.t}</a>`).join('')).join('');
+
+  const content = document.getElementById('content');
+  content.innerHTML = SECTIONS.map(s => `
+    <section id="${slug(s.t)}" data-t="${(s.t+' '+s.body+' '+s.settings.join(' ')).toLowerCase()}">
+      <div class="gtag">${s.g}</div>
+      <h3>${s.ic} ${s.t}</h3>
+      <div class="body">${s.body}</div>
+      <div class="settings"><div class="lbl">Settings</div>${s.settings.map(x=>`<span class="chip">${x}</span>`).join('')}</div>
+      <a class="where" href="${s.where}">🛠️ ${s.wl} →</a>
+    </section>`).join('');
+
+  // search filters both nav + sections
+  const search = document.getElementById('search');
+  search.addEventListener('input', () => {
+    const q = search.value.toLowerCase().trim();
+    let shown = 0;
+    content.querySelectorAll('section').forEach(sec => { const hit = !q || sec.dataset.t.includes(q); sec.style.display = hit ? '' : 'none'; if (hit) shown++; });
+    nav.querySelectorAll('a').forEach(a => a.classList.toggle('hidden', !!q && !a.dataset.t.includes(q)));
+    document.getElementById('noresults').style.display = shown ? 'none' : 'block';
+  });
+  </script>
+</body>
+</html>

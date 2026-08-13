@@ -1,0 +1,765 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ER:LC Region Editor</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0b0f14;
+      color: #e8f0ff;
+    }
+
+    header {
+      text-align: center;
+      padding: 14px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    header p {
+      margin: 4px 0 0;
+      color: #7fa8d0;
+      font-size: 13px;
+    }
+
+    .wrap {
+      display: flex;
+      gap: 16px;
+      padding: 0 16px 24px;
+      max-width: 1400px;
+      margin: 0 auto;
+      flex-wrap: wrap;
+    }
+
+    .mapbox {
+      position: relative;
+      flex: 1 1 620px;
+      min-width: 320px;
+    }
+
+    canvas {
+      width: 100%;
+      border: 1px solid #1e3a55;
+      border-radius: 12px;
+      cursor: crosshair;
+      background: #000;
+    }
+
+    .side {
+      flex: 1 1 300px;
+      min-width: 280px;
+    }
+
+    .card {
+      background: #0e1c2c;
+      border: 1px solid #1e3a55;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      color: #9fc0e0;
+      margin: 8px 0 4px;
+    }
+
+    input,
+    select,
+    button {
+      width: 100%;
+      padding: 9px;
+      border-radius: 8px;
+      border: 1px solid #1e3a55;
+      background: #0b1622;
+      color: #e8f0ff;
+      font-size: 14px;
+    }
+
+    button {
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .btn-p {
+      background: #22c55e;
+      color: #04121f;
+      border: none;
+    }
+
+    .btn-x {
+      background: #ef4444;
+      color: #fff;
+      border: none;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .seg {
+      display: flex;
+      gap: 6px;
+    }
+
+    .seg button {
+      background: #0b1622;
+    }
+
+    .seg button.on {
+      background: #1aa3ff;
+      color: #04121f;
+    }
+
+    .rlist div {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 8px;
+      border-bottom: 1px solid #14283d;
+      font-size: 13px;
+    }
+
+    .rlist button {
+      width: auto;
+      padding: 4px 8px;
+    }
+
+    .muted {
+      color: #6d90b3;
+      font-size: 12px;
+    }
+
+    .pill {
+      display: inline-block;
+      background: #14283d;
+      border-radius: 6px;
+      padding: 1px 6px;
+      font-size: 11px;
+      margin-left: 6px;
+    }
+
+    .hint {
+      font-size: 11px;
+      color: #6d90b3;
+      margin-top: 4px;
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 10px 16px 20px;
+      font-size: 11px;
+      color: #5f7fa3;
+    }
+
+    code {
+      background: #09121c;
+      padding: 2px 4px;
+      border-radius: 4px;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🗺️ ER:LC Region Editor</h1>
+    <p>
+      Draw polygons or assign postal codes, link voice channels, and let the bot auto‑move players into the right region.
+    </p>
+  </header>
+
+  <div class="wrap">
+    <!-- MAP / CANVAS SIDE -->
+    <div class="mapbox">
+      <div class="seg" style="margin-bottom:8px">
+        <button id="s-fall" class="on">Fall</button>
+        <button id="s-winter">Winter</button>
+        <button id="s-postals">Show postal codes</button>
+        <button id="undo">Undo point</button>
+        <button id="clearpts">Clear points</button>
+      </div>
+
+      <canvas id="cv" width="900" height="900"></canvas>
+
+      <p class="muted" id="hud">
+        Mode: Polygon — click the map to add points.
+      </p>
+
+      <p class="hint">
+        Tip: Use <code>Show postal codes</code> when in postal mode to visually read codes off the map.
+      </p>
+    </div>
+
+    <!-- CONTROL / SIDE PANEL -->
+    <div class="side">
+      <!-- REGION CREATION CARD -->
+      <div class="card">
+        <div class="section-title">Region configuration</div>
+
+        <label>Region type</label>
+        <div class="seg">
+          <button id="m-poly" class="on">🔷 Polygon</button>
+          <button id="m-postal">🏷️ Postal codes</button>
+        </div>
+
+        <label>Region name</label>
+        <input id="rname" placeholder="e.g. The Farms" />
+
+        <div id="postalbox" style="display:none">
+          <label>Postal codes (comma-separated)</label>
+          <input id="rcodes" placeholder="604, 601, 507" />
+          <div class="hint">
+            Use commas to separate codes. Example: <code>604, 601, 507</code>
+          </div>
+        </div>
+
+        <label>Link voice channel</label>
+        <select id="rvc">
+          <option value="">— none —</option>
+        </select>
+
+        <button class="btn-p" id="save" style="margin-top:12px">
+          💾 Save region
+        </button>
+      </div>
+
+      <!-- REGIONS LIST CARD -->
+      <div class="card">
+        <div class="section-title">Regions</div>
+        <div class="rlist" id="rlist">
+          <div class="muted">none yet</div>
+        </div>
+      </div>
+
+      <!-- MODULE SETTINGS CARD -->
+      <div class="card">
+        <div class="section-title">Module settings</div>
+
+        <label>
+          <input type="checkbox" id="enabled" style="width:auto">
+          Enable auto-move
+        </label>
+
+        <label>
+          Waiting voice channel
+          <span class="muted">(players not in any region)</span>
+        </label>
+        <select id="waiting">
+          <option value="">— none —</option>
+        </select>
+
+        <label>
+          Studs per pixel
+          <span class="muted">(polygon calibration; postal needs none)</span>
+        </label>
+        <input id="spp" type="number" step="0.01" value="1" />
+
+        <button class="btn-p" id="savecfg" style="margin-top:10px">
+          Save settings
+        </button>
+
+        <div class="hint">
+          Calibration: adjust <code>studs per pixel</code> so the polygon matches in‑game coordinates.
+        </div>
+      </div>
+
+      <!-- DEBUG / INFO CARD -->
+      <div class="card">
+        <div class="section-title">Session info</div>
+        <p class="muted" id="sessionInfo">
+          Guild: <span id="guildLabel">—</span><br>
+          Map season: <span id="seasonLabel">fall</span><br>
+          Mode: <span id="modeLabel">polygon</span>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    ER:LC Region Editor • Add <code>?guild=YOUR_SERVER_ID</code> to the URL to bind this editor to a specific Discord server.
+  </div>
+
+  <script>
+    // -------------------------------------------------------------------------
+    // GLOBAL STATE
+    // -------------------------------------------------------------------------
+
+    const qs = new URLSearchParams(location.search);
+    const GUILD = qs.get('guild');
+
+    const cv = document.getElementById('cv');
+    const ctx = cv.getContext('2d');
+    const img = new Image();
+
+    let season = 'fall';
+    let showPostals = false;
+    let mode = 'polygon';
+    let pts = [];
+
+    let regions = [];
+    let vcs = [];
+
+    let isLoading = false;
+    let lastApiError = null;
+
+    // -------------------------------------------------------------------------
+    // DOM HELPERS
+    // -------------------------------------------------------------------------
+
+    function $(id) {
+      return document.getElementById(id);
+    }
+
+    function setText(id, text) {
+      const el = $(id);
+      if (el) el.textContent = text;
+    }
+
+    function setHtml(id, html) {
+      const el = $(id);
+      if (el) el.innerHTML = html;
+    }
+
+    function toggleClass(el, cls, on) {
+      if (!el) return;
+      if (on) el.classList.add(cls);
+      else el.classList.remove(cls);
+    }
+
+    function showElement(id, show) {
+      const el = $(id);
+      if (!el) return;
+      el.style.display = show ? 'block' : 'none';
+    }
+
+    function safeNumber(val, fallback) {
+      const n = Number(val);
+      return Number.isFinite(n) ? n : fallback;
+    }
+
+    // -------------------------------------------------------------------------
+    // MAP / IMAGE LOADING
+    // -------------------------------------------------------------------------
+
+    function mapSrc() {
+      const base = '/erlc%20map.png/';
+      const suffix = showPostals ? '_postals' : '_blank';
+      let s = season;
+
+      if (s === 'winter') {
+        // Slightly different naming for winter variant
+        return (base + 'winter snow' + suffix + '.png');
+      }
+
+      return (base + s + suffix + '.png');
+    }
+
+    function loadMap() {
+      img.onload = () => {
+        draw();
+        updateSessionInfo();
+      };
+      img.onerror = () => {
+        console.warn('Map image failed to load:', mapSrc());
+      };
+      img.src = mapSrc();
+    }
+
+    // -------------------------------------------------------------------------
+    // DRAWING / CANVAS
+    // -------------------------------------------------------------------------
+
+    function draw() {
+      ctx.clearRect(0, 0, cv.width, cv.height);
+
+      if (img.complete && img.naturalWidth > 0) {
+        ctx.drawImage(img, 0, 0, cv.width, cv.height);
+      }
+
+      ctx.lineWidth = 2;
+
+      // Existing polygon regions (faint)
+      const polys = regions.filter(r => r.type === 'polygon');
+      for (const r of polys) {
+        drawPoly(r.data, 'rgba(120,180,255,.25)', 'rgba(120,180,255,.8)', false);
+      }
+
+      // Current drawing
+      if (pts.length) {
+        drawPoly(pts, 'rgba(50,255,120,.25)', '#22ff77', true);
+      }
+    }
+
+    function drawPoly(fpts, fill, stroke, dots) {
+      if (!Array.isArray(fpts) || !fpts.length) return;
+
+      ctx.beginPath();
+
+      fpts.forEach(([fx, fy], i) => {
+        const x = fx * cv.width;
+        const y = fy * cv.height;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+
+      ctx.closePath();
+      ctx.fillStyle = fill;
+      ctx.fill();
+      ctx.strokeStyle = stroke;
+      ctx.stroke();
+
+      if (dots) {
+        fpts.forEach(([fx, fy]) => {
+          ctx.beginPath();
+          ctx.arc(fx * cv.width, fy * cv.height, 4, 0, Math.PI * 2);
+          ctx.fillStyle = '#22ff77';
+          ctx.fill();
+        });
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // CANVAS EVENTS
+    // -------------------------------------------------------------------------
+
+    cv.addEventListener('click', (e) => {
+      if (mode !== 'polygon') return;
+
+      const rect = cv.getBoundingClientRect();
+      const fx = (e.clientX - rect.left) / rect.width;
+      const fy = (e.clientY - rect.top) / rect.height;
+
+      const px = +fx.toFixed(4);
+      const py = +fy.toFixed(4);
+
+      pts.push([px, py]);
+
+      setText('hud', `Mode: Polygon — ${pts.length} point(s). Click to add, then Save.`);
+      draw();
+      updateSessionInfo();
+    });
+
+    // -------------------------------------------------------------------------
+    // SEGMENTED CONTROL HELPER
+    // -------------------------------------------------------------------------
+
+    function bindSegment(aId, bId, values, cb) {
+      const a = $(aId);
+      const b = $(bId);
+      if (!a || !b) return;
+
+      a.onclick = () => {
+        toggleClass(a, 'on', true);
+        toggleClass(b, 'on', false);
+        cb(values[0]);
+      };
+
+      b.onclick = () => {
+        toggleClass(b, 'on', true);
+        toggleClass(a, 'on', false);
+        cb(values[1]);
+      };
+    }
+
+    // -------------------------------------------------------------------------
+    // UI BINDINGS
+    // -------------------------------------------------------------------------
+
+    function bindSeasonControls() {
+      bindSegment('s-fall', 's-winter', ['fall', 'winter'], (s) => {
+        season = s;
+        setText('seasonLabel', s);
+        loadMap();
+      });
+
+      const postalsBtn = $('s-postals');
+      if (postalsBtn) {
+        postalsBtn.onclick = (e) => {
+          showPostals = !showPostals;
+          toggleClass(e.target, 'on', showPostals);
+          loadMap();
+        };
+      }
+
+      const undoBtn = $('undo');
+      if (undoBtn) {
+        undoBtn.onclick = () => {
+          if (pts.length > 0) {
+            pts.pop();
+            setText('hud', `Mode: Polygon — ${pts.length} point(s).`);
+          }
+          draw();
+        };
+      }
+
+      const clearBtn = $('clearpts');
+      if (clearBtn) {
+        clearBtn.onclick = () => {
+          pts = [];
+          setText('hud', 'Mode: Polygon — click the map to add points.');
+          draw();
+        };
+      }
+    }
+
+    function bindModeControls() {
+      bindSegment('m-poly', 'm-postal', ['polygon', 'postal'], (m) => {
+        mode = m;
+        setText('modeLabel', m);
+
+        const hudText = m === 'postal'
+          ? 'Mode: Postal — type codes, toggle "Show postal codes" to read them off the map.'
+          : 'Mode: Polygon — click the map to add points.';
+
+        setText('hud', hudText);
+        showElement('postalbox', m === 'postal');
+      });
+    }
+
+    function bindRegionSave() {
+      const saveBtn = $('save');
+      if (!saveBtn) return;
+
+      saveBtn.onclick = async () => {
+        const name = $('rname').value.trim();
+        if (!name) {
+          alert('Name the region first.');
+          return;
+        }
+
+        const linkedVc = $('rvc').value || null;
+        let type = mode;
+        let data;
+
+        if (mode === 'postal') {
+          const raw = $('rcodes').value;
+          const codes = raw.split(',').map(s => s.trim()).filter(Boolean);
+          if (!codes.length) {
+            alert('Enter at least one postal code.');
+            return;
+          }
+          data = codes;
+        } else {
+          if (pts.length < 3) {
+            alert('Draw at least 3 points.');
+            return;
+          }
+          data = pts.slice();
+        }
+
+        await api('POST', {
+          action: 'add',
+          region: { name, type, data, linkedVc }
+        });
+
+        pts = [];
+        $('rname').value = '';
+        $('rcodes').value = '';
+
+        await load();
+      };
+    }
+
+    function bindSettingsSave() {
+      const saveCfgBtn = $('savecfg');
+      if (!saveCfgBtn) return;
+
+      saveCfgBtn.onclick = async () => {
+        const enabled = $('enabled').checked;
+        const waitingVc = $('waiting').value || null;
+        const studsPerPixel = safeNumber($('spp').value, 1);
+
+        await api('POST', {
+          action: 'cfg',
+          cfg: {
+            enabled,
+            waitingVc,
+            studsPerPixel,
+            season
+          }
+        });
+
+        alert('Settings saved.');
+      };
+    }
+
+    // -------------------------------------------------------------------------
+    // API LAYER
+    // -------------------------------------------------------------------------
+
+    async function api(method, body) {
+      if (!GUILD) {
+        lastApiError = 'No guild specified.';
+        return { ok: false, error: lastApiError };
+      }
+
+      isLoading = true;
+      updateSessionInfo();
+
+      try {
+        const res = await fetch(`/api/guild/${GUILD}/erlc-regions`, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: body ? JSON.stringify(body) : undefined
+        });
+
+        const json = await res.json();
+        isLoading = false;
+        lastApiError = null;
+        updateSessionInfo();
+        return json;
+      } catch (err) {
+        isLoading = false;
+        lastApiError = err.message || 'Unknown error';
+        updateSessionInfo();
+        return { ok: false, error: lastApiError };
+      }
+    }
+
+    function fillVc(sel, selectedId) {
+      if (!sel) return;
+      const options = ['<option value="">— none —</option>'];
+
+      for (const c of vcs) {
+        const isSel = c.id === selectedId;
+        options.push(
+          `<option value="${c.id}" ${isSel ? 'selected' : ''}>${c.name}</option>`
+        );
+      }
+
+      sel.innerHTML = options.join('');
+    }
+
+    function renderRegions() {
+      const el = $('rlist');
+      if (!el) return;
+
+      if (!regions.length) {
+        el.innerHTML = '<div class="muted">none yet</div>';
+        return;
+      }
+
+      const rows = regions.map(r => {
+        const vcName = r.linkedVc
+          ? (vcs.find(v => v.id === r.linkedVc) || {}).name || 'vc'
+          : null;
+
+        const vcPill = vcName
+          ? `<span class="pill">🔊 ${vcName}</span>`
+          : '';
+
+        return `
+          <div>
+            <span>
+              ${r.name}
+              <span class="pill">${r.type}</span>
+              ${vcPill}
+            </span>
+            <button class="btn-x" data-id="${r.id}">✕</button>
+          </div>
+        `;
+      });
+
+      el.innerHTML = rows.join('');
+
+      el.querySelectorAll('button').forEach(b => {
+        b.onclick = async () => {
+          const id = Number(b.dataset.id);
+          if (!Number.isFinite(id)) return;
+
+          await api('POST', { action: 'del', id });
+          await load();
+        };
+      });
+    }
+
+    async function load() {
+      const d = await api('GET');
+
+      regions = Array.isArray(d.regions) ? d.regions : [];
+      vcs = Array.isArray(d.vcs) ? d.vcs : [];
+
+      fillVc($('rvc'));
+      fillVc($('waiting'), d.cfg?.waitingVc);
+
+      $('enabled').checked = !!d.cfg?.enabled;
+      $('spp').value = d.cfg?.studsPerPixel ?? 1;
+
+      renderRegions();
+      draw();
+    }
+
+    // -------------------------------------------------------------------------
+    // SESSION INFO
+    // -------------------------------------------------------------------------
+
+    function updateSessionInfo() {
+      setText('guildLabel', GUILD || 'none');
+      setText('seasonLabel', season);
+      setText('modeLabel', mode);
+
+      const infoEl = $('sessionInfo');
+      if (!infoEl) return;
+
+      const statusLines = [];
+
+      statusLines.push(`Guild: ${GUILD || 'none'}`);
+      statusLines.push(`Map season: ${season}`);
+      statusLines.push(`Mode: ${mode}`);
+      statusLines.push(`Loading: ${isLoading ? 'yes' : 'no'}`);
+
+      if (lastApiError) {
+        statusLines.push(`Last error: ${lastApiError}`);
+      }
+
+      infoEl.innerHTML = statusLines.join('<br>');
+    }
+
+    // -------------------------------------------------------------------------
+    // INIT
+    // -------------------------------------------------------------------------
+
+    function init() {
+      if (!GUILD) {
+        document.body.innerHTML = `
+          <header>
+            <h1>ER:LC Region Editor</h1>
+          </header>
+          <p style="text-align:center;padding:40px">
+            Add <code>?guild=YOUR_SERVER_ID</code> to the URL to use this editor.
+          </p>
+        `;
+        return;
+      }
+
+      bindSeasonControls();
+      bindModeControls();
+      bindRegionSave();
+      bindSettingsSave();
+
+      loadMap();
+      load();
+      updateSessionInfo();
+    }
+
+    init();
+  </script>
+</body>
+</html>

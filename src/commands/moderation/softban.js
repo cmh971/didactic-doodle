@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from 'discord.js';
+import { guardTarget } from '../../systems/modGuard.js';
 
 export const data = new SlashCommandBuilder()
   .setName('softban')
@@ -10,6 +11,10 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction) {
   const user = interaction.options.getUser('user');
   const reason = interaction.options.getString('reason') ?? 'No reason provided';
+
+  const blocked = await guardTarget(interaction, user.id);
+  if (blocked) { await interaction.reply({ content: blocked, flags: MessageFlags.Ephemeral }); return; }
+
   try {
     await interaction.guild.bans.create(user.id, { deleteMessageSeconds: 7 * 24 * 60 * 60, reason: `Softban: ${reason}` });
     await interaction.guild.bans.remove(user.id, 'Softban (auto-unban)');

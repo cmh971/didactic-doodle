@@ -7,6 +7,7 @@ import { Client, GatewayIntentBits, Partials, Collection, REST, Routes, Events, 
 import { handleComponent } from './src/interactions.js';
 import { handleDM } from './src/dmHandler.js';
 import { handleGuildMessage } from './src/events/messageCreate.js';
+import { handleClaudeInbox } from './src/features/claudeInbox.js';
 import { handleSetup } from './src/setup/interactions.js';
 import { handleInfraction, handleAppeal } from './src/systems/infractions.js';
 import { handleCustomComponent } from './src/features/components.js';
@@ -18,6 +19,14 @@ import { handleSearchButton, handleSearchDM } from './src/features/searchText.js
 import { handleSourceText } from './src/features/sourceText.js';
 import { handlePutFileText } from './src/features/putFileText.js';
 import { handleAshComponent, handleAshModal, handleAshReaction } from './src/ai/ash.js';
+import { startRegionEngine } from './src/features/erlcRegions.js';
+import { startCoinEngine } from './src/features/memecoin.js';
+import { startRecapScheduler } from './src/features/weeklyRecap.js';
+import { handleUpdateComponent } from './src/features/updateLog.js';
+import { handleLoaButton, startActivityEngine } from './src/features/activityManagement.js';
+import { handleErlcModal, showErlcKeyModal } from './src/commands/roblox/erlc.js';
+import { hit as rlHit } from './src/systems/ratelimit.js';
+import { handleFormButton, handleFormModal } from './src/features/formBuilder.js';
 import { startUnoSpy } from './src/uno/spy.js';
 import { initMirror } from './src/db/mirror.js';
 import { handleHelp } from './src/help/ui.js';
@@ -150,6 +159,10 @@ client.once(Events.ClientReady, (c) => {
   console.log('📊 Initial baseline status configured to "Watching the servers"!');
   startUnoSpy(c); // live UNO snapshot + bot-say outbox (data/uno-live.json / uno-outbox.json)
   initMirror(); // optional Mongo/Postgres mirror — connects only if URIs are set in .env
+  startRegionEngine(c); // ER:LC regions → voice-channel auto-mover (polls v2, only for guilds with it enabled)
+  startActivityEngine(c); // LOA expiry sweeper + in-game modcall tracking
+  startCoinEngine(c); // 🪙 memecoin analyzer → alerts when a coin clears filters (polls DexScreener, only for guilds with it enabled)
+  startRecapScheduler(c); // 📊 weekly recap → DMs the owner a Sunday summary of the home server
 });
 
 // Member join / leave handlers
@@ -169,6 +182,15 @@ client.on(Events.MessageDelete, (message) => { try { handleMessageDelete(message
 // Interactive components routes
 client.on(Events.InteractionCreate, async (interaction) => {
   try {
+    // Global anti-spam guard — blocks button/select/command spam with escalating
+    // warnings → timeout → lockout. Autocomplete is exempt (it fires rapidly & legitimately).
+    if (!interaction.isAutocomplete?.() && interaction.user) {
+      const rl = rlHit(interaction.user.id, 'bot');
+      if (rl.action !== 'ok') {
+        await interaction.reply({ content: rl.message, flags: 64 }).catch(() => {});
+        return;
+      }
+    }
     if (interaction.isChatInputCommand()) {
       const command = resolve(interaction, commands);
       if (!command) return;
@@ -190,6 +212,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       else if (interaction.customId.startsWith('ccform:') || interaction.customId.startsWith('appdec:')) await handleCustomComponent(interaction);
       else if (interaction.customId.startsWith('ticket:')) await handleTicketModal(interaction);
       else if (interaction.customId.startsWith('ash:')) await handleAshModal(interaction);
+      else if (interaction.customId.startsWith('erlc:')) await handleErlcModal(interaction);
+      else if (interaction.customId.startsWith('form:')) await handleFormModal(interaction);
       else if (interaction.customId.startsWith('fight:')) await handleFightButton(interaction);
       else if (interaction.customId.startsWith('session:')) await handleSessionInteraction(interaction);
     } else if (interaction.isMessageComponent()) {
@@ -206,7 +230,11 @@ client.on(Events.InteractionCreate, async (interaction) => {
       else if (cid.startsWith('cc:') || cid.startsWith('ccpage:') || cid.startsWith('cccont:') || cid.startsWith('appdec:')) await handleCustomComponent(interaction);
       else if (cid.startsWith('help:')) await handleHelp(interaction);
       else if (cid.startsWith('ticket:')) await handleTicketButton(interaction);
+      else if (cid.startsWith('loa:')) await handleLoaButton(interaction);
+      else if (cid.startsWith('form:')) await handleFormButton(interaction);
       else if (cid.startsWith('ash:')) await handleAshComponent(interaction);
+      else if (cid.startsWith('upd:')) await handleUpdateComponent(interaction);
+      else if (cid === 'erlc:setkey') await showErlcKeyModal(interaction);
       else if (cid.startsWith('mod:')) await handleModButton(interaction);
       else if (cid.startsWith('bwban:')) await handleBadwordBanButton(interaction);
       else if (cid.startsWith('gw:enter:')) {
@@ -264,6 +292,10 @@ client.on(Events.MessageCreate, async (message) => {
       // Owner "!putfile <path>" — write an uploaded file/code block into the project.
       if (await handlePutFileText(message)) return;
 
+      // Owner "!claude" image/file bridge in DMs — send Claude screenshots
+      // privately (supports multiple attachments at once). Owner-only inside.
+      if (await handleClaudeInbox(message)) return;
+
       // DM tickets (modmail): open/relay/close. If it handled the DM, stop here
       // so the message isn't also forwarded to the Gemini chat.
       if (await handleDMTicket(message)) return;
@@ -276,7 +308,6 @@ client.on(Events.MessageCreate, async (message) => {
   }
 });
 
-await registerCommands();
 await client.login(DISCORD_TOKEN);
 
 // Reschedule any giveaways that were running before a restart.
@@ -286,3 +317,8 @@ restoreGiveaways(client);
 if (process.env.WEB_ENABLED !== 'false') {
   startWeb(client).catch((err) => console.error('Failed to start dashboard:', err.message));
 }
+
+// Register slash commands in the BACKGROUND. A Discord "Missing Access" hiccup used
+// to fall back to slow per-command registration and BLOCK login + the dashboard from
+// ever starting — now it can never take the website down.
+registerCommands().catch((err) => console.error('Command registration failed (non-blocking):', err.message));

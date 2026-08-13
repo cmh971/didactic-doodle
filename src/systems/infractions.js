@@ -21,6 +21,7 @@ import {
 } from 'discord.js';
 import { addInfraction, getInfraction, deleteInfraction } from './automod.js';
 import { getCfg } from '../setup/store.js';
+import { buildInfractionEmbed, getEmbedCfg } from '../features/infractionEmbed.js';
 
 const ACCENT = 0x5865f2;
 const eph = (content) => ({ content, flags: MessageFlags.Ephemeral });
@@ -176,29 +177,26 @@ export async function applyInfraction(client, { guildId, targetId, moderatorId, 
     await target.send(dm);
   } catch { /* DMs closed or send failed — ignore */ }
 
+  // The one big, dashboard-configurable infraction embed — same look everywhere.
+  const embedCfg = getEmbedCfg(guildId);
+  const bigEmbed = buildInfractionEmbed({
+    guildName: guild.name,
+    guildIcon: guild.iconURL?.() || null,
+    target: { tag: target.tag, id: target.id, avatarURL: target.displayAvatarURL?.() },
+    moderatorId, action, appliedLabel, reason: cleanReason, notes: cleanNotes,
+    caseId, count, expiresAt, issuedAt,
+  }, embedCfg);
+
   // Mirror to the configured mod-log channel (set on /setup ▸ Moderation).
   try {
     const logId = getCfg(guildId).settings.modLogChannel;
     if (logId) {
       const ch = guild.channels.cache.get(logId);
-      if (ch?.isTextBased?.()) {
-        const log = new EmbedBuilder()
-          .setColor(action === 'ban' ? 0xe74c3c : action === 'kick' ? 0xe67e22 : action === 'mute' ? 0xf1c40f : 0x3498db)
-          .setAuthor({ name: `${target.tag} (${target.id})`, iconURL: target.displayAvatarURL?.() })
-          .setTitle(`${appliedLabel} — Case #${caseId}`)
-          .addFields(
-            { name: 'Moderator', value: `<@${moderatorId}>`, inline: true },
-            { name: 'Total cases', value: String(count), inline: true },
-            { name: 'Reason', value: cleanReason },
-            ...(cleanNotes ? [{ name: 'Notes', value: cleanNotes }] : []),
-          )
-          .setTimestamp();
-        ch.send({ embeds: [log] }).catch(() => {});
-      }
+      if (ch?.isTextBased?.()) ch.send({ embeds: [bigEmbed] }).catch(() => {});
     }
   } catch { /* logging must never break the action */ }
 
-  return { ok: true, caseId, count, label: appliedLabel, targetTag: target.tag };
+  return { ok: true, caseId, count, label: appliedLabel, targetTag: target.tag, embed: bigEmbed, pingOffender: embedCfg.pingOffender && embedCfg.enabled, embedEnabled: embedCfg.enabled, targetId: target.id };
 }
 
 // ---------------------------------------------------------------------------

@@ -1,0 +1,43 @@
+Reference
+API Error Codes
+When the ER:LC API encounters a problem, it returns a JSON response body containing an error code. Use this reference to identify the cause of an error and determine the appropriate action for your application to take.
+​
+Error code table
+System errors (0, 1001, 1002)
+
+Code	Meaning
+0	Unknown error occurred. If this persists, contact PRC via an API ticket.
+1001	An error occurred communicating with Roblox or the in-game private server.
+1002	An internal system error occurred.
+Authentication errors (2000–2004)
+
+Code	Meaning
+2000	You did not provide a server-key.
+2001	You provided an incorrectly formatted server-key.
+2002	You provided an invalid or expired server-key.
+2003	You provided an invalid global API key.
+2004	Your server-key is currently banned from accessing the API.
+Request errors (3001–3002)
+
+Code	Meaning
+3001	You did not provide a valid command in the request body.
+3002	The server you are attempting to reach is currently offline (has no players).
+Rate limit and access errors (4001–4003)
+
+Code	Meaning
+4000	You are not authorized to perform this action on this server.
+4001	You are being rate limited.
+4002	The command you are attempting to run is restricted.
+4003	The message you are trying to send is prohibited.
+Special codes (9998, 9999)
+
+Code	Meaning
+9998	The resource you are accessing is restricted.
+9999	The module running on the in-game server is out of date.
+​
+Handling code 9999
+Error code 9999 means the in-game module on the ER:LC private server is outdated. To resolve this, kick all players from the private server and retry your request.
+​
+Handling code 0
+If you receive error code 0 (unknown error) and it persists across multiple requests, open an API ticket in the ER:LC Discord server and include the details of your request so the team can investigate.
+-----------------------------------------------------------------------------------------------------------------------------------------

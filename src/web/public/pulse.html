@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Live Pulse · Sentinel</title>
+  <link rel="icon" href="favicon.ico" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    :root { --beat: 900ms; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background:
+        radial-gradient(1000px 600px at 85% -10%, rgba(88,101,242,.18), transparent 60%),
+        radial-gradient(900px 500px at 0% 110%, rgba(46,204,113,.12), transparent 55%),
+        var(--bg);
+      overflow-x: hidden;
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 28px 20px 60px; }
+
+    header.top { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; flex-wrap: wrap; }
+    header.top h1 { font-size: 1.6rem; margin: 0; font-weight: 800; letter-spacing: -.02em; }
+    header.top h1 .g { color: var(--muted); font-weight: 600; }
+    .live {
+      display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px; border-radius: 999px;
+      background: rgba(231,76,60,.12); border: 1px solid rgba(231,76,60,.35);
+      color: #ff6b5e; font-weight: 800; font-size: .72rem; letter-spacing: .12em;
+    }
+    .live .dot { width: 8px; height: 8px; border-radius: 50%; background: #ff5647; box-shadow: 0 0 0 0 rgba(255,86,71,.7); animation: ping 1.4s ease-out infinite; }
+    @keyframes ping { 0% { box-shadow: 0 0 0 0 rgba(255,86,71,.6);} 70%{ box-shadow: 0 0 0 10px rgba(255,86,71,0);} 100%{ box-shadow:0 0 0 0 rgba(255,86,71,0);} }
+    .sub { color: var(--muted); font-size: .9rem; margin: 2px 0 22px; }
+    a.back { color: var(--muted); text-decoration: none; font-size: .85rem; }
+    a.back:hover { color: var(--text); }
+    .pick { margin-left: auto; background: var(--panel); color: var(--text); border: 1px solid var(--border);
+      border-radius: 10px; padding: 7px 10px; font-size: .85rem; font-weight: 600; cursor: pointer; max-width: 220px; }
+    .pick:hover { border-color: var(--accent); }
+
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    @media (max-width: 720px){ .grid { grid-template-columns: repeat(2,1fr); } }
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.01));
+      border: 1px solid var(--border); border-radius: 16px; padding: 18px;
+      position: relative; overflow: hidden;
+    }
+    .card .label { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; }
+    .card .val { font-size: 2.3rem; font-weight: 850; line-height: 1.05; margin-top: 6px; letter-spacing: -.02em; }
+    .card .unit { font-size: .8rem; color: var(--muted); font-weight: 600; margin-left: 4px; }
+    .card.hot .val { color: #fff; }
+    .card .spark { position: absolute; right: 14px; top: 16px; opacity: .5; }
+
+    /* the heartbeat card pulses in time with activity */
+    .heart { color: #ff5f56; display: inline-block; animation: beat var(--beat) ease-in-out infinite; }
+    @keyframes beat { 0%,100%{ transform: scale(1);} 15%{ transform: scale(1.35);} 30%{ transform: scale(1);} 45%{ transform: scale(1.2);} }
+
+    .panel {
+      margin-top: 20px; background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.008));
+      border: 1px solid var(--border); border-radius: 18px; padding: 18px 20px;
+    }
+    .panel h2 { margin: 0 0 4px; font-size: 1.05rem; font-weight: 800; }
+    .panel .h-sub { color: var(--muted); font-size: .8rem; margin-bottom: 12px; }
+    canvas { width: 100%; height: 200px; display: block; }
+
+    .talkers { display: grid; gap: 10px; margin-top: 6px; }
+    .talker { display: grid; grid-template-columns: 26px 34px 1fr auto; align-items: center; gap: 12px; }
+    .talker .rank { color: var(--muted); font-weight: 800; font-size: .9rem; text-align: center; }
+    .talker img, .talker .ph { width: 34px; height: 34px; border-radius: 50%; background: #222b3a; object-fit: cover; }
+    .talker .who { min-width: 0; }
+    .talker .nm { font-weight: 700; font-size: .92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .talker .bar { height: 6px; border-radius: 4px; background: linear-gradient(90deg, var(--accent), #8b5cf6); margin-top: 5px; transition: width .6s cubic-bezier(.2,.8,.2,1); }
+    .talker .ct { font-weight: 800; color: var(--muted); font-size: .85rem; }
+    .empty { color: var(--muted); font-size: .9rem; padding: 18px 0; text-align: center; }
+    .flash { animation: flash .5s ease; }
+    @keyframes flash { 0%{ background: rgba(46,204,113,.18);} 100%{ background: transparent; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <span class="live"><span class="dot"></span> LIVE</span>
+      <h1><span id="gname">Server</span> <span class="g">· pulse</span></h1>
+      <select id="pick" class="pick" title="Switch server" aria-label="Switch server"></select>
+    </header>
+    <p class="sub">Real-time heartbeat of the server — <a class="back" href="/dashboard">← back to dashboard</a></p>
+
+    <div class="grid">
+      <div class="card hot">
+        <div class="label"><span class="heart" id="heart">❤</span> Messages / min</div>
+        <div class="val"><span id="mpm">0</span></div>
+      </div>
+      <div class="card">
+        <div class="label">Online now</div>
+        <div class="val"><span id="online">0</span></div>
+      </div>
+      <div class="card">
+        <div class="label">Members</div>
+        <div class="val"><span id="members">0</span></div>
+      </div>
+      <div class="card">
+        <div class="label">Bot ping</div>
+        <div class="val"><span id="ping">0</span><span class="unit">ms</span></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Heartbeat</h2>
+      <div class="h-sub">Messages over the last <span id="win">15</span> minutes</div>
+      <canvas id="ecg" width="1040" height="200"></canvas>
+    </div>
+
+    <div class="panel">
+      <h2>Who's talking right now 🎙️</h2>
+      <div class="h-sub">Top voices in the live window</div>
+      <div class="talkers" id="talkers"><div class="empty">Listening…</div></div>
+    </div>
+  </div>
+
+  <script src="/icons.js" defer></script>
+  <script src="/toast.js" defer></script>
+  <script>
+  (() => {
+    const $ = (id) => document.getElementById(id);
+    const canvas = $('ecg'), ctx = canvas.getContext('2d');
+    let beats = [], target = [];          // smoothed heartbeat values
+    let scroll = 0;                        // marching phase for the glow
+    let lastTotal = null;
+    let guildParam = new URLSearchParams(location.search).get('guild') || '';
+
+    // Populate the server switcher, defaulting to the home server.
+    async function loadServers() {
+      try {
+        const r = await fetch('/api/pulse/servers', { cache: 'no-store' });
+        const d = await r.json();
+        const sel = $('pick');
+        if (!d.servers || d.servers.length < 2) { sel.style.display = 'none'; }
+        sel.innerHTML = d.servers.map(s => `<option value="${s.id}">${escape(s.name)} · ${s.members}</option>`).join('');
+        if (!guildParam) guildParam = d.home && d.servers.some(s => s.id === d.home) ? d.home : (d.servers[0]?.id || '');
+        sel.value = guildParam;
+        sel.onchange = () => { guildParam = sel.value; poll(); };
+      } catch { $('pick').style.display = 'none'; }
+    }
+
+    // Count-up animation for the stat numbers.
+    const nums = new Map();
+    function setNum(el, to) {
+      const from = nums.get(el) ?? 0; nums.set(el, to);
+      const start = performance.now(), dur = 500;
+      (function step(now){
+        const p = Math.min(1, (now - start) / dur);
+        const e = 1 - Math.pow(1 - p, 3);
+        el.textContent = Math.round(from + (to - from) * e).toLocaleString();
+        if (p < 1) requestAnimationFrame(step);
+      })(performance.now());
+    }
+
+    async function poll() {
+      try {
+        const url = guildParam ? `/api/pulse?guild=${encodeURIComponent(guildParam)}` : '/api/pulse';
+        const r = await fetch(url, { cache: 'no-store' });
+        const d = await r.json();
+        $('gname').textContent = d.guildName || 'Server';
+        $('win').textContent = d.windowMin ?? 15;
+        setNum($('mpm'), d.lastMin || 0);
+        if (d.presenceKnown) { setNum($('online'), d.online || 0); }
+        else { $('online').textContent = '—'; nums.set($('online'), 0); $('online').closest('.card').title = 'Enable the Presence intent to count online members'; }
+        setNum($('members'), d.members || 0);
+        setNum($('ping'), d.ping || 0);
+
+        // heartbeat speed scales with activity (faster beat when busier).
+        const bpm = Math.max(48, Math.min(150, 60 + (d.lastMin || 0) * 6));
+        document.documentElement.style.setProperty('--beat', (60000 / bpm) + 'ms');
+
+        // flash the messages/min card when a new message lands
+        if (lastTotal !== null && (d.total || 0) > lastTotal) {
+          const c = $('mpm').closest('.card'); c.classList.remove('flash'); void c.offsetWidth; c.classList.add('flash');
+        }
+        lastTotal = d.total || 0;
+
+        target = (d.beats && d.beats.length) ? d.beats.slice() : new Array(30).fill(0);
+        if (beats.length !== target.length) beats = target.slice();
+
+        renderTalkers(d.top || []);
+      } catch { /* keep the last frame on a hiccup */ }
+    }
+
+    function renderTalkers(top) {
+      const box = $('talkers');
+      if (!top.length) { box.innerHTML = '<div class="empty">Quiet right now… 🤫</div>'; return; }
+      const max = Math.max(...top.map(t => t.n), 1);
+      box.innerHTML = top.map((t, i) => `
+        <div class="talker">
+          <div class="rank">${i + 1}</div>
+          ${t.avatar ? `<img src="${t.avatar}" alt="">` : '<div class="ph"></div>'}
+          <div class="who">
+            <div class="nm">${escape(t.name)}</div>
+            <div class="bar" style="width:${Math.max(6, (t.n / max) * 100)}%"></div>
+          </div>
+          <div class="ct">${t.n}</div>
+        </div>`).join('');
+    }
+    function escape(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    // Smooth ECG-style area chart, redrawn every frame, lerping toward the target.
+    function draw() {
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+      if (!beats.length) { requestAnimationFrame(draw); return; }
+      // ease current values toward the freshly polled target
+      for (let i = 0; i < beats.length; i++) beats[i] += ((target[i] || 0) - beats[i]) * 0.12;
+      const max = Math.max(2, ...beats);
+      const pad = 8, gw = w - pad * 2, gh = h - pad * 2;
+      const x = (i) => pad + (i / (beats.length - 1)) * gw;
+      const y = (v) => pad + gh - (v / max) * gh;
+
+      // area fill
+      const grad = ctx.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, 'rgba(88,101,242,.45)');
+      grad.addColorStop(1, 'rgba(88,101,242,0)');
+      ctx.beginPath(); ctx.moveTo(x(0), h - pad);
+      for (let i = 0; i < beats.length; i++) ctx.lineTo(x(i), y(beats[i]));
+      ctx.lineTo(x(beats.length - 1), h - pad); ctx.closePath();
+      ctx.fillStyle = grad; ctx.fill();
+
+      // glowing line
+      ctx.beginPath();
+      for (let i = 0; i < beats.length; i++) (i ? ctx.lineTo(x(i), y(beats[i])) : ctx.moveTo(x(i), y(beats[i])));
+      ctx.lineWidth = 2.5; ctx.strokeStyle = '#8ea0ff';
+      ctx.shadowColor = 'rgba(120,140,255,.9)'; ctx.shadowBlur = 12; ctx.stroke(); ctx.shadowBlur = 0;
+
+      // leading pulse dot
+      const li = beats.length - 1;
+      scroll += 0.05;
+      const pr = 4 + Math.sin(scroll) * 1.5;
+      ctx.beginPath(); ctx.arc(x(li), y(beats[li]), pr, 0, Math.PI * 2);
+      ctx.fillStyle = '#cdd6ff'; ctx.shadowColor = '#8ea0ff'; ctx.shadowBlur = 16; ctx.fill(); ctx.shadowBlur = 0;
+
+      requestAnimationFrame(draw);
+    }
+
+    loadServers().then(poll); draw();
+    setInterval(poll, 2500);
+  })();
+  </script>
+</body>
+</html>

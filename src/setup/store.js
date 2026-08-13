@@ -24,6 +24,10 @@ const DEFAULT_SETTINGS = () => ({
   tickets: DEFAULT_TICKETS(),
   verify: { verifiedRoleId: '', unverifiedRoleId: '', nickname: false },
   ranks: [], // promotion/infraction ladder: [{ id, name, roleId }] (built later)
+  counting: { enabled: false, channel: null },      // Counting game channel
+  suggestions: { enabled: false, channel: null },   // Suggestions box channel
+  casino: { enabled: true },                         // ?wheel / ?lottery / ?heist master switch
+  recap: { enabled: true, channel: null },           // weekly recap: auto-DM + optional channel post
 });
 
 // The full ticket "creative studio" config. Everything is flat (one level under
@@ -165,3 +169,19 @@ export function resetGuild(guildId) {
   saveGuild(g);
   return getCfg(guildId);
 }
+
+// Merge a partial config patch ({ settings }, { modules }, { language }) into a
+// guild and persist it. Used by the setup wizard (ui.js). Additive — leaves the
+// existing granular setters (setSetting/setNested) untouched.
+export function updateCfg(guildId, patch = {}) {
+  const g = getGuild(guildId);
+  if (patch.settings) g.settings = { ...normalize(g.settings), ...patch.settings };
+  if (patch.modules) g.modules = { ...g.modules, ...patch.modules };
+  if (patch.language) g.language = patch.language;
+  saveGuild(g);
+  return getCfg(guildId);
+}
+// Full-config setter + reset alias, both consumed by ui.js.
+export const setCfg = (guildId, cfg = {}) => updateCfg(guildId, cfg);
+export const resetCfgToDefault = resetGuild;
+// 090 0000000000000)()()))(())())() uuugvsh

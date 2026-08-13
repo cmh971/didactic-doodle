@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Developer API · Sentinel</title>
+<link rel="icon" href="favicon.ico" />
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: #0b0f14; color: #e8f0ff; line-height: 1.55; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 28px 18px 70px; }
+  h1 { margin: 0 0 4px; font-size: 2rem; } .sub { color: #7fa8d0; margin-bottom: 22px; }
+  h2 { margin: 34px 0 6px; border-bottom: 1px solid #1e3a55; padding-bottom: 6px; font-size: 1.25rem; }
+  h2 .badge-count { float: right; font-size: .8rem; color: #6d90b3; font-weight: 400; }
+  p { margin: 8px 0; }
+  .ep { background: #0e1c2c; border: 1px solid #1e3a55; border-radius: 12px; padding: 12px 15px; margin: 10px 0; }
+  .ep .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .m { font-weight: 800; padding: 2px 9px; border-radius: 6px; font-size: 12px; letter-spacing: .04em; }
+  .get { background: #14432c; color: #37d0a0; } .post { background: #3a2c14; color: #f5b642; }
+  .path { font-family: 'Cascadia Code', Consolas, monospace; font-size: 14px; color: #cfe6ff; }
+  .scope { margin-left: auto; font-size: 11px; color: #6d90b3; border: 1px solid #1e3a55; border-radius: 999px; padding: 2px 9px; }
+  .scope.write { color: #f5b642; border-color: #4a3a1a; }
+  .desc { color: #9fc0dd; font-size: .92rem; margin: 7px 0 0; }
+  code, pre { background: #09121c; border-radius: 6px; font-family: 'Cascadia Code', Consolas, monospace; }
+  code { padding: 2px 6px; font-size: 13px; color: #cfe6ff; }
+  pre { padding: 12px; overflow-x: auto; border: 1px solid #14283d; font-size: 12.5px; margin: 8px 0 0; }
+  a { color: #37d0a0; }
+  .callout { background: #10233a; border: 1px solid #1e4a6e; border-radius: 12px; padding: 14px 16px; margin: 14px 0; }
+  .callout b { color: #7fd0ff; }
+  .pill { display: inline-block; background: #14283d; border-radius: 999px; padding: 2px 10px; font-size: 12px; color: #9fc0dd; margin: 2px 3px 2px 0; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: .9rem; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #16283b; }
+  th { color: #7fa8d0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔌 Sentinel Developer API</h1>
+  <div class="sub">Real, key-authenticated endpoints for your Discord server. Base URL: <code id="base">/api/v1</code> · <b>25+ endpoints</b></div>
+
+  <div class="callout">
+    <b>🌐 Test right in your browser.</b> Every endpoint also accepts the key as a <code>?key=</code> query param, so you can try any <span class="pill">read</span> endpoint by pasting a URL:<br>
+    <pre>https://sentinelbothq.com/api/v1/endpoints?key=sk_your_key_here</pre>
+    That one lists <b>every</b> endpoint live — it's self-documenting.
+  </div>
+
+  <h2>Authentication</h2>
+  <p>Generate a key in Discord with <code>!apikey new read</code> (or <code>write</code>) — it's DM'd to you <b>once</b>. Send it as a header:</p>
+  <pre>Authorization: Bearer sk_your_key_here</pre>
+  <p>…or as a query param for quick browser tests: <code>?key=sk_your_key_here</code></p>
+  <p><b>Scopes:</b> <span class="pill">read</span> stats, leaderboards, balances, live data. <span class="pill">write</span> everything read can do, plus economy edits + announcements.<br>
+     Manage keys: <code>!apikey list</code> · <code>!apikey revoke &lt;id&gt;</code>.</p>
+  <p><b>Rate limits:</b> a shared anti-spam limiter applies (~a couple requests/second). Live ER:LC endpoints are cached a few seconds server-side to protect the upstream game API. Every call is scoped to your key's guild.</p>
+
+  <h2>Core &amp; Meta <span class="badge-count">4</span></h2>
+
+  <div class="ep"><div class="row"><span class="m get">GET</span><span class="path">/ping</span><span class="scope">read</span></div>
+    <p class="desc">Health check + confirms your key + scope.</p>
+    <pre>{ "ok": true, "guild": "1521…", "scopes": "read", "time": 1754400000000 }</pre></div>
+
+  <div class="ep"><div class="row"><span class="m get">GET</span><span class="path">/endpoints</span><span class="scope">read</span></div>
+    <p class="desc">Lists every endpoint, its method, scope and description. Self-documenting.</p></div>
+
+  <div class="ep"><div class="row"><span class="m get">GET</span><span class="path">/guild</span><span class="scope">read</span></div>
+    <p class="desc">Guild name, member count, icon, and all-time analytics totals.</p></div>
+
+  <div class="ep"><div class="row"><span class="m get">GET</span><span class="path">/commands</span><span class="scope">read</span></div>
+    <p class="desc">How many commands the bot has (slash + prefix).</p>
+    <pre>{ "slash": 100, "prefix": 518, "total": 618 }</pre></div>
+
+  <h2>Stats &amp; Activity <span class="badge-count">3</span></h2>
+
+  <div class="ep"><div class="row"><span class="m get">GET</span><span class="path">/stats</span><span class="scope">read</span></div>
+    <p class="desc">All-time joins, leaves, messages + current member count.</p>
+    <pre>{ "guild": "1521…", "name": "Sentinel", "members": 412, "joins": 980, "leaves": 540, "messages": 128400 }</pre></div>
+
+  <div class="ep"><div class="row"><span class="m get">GET</span><span class="path">/stats/history?days=14</span><span class="scope">read</span></div>
+    <p class="desc">Daily series of joins/leaves/messages (gap-filled). <code>days</code> max 90.</p></div>
+
+  <div class="ep"><div class="row"><span class="m get">GET</span><span class="path">/pulse</span><span class="scope">read</span></div>
+    <p class="desc"><b>Live</b> — messages per minute right now, plus the top talkers in the last 15 minutes.</p>
+    <pre>{ "messagesPerMin": 7, "windowTotal": 88, "windowMin": 15, "topTalkers": [ { "id": "…", "username": "chris", "messages": 21 } ] }</pre></div>
+
+  <h2>XP &amp; Rank <span class="badge-count">5</span></h2>
+
+  <div class="ep"><div class="row"><span class="m get">GET</span><span class="path">/leaderboard?limit=10</span><span class="scope">read</span></div>
+    <p class="desc">Top XP members (max 50).</p>
+    <pre>[ { "rank": 1, "id": "…", "username": "chris", "level": 42, "xp": 91000 } ]</pre></div>
+
+  <div class="ep"><div class="row"><span class="m get">GET</span><span class="path">/xp/leaderboard?limit=10</span><span class="scope">read</span></div>
+    <p class="desc">Alias of <code>/leaderboard</code>.</p></div>
+
+  <div class="ep"><div class="row"><span class="m get">GET</span><span class="path">/xp/:id</span><span class="scope">read</span></div>
+    <p class="desc">A member's level + XP.</p>
+    <pre>{ "id": "…", "level": 12, "xp": 8300, "username": "someone" }</pre></div>
+
+  <div class="ep"><div class="row"><span class="m get">GET</span><span class="path">/rank/:id</span><span class="scope">read</span></div>
+    <p class="desc">Alias of <code>/xp/:id</code>.</p></div>
+
+  <div class="ep"><div class="row"><span class="m get">GET</span><span class="path">/user/:id</span><span class="scope">read</span></div>
+    <p class="desc">A member's level, XP, and full economy balance in one call.</p>
+    <pre>{ "id": "…", "level": 12, "xp": 8300, "balance": { "wallet": 4200, "bank": 10000, "total": 14200 } }</pre></div>
+
+  <h2>Economy <span class="badge-count">5</span></h2>
+
+  <div class="ep"><div class="row"><span class="m get">GET</span><span class="path">/balance/:id</span><span class="scope">read</span></div>
+    <p class="desc">Wallet / bank / total for a user.</p>
+    <pre>{ "id": "…", "wallet": 4200, "bank": 10000, "total": 14200 }</pre></div>
+
+  <div class="ep"><div class="row"><span class="m get">GET</span><span class="path">/economy/leaderboard?limit=10</span><span class="scope">read</span></div>
+    <p class="desc">Richest members by total (wallet + bank).</p></div>
+
+  <div class="ep"><div class="row"><span class="m get">GET</span><span class="path">/shop</span><span class="scope">read</span></div>
+    <p class="desc">All shop items (id, name, price).</p></div>
+
+  <div class="ep"><div class="row"><span class="m post">POST</span><span class="path">/economy/:id</span><span class="scope write">write</span></div>
+    <p class="desc">Adjust a balance by a positive or negative amount.</p>
+    <pre>Body: { "amount": 500, "reason": "event reward" }
+→ { "id": "…", "adjusted": 500, "balance": { "wallet": 4700, … } }</pre></div>
+
+  <div class="ep"><div class="row"><span class="m post">POST</span><span class="path">/economy/:id/set</span><span class="scope write">write</span></div>
+    <p class="desc">Set a user's wallet to an exact amount.</p>
+    <pre>Body: { "amount": 1000 }
+→ { "id": "…", "wallet": 1000, "bank": 10000, "total": 11000 }</pre></div>
+
+  <h2>Guild <span class="badge-count">3</span></h2>
+
+  <div class="ep"><div class="row"><span class="m get">GET</span><span class="path">/guild/channels</span><span class="scope">read</span></div>
+    <p class="desc">Every text channel (id, name, type).</p></div>
+
+  <div class="ep"><div class="row"><span class="m get">GET</span><span class="path">/guild/roles</span><span class="scope">read</span></div>
+    <p class="desc">Every role with color + member count, sorted by size.</p></div>
+
+  <div class="ep"><div class="row"><span class="m get">GET</span><span class="path">/guild/modules</span><span class="scope">read</span></div>
+    <p class="desc">Which bot modules are enabled for the guild.</p></div>
+
+  <h2>Casino &amp; Events <span class="badge-count">2</span></h2>
+
+  <div class="ep"><div class="row"><span class="m get">GET</span><span class="path">/lottery</span><span class="scope">read</span></div>
+    <p class="desc">Current lottery round, pot, tickets sold, time to draw + last winner.</p>
+    <pre>{ "round": 3, "pot": 8400, "totalTickets": 74, "drawInMs": 51840000, "lastWinner": "chris", "lastPrize": 6200 }</pre></div>
+
+  <div class="ep"><div class="row"><span class="m get">GET</span><span class="path">/wheel</span><span class="scope">read</span></div>
+    <p class="desc">The daily wheel's prize tiers and exact odds.</p>
+    <pre>{ "cooldownHours": 24, "tiers": [ { "label": "🎰 JACKPOT", "min": 3500, "max": 5500, "odds": 3 }, … ] }</pre></div>
+
+  <h2>Live ER:LC <span class="badge-count">3</span></h2>
+  <p class="desc">Pulls live data from your linked Emergency Response: Liberty County server. Requires an ER:LC key configured for the guild; returns <code>502</code> if the game server is offline.</p>
+
+  <div class="ep"><div class="row"><span class="m get">GET</span><span class="path">/erlc/server</span><span class="scope">read</span></div>
+    <p class="desc">Live server name, player count, max players, vehicle count.</p></div>
+
+  <div class="ep"><div class="row"><span class="m get">GET</span><span class="path">/erlc/players</span><span class="scope">read</span></div>
+    <p class="desc">Everyone in-game right now — name, Roblox id, team, callsign, permission, street + postal.</p></div>
+
+  <div class="ep"><div class="row"><span class="m get">GET</span><span class="path">/erlc/vehicles</span><span class="scope">read</span></div>
+    <p class="desc">Live spawned vehicles — name, owner, plate, color.</p></div>
+
+  <h2>Communication <span class="badge-count">1</span></h2>
+
+  <div class="ep"><div class="row"><span class="m post">POST</span><span class="path">/announce</span><span class="scope write">write</span></div>
+    <p class="desc">Post a message or embed to a channel in your guild.</p>
+    <pre>Body: { "channelId": "123…", "content": "Hello from my app!" }
+   or: { "channelId": "123…", "embed": { "title": "Hi", "description": "…" } }
+→ { "ok": true, "messageId": "…", "channelId": "…" }</pre></div>
+
+  <h2>Full example</h2>
+  <pre>curl -H "Authorization: Bearer sk_xxx" \
+     "https://sentinelbothq.com/api/v1/pulse"
+
+curl -X POST -H "Authorization: Bearer sk_xxx" -H "Content-Type: application/json" \
+     -d '{"amount":100,"reason":"daily bonus"}' \
+     "https://sentinelbothq.com/api/v1/economy/123456789"</pre>
+
+  <p class="sub" style="margin-top:28px">All write actions are logged, scoped to the key's guild, and rate-limited. Keys are stored only as SHA-256 hashes — losing one means generating a new one.</p>
+</div>
+<script>
+  document.getElementById('base').textContent = location.origin + '/api/v1';
+</script>
+<script src="/a11y.js" defer></script>
+</body>
+</html>

@@ -11,6 +11,7 @@
 // ============================================================================
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags, PermissionFlagsBits } from 'discord.js';
 import { erlcKey } from './erlc.js';
+import { erlc } from '../systems/erlcWrapper.js'; // shared rate-limit-safe client
 
 const builders = new Map(); // builderMessageId -> state
 
@@ -43,13 +44,11 @@ const ALIAS_TYPE = { session: 'startup', ssu: 'startup', startup: 'startup', su:
 
 const rndCode = (n = 4) => Array.from({ length: n }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
 
-// ---- ER:LC live fetch (direct, so a per-session key override works) ----
+// ---- ER:LC live fetch (via the wrapper: the 9 calls below now queue per-key
+// through the rate governor instead of bursting all at once → no IP ban) ----
 async function erlcGet(key, path) {
-  try {
-    const r = await fetch('https://api.policeroleplay.community/v1' + path, { headers: { 'Server-Key': key, 'Content-Type': 'application/json' } });
-    if (!r.ok) return null;
-    return await r.json();
-  } catch { return null; }
+  try { return await erlc.raw(key, 'https://api.erlc.gg/v1' + path, { cacheTtl: 5000 }); }
+  catch { return null; }
 }
 async function fetchErlc(key) {
   if (!key) return null;

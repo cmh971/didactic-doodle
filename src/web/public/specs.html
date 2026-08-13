@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sentinel • PC Spec Card</title>
+<style>
+  :root { --bg:#0d1117; --card:#161b33; --accent:#5865f2; --muted:#8b94b3; --good:#3fb950; --bad:#f85149; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,Segoe UI,Arial,sans-serif; background:linear-gradient(135deg,#0d1117,#161b33); color:#fff; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; }
+  .wrap { width:100%; max-width:560px; }
+  .card { background:var(--card); border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:28px; box-shadow:0 20px 60px rgba(0,0,0,.4); }
+  h1 { margin:0 0 4px; font-size:26px; }
+  .sub { color:var(--muted); margin:0 0 20px; font-size:14px; }
+  .row { display:flex; justify-content:space-between; gap:12px; padding:12px 0; border-bottom:1px solid rgba(255,255,255,.06); font-size:15px; }
+  .row .k { color:var(--muted); }
+  .row .v { font-weight:600; text-align:right; word-break:break-word; }
+  button { margin-top:22px; width:100%; padding:14px; border:0; border-radius:12px; background:var(--accent); color:#fff; font-size:16px; font-weight:700; cursor:pointer; transition:.15s; }
+  button:hover { filter:brightness(1.1); } button:disabled { opacity:.5; cursor:default; }
+  .status { margin-top:16px; text-align:center; font-size:15px; min-height:22px; }
+  .ok { color:var(--good); } .err { color:var(--bad); }
+  .spin { display:inline-block; width:16px; height:16px; border:2px solid #fff; border-top-color:transparent; border-radius:50%; animation:s .7s linear infinite; vertical-align:-2px; }
+  @keyframes s { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>🖥️ PC Spec Card</h1>
+      <p class="sub">This reads only what your <b>browser</b> is allowed to see — no install, no scary permissions. Then Sentinel posts your card in the channel.</p>
+      <div id="rows"></div>
+      <button id="send" disabled>Reading your specs…</button>
+      <div class="status" id="status"></div>
+    </div>
+  </div>
+<script>
+  const token = new URLSearchParams(location.search).get('t');
+  const rowsEl = document.getElementById('rows');
+  const btn = document.getElementById('send');
+  const statusEl = document.getElementById('status');
+
+  function gpuInfo() {
+    try {
+      const cv = document.createElement('canvas');
+      const gl = cv.getContext('webgl') || cv.getContext('experimental-webgl');
+      if (!gl) return null;
+      const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+      return dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+    } catch { return null; }
+  }
+  function osName() {
+    const ua = navigator.userAgent, p = navigator.userAgentData?.platform || navigator.platform || '';
+    if (/Windows NT 10/.test(ua)) return 'Windows 10/11';
+    if (/Windows/.test(ua)) return 'Windows';
+    if (/Mac OS X|Macintosh/.test(ua)) return 'macOS';
+    if (/Android/.test(ua)) return 'Android';
+    if (/iPhone|iPad|iOS/.test(ua)) return 'iOS';
+    if (/Linux/.test(ua)) return 'Linux';
+    return p || 'Unknown';
+  }
+  function browserName() {
+    const ua = navigator.userAgent;
+    if (/Edg\//.test(ua)) return 'Microsoft Edge';
+    if (/OPR\//.test(ua)) return 'Opera';
+    if (/Chrome\//.test(ua)) return 'Chrome';
+    if (/Firefox\//.test(ua)) return 'Firefox';
+    if (/Safari\//.test(ua)) return 'Safari';
+    return 'Unknown';
+  }
+
+  const specs = {
+    os: osName(),
+    cores: navigator.hardwareConcurrency || null,
+    ram: navigator.deviceMemory || null,
+    gpu: gpuInfo(),
+    screen: screen.width + '×' + screen.height,
+    dpr: Math.round((window.devicePixelRatio || 1) * 10) / 10,
+    browser: browserName(),
+    net: navigator.connection?.effectiveType ? navigator.connection.effectiveType.toUpperCase() : null,
+  };
+
+  const labels = { os:'OS / Platform', cores:'CPU Threads', ram:'Memory (approx)', gpu:'GPU (WebGL)', screen:'Display', browser:'Browser', net:'Connection' };
+  for (const k of Object.keys(labels)) {
+    let v = specs[k];
+    if (k === 'cores' && v) v = v + ' logical';
+    if (k === 'ram' && v) v = v + ' GB' + (v >= 8 ? '+' : '');
+    if (k === 'screen') v = v + (specs.dpr ? ' @ ' + specs.dpr + 'x' : '');
+    rowsEl.insertAdjacentHTML('beforeend', `<div class="row"><span class="k">${labels[k]}</span><span class="v">${v || '—'}</span></div>`);
+  }
+
+  if (!token) { btn.textContent = 'Invalid link'; statusEl.className = 'status err'; statusEl.textContent = 'No token — run ?specs in Discord again.'; }
+  else { btn.disabled = false; btn.textContent = '📨 Send my card to Discord'; }
+
+  btn.onclick = async () => {
+    btn.disabled = true; statusEl.className = 'status'; statusEl.innerHTML = '<span class="spin"></span> Sending…';
+    try {
+      const r = await fetch('/api/specs/submit', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token, specs }) });
+      const j = await r.json();
+      if (j.ok) { statusEl.className = 'status ok'; statusEl.textContent = '✅ ' + j.message + ' You can close this tab.'; btn.textContent = 'Done 🎉'; }
+      else { statusEl.className = 'status err'; statusEl.textContent = '❌ ' + (j.error || 'Failed'); btn.disabled = false; btn.textContent = 'Try again'; }
+    } catch (e) {
+      statusEl.className = 'status err'; statusEl.textContent = '❌ Network error: ' + e.message; btn.disabled = false; btn.textContent = 'Try again';
+    }
+  };
+</script>
+</body>
+</html>

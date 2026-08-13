@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weather Hub</title>
+  <!--
+    All-in-one weather site. Google-only sign-in (separate from Discord), one top nav,
+    every panel embedded as a tab. Cookie-consent popup. No API keys in the page.
+  -->
+  <style>
+    :root { --neon: #3b82f6; --bg: #050505; --bar: #0a0a0a; --border: #1e293b; }
+    * { box-sizing: border-box; }
+    body { margin: 0; height: 100vh; display: flex; flex-direction: column; background: var(--bg); color: #fff; font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; }
+
+    /* top nav (like the screenshot) */
+    #nav { display: flex; align-items: center; gap: 2px; background: #000; border-bottom: 1px solid var(--border); padding: 0 8px; overflow-x: auto; flex: 0 0 auto; }
+    #nav button { background: none; border: none; color: #cbd5e1; font-size: 15px; font-weight: 600; padding: 16px 16px; cursor: pointer; white-space: nowrap; border-bottom: 3px solid transparent; transition: color .15s, background .15s, border-color .15s; }
+    #nav button:hover { color: #fff; background: rgba(255,255,255,.05); }
+    #nav button.active { color: #fff; background: #1e293b; border-bottom-color: var(--neon); border-radius: 4px 4px 0 0; }
+    #nav .spacer { flex: 1; }
+    #nav .who { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--neon); font-family: monospace; padding-right: 8px; }
+    #nav .who img { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--neon); }
+    #nav .who a { color: #ff6b81; text-decoration: none; font-weight: 700; }
+
+    /* content */
+    #stage { flex: 1; position: relative; min-height: 0; }
+    #frame { width: 100%; height: 100%; border: none; display: none; background: #050505; }
+    .view { position: absolute; inset: 0; overflow: auto; padding: 32px; display: none; }
+    .view.show, #frame.show { display: block; }
+
+    /* home */
+    .hero { max-width: 820px; margin: 20px auto; text-align: center; }
+    .hero h1 { font-size: clamp(2rem,6vw,3.2rem); margin: 0 0 8px; background: linear-gradient(120deg,#fff,var(--neon)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+    .hero p { color: #93a1c0; }
+    .home-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(180px,1fr)); gap: 14px; margin-top: 26px; }
+    .home-card { background: #0e1424; border: 1px solid var(--border); border-radius: 14px; padding: 22px; cursor: pointer; transition: transform .15s, border-color .15s; }
+    .home-card:hover { transform: translateY(-3px); border-color: var(--neon); }
+    .home-card .e { font-size: 30px; } .home-card .t { margin-top: 8px; font-weight: 700; }
+
+    /* alerts */
+    #alerts-list .alert { background: #140b0b; border-left: 4px solid #ef4444; border-radius: 8px; padding: 14px 16px; margin-bottom: 12px; }
+    #alerts-list .alert h3 { margin: 0 0 4px; color: #fca5a5; font-size: 15px; }
+    #alerts-list .alert p { margin: 0; color: #cbd5e1; font-size: 13px; line-height: 1.5; }
+    #alerts-list .ok { color: #4ade80; font-weight: 700; }
+
+    /* sign-in gate */
+    #gate { position: fixed; inset: 0; z-index: 100; background: radial-gradient(circle at 50% 30%, #0b1020, #000); display: flex; align-items: center; justify-content: center; }
+    .gate-card { border: 3px solid var(--neon); border-radius: 20px; background: #111; padding: 44px 40px; text-align: center; width: 340px; box-shadow: 0 0 40px var(--neon); }
+    .gate-card h1 { color: var(--neon); margin: 0 0 6px; letter-spacing: 1px; }
+    .gate-card p { color: #888; font-size: 12px; margin: 0 0 22px; }
+    .gbtn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 13px; border: none; border-radius: 8px; background: #fff; color: #444; font-weight: 700; cursor: pointer; }
+    .gbtn:hover { filter: brightness(.97); }
+
+    /* cookie popup */
+    #cookie { position: fixed; left: 16px; bottom: 16px; z-index: 200; max-width: 360px; background: #0e1424; border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; box-shadow: 0 12px 34px rgba(0,0,0,.6); display: none; }
+    #cookie p { margin: 0 0 12px; font-size: 13px; color: #cbd5e1; line-height: 1.5; }
+    #cookie button { background: var(--neon); color: #000; border: none; border-radius: 8px; padding: 9px 18px; font-weight: 700; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <!-- SIGN-IN GATE (Google only) -->
+  <div id="gate">
+    <div class="gate-card">
+      <h1>🌩️ WEATHER HUB</h1>
+      <p>SIGN IN WITH GOOGLE TO CONTINUE</p>
+      <button class="gbtn" onclick="location.href='/auth/google?next=/weather-hub'">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" style="width:16px" alt="G"> Sign in with Google
+      </button>
+    </div>
+  </div>
+
+  <!-- TOP NAV -->
+  <nav id="nav" style="display:none">
+    <button data-view="home" class="active">🏠 Home</button>
+    <button data-src="/tornado-panel">🌪️ Tornado Risk</button>
+    <button data-src="/radar-panel">📡 Radar</button>
+    <button data-src="/cams-panel">📷 Cams</button>
+    <button data-src="/weather-panel">🌤️ Forecast</button>
+    <button data-src="https://embed.windy.com/embed2.html?lat=38.982&amp;lon=-94.671&amp;zoom=7&amp;overlay=radar&amp;type=map">⚡ Lightning</button>
+    <button data-view="alerts">🚨 NWS Alerts</button>
+    <span class="spacer"></span>
+    <span class="who"><img id="who-pfp" alt=""><span id="who-name">…</span> · <a href="/logout">Logout</a></span>
+  </nav>
+
+  <!-- STAGE -->
+  <div id="stage" style="display:none">
+    <iframe id="frame" allowfullscreen></iframe>
+
+    <div class="view show" id="view-home">
+      <div class="hero">
+        <h1>Weather Hub</h1>
+        <p>Everything in one place — radar, tornado risk, traffic cams, forecast, lightning, and live NWS alerts.</p>
+        <div class="home-grid">
+          <div class="home-card" data-go="/tornado-panel"><div class="e">🌪️</div><div class="t">Tornado Risk</div></div>
+          <div class="home-card" data-go="/radar-panel"><div class="e">📡</div><div class="t">Radar</div></div>
+          <div class="home-card" data-go="/cams-panel"><div class="e">📷</div><div class="t">Traffic Cams</div></div>
+          <div class="home-card" data-go="/weather-panel"><div class="e">🌤️</div><div class="t">Forecast</div></div>
+          <div class="home-card" data-view="alerts"><div class="e">🚨</div><div class="t">NWS Alerts</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="view" id="view-alerts">
+      <h2 style="margin-top:0">🚨 Active NWS Alerts — Overland Park, KS</h2>
+      <div id="alerts-list"><p style="color:#93a1c0">Loading alerts…</p></div>
+    </div>
+  </div>
+
+  <!-- COOKIE POPUP -->
+  <div id="cookie">
+    <p>🍪 This site uses a cookie to keep you signed in for up to 2 days, so you don't have to log in every visit.</p>
+    <button onclick="acceptCookies()">Got it</button>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    // ---- Google-only auth gate ----
+    async function checkAuth() {
+      try {
+        const me = await fetch('/api/wx/me').then((r) => r.json());
+        if (me.authed) enter(me); else $('gate').style.display = 'flex';
+      } catch { $('gate').style.display = 'flex'; }
+    }
+    function enter(me) {
+      $('gate').style.display = 'none';
+      $('nav').style.display = 'flex';
+      $('stage').style.display = 'block';
+      $('who-name').textContent = me.name || 'Operator';
+      if (me.avatar) $('who-pfp').src = me.avatar;
+      maybeCookie();
+    }
+
+    // ---- tab switching ----
+    function showView(id) {
+      $('frame').classList.remove('show');
+      document.querySelectorAll('.view').forEach((v) => v.classList.remove('show'));
+      $('view-' + id).classList.add('show');
+      if (id === 'alerts') loadAlerts();
+    }
+    function showFrame(src) {
+      document.querySelectorAll('.view').forEach((v) => v.classList.remove('show'));
+      if ($('frame').src !== src) $('frame').src = src;
+      $('frame').classList.add('show');
+    }
+    document.querySelectorAll('#nav button').forEach((b) => b.addEventListener('click', () => {
+      document.querySelectorAll('#nav button').forEach((x) => x.classList.remove('active'));
+      b.classList.add('active');
+      if (b.dataset.view) showView(b.dataset.view); else showFrame(b.dataset.src);
+    }));
+    document.querySelectorAll('[data-go],[data-view]').forEach((el) => {
+      if (!el.closest('.home-card')) return;
+      el.addEventListener('click', () => {
+        const target = el.dataset.go
+          ? [...document.querySelectorAll('#nav button')].find((b) => b.dataset.src === el.dataset.go)
+          : [...document.querySelectorAll('#nav button')].find((b) => b.dataset.view === el.dataset.view);
+        if (target) target.click();
+      });
+    });
+
+    // ---- NWS alerts (keyless api.weather.gov) ----
+    async function loadAlerts() {
+      const box = $('alerts-list');
+      box.innerHTML = '<p style="color:#93a1c0">Loading alerts…</p>';
+      try {
+        const r = await fetch('https://api.weather.gov/alerts/active?point=38.9822,-94.6708', { headers: { Accept: 'application/geo+json' } });
+        const data = await r.json();
+        const feats = data.features || [];
+        if (!feats.length) { box.innerHTML = '<p class="ok">✅ No active alerts for this area. Skies are clear.</p>'; return; }
+        box.innerHTML = feats.map((f) => {
+          const p = f.properties || {};
+          const esc = (s) => String(s || '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+          return `<div class="alert"><h3>${esc(p.event)}</h3><p>${esc((p.headline || p.description || '').slice(0, 300))}</p></div>`;
+        }).join('');
+      } catch (e) {
+        box.innerHTML = '<p style="color:#fca5a5">Could not load alerts right now. <a href="https://forecast.weather.gov" target="_blank" style="color:var(--neon)">Check weather.gov →</a></p>';
+      }
+    }
+
+    // ---- cookie popup ----
+    function maybeCookie() { if (localStorage.getItem('wx-cookie-ok') !== '1') $('cookie').style.display = 'block'; }
+    function acceptCookies() { localStorage.setItem('wx-cookie-ok', '1'); $('cookie').style.display = 'none'; }
+
+    checkAuth();
+  </script>
+</body>
+</html>

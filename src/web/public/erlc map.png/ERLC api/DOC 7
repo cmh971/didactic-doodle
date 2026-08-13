@@ -1,0 +1,33 @@
+Global API Keys
+Creating Public Applications
+A public application is any app that integrates with our API that is intended for public distribution. Examples of public apps include: Melonly, Sonoran CAD & CMS, Ducky, and more!
+Public apps are only for PUBLIC apps. If you create an app that is only used in a single server, your application may be deleted without warning, leading to API errors.
+
+If you are simply looking to authorize your IP to send remote commands instead, read this page instead.
+​
+How can I get started?
+Creating a public app is easy, once you have built some sample features, you can register an application on our API Dashboard.
+1
+Create an App
+
+Visit our API Dashboard’s Developers section and click the “Create application button”
+All public applications must maintain an active and current:
+App Description
+App Feature List
+Privacy Policy
+Terms of Service
+Applications must keep their feature lists, terms of service, privacy policies up to date. Failing to maintain updated and accurate information can lead to a suspension of your API client.
+2
+Copy your Global API Key
+
+Global API keys can only be viewed once. If you lose your key, you’ll have to regenerate it.
+3
+Use your Global API Key
+
+From now on, provide your applications Global Key in the Authorization header.
+4
+Copy your App's ID
+
+Your app’s ID is a string of numbers that appears underneath your apps name on the API Dashboard.
+You’ll need your app’s ID for creating authorization links.
+-----------------------------------------------------------------------------------------------------------------------------------------

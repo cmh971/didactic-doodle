@@ -3,101 +3,235 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Getting started with Sentinel — setup guide and command examples." />
   <title>Docs · Sentinel</title>
   <link rel="icon" href="favicon.ico" />
-  <link rel="stylesheet" href="style.css" />
+  <script src="icons.js" defer></script>
+  <style>
+    :root { --bg:#05070d; --panel:#0e1424; --border:#1e2a44; --text:#e8eefc; --muted:#93a1c0; --indigo:#5865f2; --teal:#37d0a0; }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin:0; background:
+      radial-gradient(1000px 700px at 88% -10%, rgba(88,101,242,.20), transparent 55%),
+      radial-gradient(900px 640px at -10% 110%, rgba(55,208,160,.16), transparent 55%),
+      linear-gradient(160deg,#020617,#05070d);
+      color: var(--text); font-family: system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+    a { color: var(--teal); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .top { position: sticky; top:0; z-index:20; display:flex; align-items:center; gap:14px; padding:14px 22px; background:rgba(5,7,13,.85); backdrop-filter: blur(10px); border-bottom:1px solid var(--border); }
+    .top .brand { font-weight:900; font-size:18px; display:flex; align-items:center; gap:8px; background:linear-gradient(120deg,#fff,var(--indigo),var(--teal)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+    .top .brand .bi { -webkit-text-fill-color: var(--teal); }
+    .top .sp { flex:1; }
+    .top a.btn { background:linear-gradient(135deg,var(--indigo),#8893ff); color:#fff; padding:8px 16px; border-radius:999px; font-weight:700; box-shadow:0 8px 22px rgba(88,101,242,.45); }
+    .layout { display:grid; grid-template-columns: 268px 1fr; max-width:1180px; margin:0 auto; }
+    .side { position: sticky; top:59px; align-self:start; height:calc(100vh - 59px); overflow:auto; padding:24px 12px 40px; border-right:1px solid var(--border); }
+    .side .lbl { font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); font-weight:700; padding:0 12px; margin-bottom:8px; }
+    .side a { display:flex; align-items:center; gap:9px; color:var(--muted); padding:8px 12px; border-radius:8px; font-size:14px; border-left:2px solid transparent; }
+    .side a:hover { color:var(--text); background:rgba(255,255,255,.04); text-decoration:none; }
+    .side a.active { color:#fff; background:rgba(88,101,242,.15); border-left-color:var(--teal); }
+    .side a .n { color:#4a5878; font-variant-numeric: tabular-nums; font-size:11px; }
+    .side a .si { color: var(--teal); display:inline-flex; }
+    .content { padding: 40px 40px 120px; max-width: 840px; }
+    .hero-doc h1 { font-size: clamp(2rem,5vw,2.8rem); margin:0 0 8px; }
+    .hero-doc p { color: var(--muted); font-size:1.05rem; }
+    .quick { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; margin:22px 0 8px; }
+    .quick a { display:flex; align-items:center; gap:9px; background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:11px 13px; color:var(--text); font-weight:600; font-size:14px; }
+    .quick a:hover { border-color:var(--teal); text-decoration:none; transform:translateY(-2px); transition:.15s; }
+    .quick a .qi { color:var(--teal); display:inline-flex; font-size:18px; }
+    section.doc { padding-top: 44px; margin-top: 20px; border-top: 1px solid var(--border); }
+    section.doc:first-of-type { border-top:none; }
+    section.doc h2 { font-size: 1.55rem; margin:0 0 8px; display:flex; align-items:center; gap:12px; }
+    section.doc h2 .si { color: var(--teal); display:inline-flex; font-size:26px; }
+    section.doc h2 .num { font-size:.72rem; color:#04121f; background:var(--teal); border-radius:8px; padding:3px 8px; font-weight:800; margin-left:auto; }
+    section.doc h3 { margin:22px 0 6px; font-size:1.05rem; color:#c7d2fe; }
+    section.doc p, section.doc li { color:#c3cfe4; line-height:1.75; }
+    section.doc code { background:#0b1220; border:1px solid var(--border); border-radius:6px; padding:1px 6px; color:#9fe8d8; font-size:.92em; }
+    pre { background:#0b1220; border:1px solid var(--border); border-radius:12px; padding:14px 16px; overflow:auto; color:#c7f0e4; font-size:13px; line-height:1.6; }
+    .card { background: linear-gradient(180deg, rgba(20,28,48,.9), rgba(11,16,32,.9)); border:1px solid var(--border); border-radius:14px; padding:16px 18px; margin:14px 0; }
+    .tip { border-left:3px solid var(--teal); } .warn { border-left:3px solid #f59e0b; } .info { border-left:3px solid var(--indigo); }
+    table { width:100%; border-collapse:collapse; margin:14px 0; font-size:14px; }
+    th,td { text-align:left; padding:9px 12px; border-bottom:1px solid var(--border); }
+    th { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.06em; }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .side { display:none; } .content { padding:28px 20px 100px; } }
+  </style>
 </head>
-<body class="legal-page">
-  <div class="bg-orbs" aria-hidden="true"><span class="orb orb-1"></span><span class="orb orb-2"></span></div>
+<body>
+  <div class="top">
+    <span class="brand"><span class="bi" data-ic="book"></span> Sentinel Docs</span>
+    <span class="sp"></span>
+    <a href="/">Home</a>
+    <a href="/commands">Commands</a>
+    <a href="/dashboard" class="btn">Open Dashboard →</a>
+  </div>
 
-  <header class="lp-nav">
-    <a href="/" class="lp-brand"><span class="lp-logo">🎴</span><span class="lp-brand-name">Sentinel</span></a>
-    <nav class="lp-links"><a href="/">Home</a><a href="/commands">Commands</a><a href="/dashboard">Dashboard</a></nav>
-  </header>
+  <div class="layout">
+    <nav class="side" id="side">
+      <div class="lbl">Documentation · 18 sections</div>
+      <a href="#getting-started"><span class="si" data-ic="rocket"></span><span class="n">01</span>Getting Started</a>
+      <a href="#invite"><span class="si" data-ic="discord"></span><span class="n">02</span>Inviting the Bot</a>
+      <a href="#dashboard"><span class="si" data-ic="dashboard"></span><span class="n">03</span>The Dashboard</a>
+      <a href="#commands"><span class="si" data-ic="code"></span><span class="n">04</span>Commands</a>
+      <a href="#setup"><span class="si" data-ic="gear"></span><span class="n">05</span>Setup Wizard</a>
+      <a href="#moderation"><span class="si" data-ic="shield"></span><span class="n">06</span>Moderation</a>
+      <a href="#economy"><span class="si" data-ic="coin"></span><span class="n">07</span>Economy</a>
+      <a href="#leveling"><span class="si" data-ic="chart"></span><span class="n">08</span>Leveling &amp; XP</a>
+      <a href="#tickets"><span class="si" data-ic="ticket"></span><span class="n">09</span>Ticket Studio</a>
+      <a href="#erlc"><span class="si" data-ic="map"></span><span class="n">10</span>ER:LC Integration</a>
+      <a href="#cad"><span class="si" data-ic="siren"></span><span class="n">11</span>CAD / Dispatch</a>
+      <a href="#mdt"><span class="si" data-ic="badge"></span><span class="n">12</span>MDT &amp; Records</a>
+      <a href="#ai"><span class="si" data-ic="robot"></span><span class="n">13</span>AI Assistant</a>
+      <a href="#automations"><span class="si" data-ic="bolt"></span><span class="n">14</span>Automations</a>
+      <a href="#security"><span class="si" data-ic="lock"></span><span class="n">15</span>Security</a>
+      <a href="#api"><span class="si" data-ic="globe"></span><span class="n">16</span>Developer API</a>
+      <a href="#controls"><span class="si" data-ic="keyboard"></span><span class="n">17</span>Controls &amp; Keybinds</a>
+      <a href="#troubleshooting"><span class="si" data-ic="warning"></span><span class="n">18</span>Troubleshooting</a>
+    </nav>
 
-  <main class="legal">
-    <a href="/" class="legal-back">← Back to home</a>
-    <h1>📚 Getting Started</h1>
-    <p class="legal-updated">Everything you need to go from zero to a fully-running server.</p>
+    <main class="content">
+      <div class="hero-doc">
+        <h1>Sentinel Documentation</h1>
+        <p>Everything you need to run your whole server — and your ER:LC roleplay — from Discord and a browser. 18 sections, start to finish.</p>
+        <div class="quick">
+          <a href="#getting-started"><span class="qi" data-ic="rocket"></span>Quick start</a>
+          <a href="#cad"><span class="qi" data-ic="siren"></span>CAD</a>
+          <a href="#ai"><span class="qi" data-ic="robot"></span>AI</a>
+          <a href="#controls"><span class="qi" data-ic="gamepad"></span>Keybinds</a>
+        </div>
+      </div>
 
-    <div class="legal-toc card">
-      <strong>Contents</strong>
-      <a href="#invite">1. Add the bot</a>
-      <a href="#setup">2. Run /setup</a>
-      <a href="#dashboard">3. Use the dashboard</a>
-      <a href="#economy">4. Economy basics</a>
-      <a href="#mod">5. Moderation</a>
-      <a href="#tickets">6. Tickets</a>
-      <a href="#selfhost">7. Hosting</a>
-    </div>
+      <section class="doc" id="getting-started">
+        <h2><span class="si" data-ic="rocket"></span>Getting Started<span class="num">01</span></h2>
+        <p>Sentinel is an all-in-one Discord bot plus a web control center. You interact three ways: <b>slash commands</b> (<code>/</code>), a big <b>quick pack</b> (<code>?</code>), and <b>power commands</b> (<code>!</code>) — plus a full <a href="/dashboard">dashboard</a>.</p>
+        <h3>The 60-second start</h3>
+        <ol>
+          <li>Invite the bot to your server first (see <a href="#invite">§02</a>).</li>
+          <li>Run <code>!setup or /setup</code> or open the <a href="/dashboard">dashboard</a>.</li>
+          <li>Pick a log channel, enable modules, and you're live.</li>
+        </ol>
+        <div class="card tip"><span data-ic="check"></span> You never need to log in to <i>use</i> the bot — login is only for configuring from a browser.</div>
+      </section>
 
-    <section id="invite" class="legal-sec">
-      <h2>1. Add the bot to your server</h2>
-      <p>Use your bot's invite link (from the dashboard or the Discord Developer Portal). You'll need the <b>Manage Server</b> permission on the server you're adding it to. Grant it the recommended permissions so every feature works.</p>
-    </section>
+      <section class="doc" id="invite">
+        <h2><span class="si" data-ic="discord"></span>Inviting the Bot<span class="num">02</span></h2>
+        <p>Use an invite link with both the <code>bot</code> and <code>applications.commands</code> scopes — the second is what lets slash commands register.</p>
+        <pre>https://discord.com/oauth2/authorize?client_id=YOUR_ID&amp;permissions=8&amp;scope=bot+applications.commands</pre>
+        <div class="card warn"><span data-ic="warning"></span> If slash commands don't appear, the invite was missing <code>applications.commands</code>. <code>!</code> and <code>?</code> commands always work regardless.</div>
+        <p>New global slash commands can take up to an hour to appear the first time — normal Discord behavior nothing bad. See also <a href="#troubleshooting">§18 Troubleshooting</a>.</p>
+      </section>
 
-    <section id="setup" class="legal-sec">
-      <h2>2. Run <code>/setup</code></h2>
-      <p>The fastest way to configure everything is the interactive setup wizard. Type <code>/setup</code> in any channel and use the arrows or dropdown to move between pages:</p>
-      <ul>
-        <li><b>Modules</b> — turn features on/off (economy, moderation, leveling, etc.)</li>
-        <li><b>Automod</b> — invite blocking, spam, bad-word filter, mention limits</li>
-        <li><b>Leveling</b> — level-up channel and auto-roles</li>
-        <li><b>Tickets</b> — the full ticket studio</li>
-        <li><b>Welcome</b> — greet new members with a custom card</li>
-      </ul>
-    </section>
+      <section class="doc" id="dashboard">
+        <h2><span class="si" data-ic="dashboard"></span>The Web Dashboard<span class="num">03</span></h2>
+        <p>The dashboard runs everything from a browser: modules, economy, tickets, leveling, announcements, live analytics, warnings, owner tools, and more across 12+ pages.</p>
+        <h3>Signing in</h3>
+        <p>Log in with <b>Discord</b> (required to manage servers) or <b>Google</b>. You need the <b>Manage Server</b> permission on any server you configure.</p>
+        <div class="card info"><span data-ic="keyboard"></span> Pro tip: press <code>Ctrl/⌘ + K</code> anywhere on the site for the command palette, or set custom keys on the <a href="/keybinds">Controls page</a>.</div>
+      </section>
 
-    <section id="dashboard" class="legal-sec">
-      <h2>3. Use the web dashboard</h2>
-      <p>Prefer a browser? Open the <a href="/dashboard">dashboard</a>, sign in with Discord (optionally Google first), and pick a server. From there you can toggle modules, edit the economy, compose announcements, design tickets, run giveaways, set up reaction roles, and watch live analytics — all without typing a single command.</p>
-    </section>
+      <section class="doc" id="commands">
+        <h2><span class="si" data-ic="code"></span>Commands (/ ? !)<span class="num">04</span></h2>
+        <table>
+          <tr><th>Prefix</th><th>What</th><th>Count</th></tr>
+          <tr><td><code>/</code></td><td>Native slash commands (mod, economy, fun)</td><td>~343</td></tr>
+          <tr><td><code>?</code></td><td>Quick utility pack (text, math, encoders, games)</td><td>240+</td></tr>
+          <tr><td><code>!</code></td><td>Power features (CAD, MDT, search, backup…)</td><td>29</td></tr>
+        </table>
+        <p>Browse them all on the live <a href="/commands">commands page</a>, or type <code>?help</code> / <code>/help</code> in Discord.</p>
+      </section>
 
-    <section id="economy" class="legal-sec">
-      <h2>4. Economy basics</h2>
-      <p>Members earn and spend a per-server currency. Common commands:</p>
-      <ul>
-        <li><code>/balance</code> — check your wallet &amp; bank</li>
-        <li><code>/daily</code>, <code>/weekly</code>, <code>/work</code> — earn coins on a cooldown</li>
-        <li><code>/shop</code> and <code>/buy</code> — spend coins on items</li>
-        <li><code>/gamble</code>, <code>/slots</code>, <code>/blackjack</code> — risk it for the biscuit</li>
-        <li><code>/leaderboard</code> — see the richest players</li>
-      </ul>
-    </section>
+      <section class="doc" id="setup">
+        <h2><span class="si" data-ic="gear"></span>Setup Wizard<span class="num">05</span></h2>
+        <p>Run <code>!setup</code> for an interactive, page-by-page configurator in Discord — modules, log channels, roles, economy, automod, tickets, and more. Every change saves instantly. The <a href="/dashboard">dashboard</a> does the same, visually.</p>
+      </section>
 
-    <section id="mod" class="legal-sec">
-      <h2>5. Moderation</h2>
-      <p>Keep your server clean with tools like <code>/ban</code>, <code>/kick</code>, <code>/timeout</code>, <code>/purge</code>, and <code>/warn</code>. Warnings feed an infraction ladder you can review in the dashboard's <b>Warnings</b> page. Automod runs automatically once enabled in <code>/setup</code>.</p>
-    </section>
+      <section class="doc" id="moderation">
+        <h2><span class="si" data-ic="shield"></span>Moderation &amp; Automod<span class="num">06</span></h2>
+        <p>Bans, kicks, timeouts, and warnings with a full <b>infraction ladder</b> (warn → timeout → kick → ban) that escalates automatically. Automod guards spam, invite links, mass-mentions, and a 4,000-word filter. A file scanner blocks dangerous attachments — even renamed this stop anything bad form happening in your server <code>.exe</code> files.</p>
+      </section>
 
-    <section id="tickets" class="legal-sec">
-      <h2>6. Tickets</h2>
-      <p>Design a support panel in <code>/setup ▸ Tickets</code> (or the dashboard's Tickets page), then deploy it to a channel. Members click a button (or pick a menu option) to open a private ticket. You can also enable DM tickets so members message the bot directly. Staff get Close, Claim, Lock, and Transcript controls.</p>
-    </section>
+      <section class="doc" id="economy">
+        <h2><span class="si" data-ic="coin"></span>Economy<span class="num">07</span></h2>
+        <p>A full per-server game economy: wallets, banks, shop, gambling, daily rewards, and leaderboards. Configure the currency name/emoji, starting balance, and daily amount from setup or the dashboard.</p>
+      </section>
 
-    <section id="selfhost" class="legal-sec">
-      <h2>7. Hosting</h2>
-      <p>Sentinel is <b>not available for self-hosting</b> — it runs as a single managed instance so every server always gets the same secure, up-to-date version with zero setup. There's nothing to install and no server to maintain on your end.</p>
-      <p>Just invite the hosted bot, run <code>/setup</code>, and manage everything from the <a href="/dashboard">dashboard</a>. See the <a href="/commands">command reference</a> for the full list of what's available.</p>
-    </section>
+      <section class="doc" id="leveling">
+        <h2><span class="si" data-ic="chart"></span>Leveling &amp; XP<span class="num">08</span></h2>
+        <p>Members earn XP for chatting. Set a level-up channel and message, and configure <b>auto-roles</b> that unlock at specific levels. All tunable per server.</p>
+      </section>
 
-    <a href="/" class="legal-back">← Back to home</a>
-  </main>
+      <section class="doc" id="tickets">
+        <h2><span class="si" data-ic="ticket"></span>Ticket Studio<span class="num">09</span></h2>
+        <p>A creative studio for support tickets: design the panel (title, color, buttons or a menu), pick channel-tickets or DM modmail, set auto-close timers, claim &amp; transcript buttons, per-category ping roles, and feedback ratings.</p>
+      </section>
 
-  <footer class="lp-footer">
-    <div class="lp-footer-bottom">
-      <span class="muted">© <span id="lp-year">2026</span> Sentinel</span>
-      <span class="muted"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/changelog">Changelog</a></span>
-    </div>
-  </footer>
+      <section class="doc" id="erlc">
+        <h2><span class="si" data-ic="map"></span>ER:LC Integration<span class="num">10</span></h2>
+        <p>Connect your Emergency Response: Liberty County server with <code>/erlc link</code> (or <code>!erlc key</code>) — paste your key in a private popup; stored <b>AES-256 encrypted</b>, never shown in chat. Then the bot reads live players, vehicles, and 911 calls, runs in-game commands, and powers the <a href="#cad">CAD</a>.</p>
+        <div class="card tip"><span data-ic="map"></span> <b>ER:LC Regions</b>: draw map zones and auto-move verified players between voice channels based on where they stand in Liberty County.</div>
+      </section>
+
+      <section class="doc" id="cad">
+        <h2><span class="si" data-ic="siren"></span>CAD / Dispatch<span class="num">11</span></h2>
+        <p>A full dispatcher console: a live map with unit pins + 911 calls, create/assign/close calls, unit statuses, panic &amp; Signal 100, jurisdiction drawing, and <b>Patrol Ops</b> — speed radar, closest-unit voice auto-dispatch, and BOLO/ALPR alerts. Open it with <code>!cad</code>. Access is limited to PD/EMS/DOT roles (<code>!cadaccess add @role</code>).</p>
+      </section>
+
+      <section class="doc" id="mdt">
+        <h2><span class="si" data-ic="badge"></span>MDT &amp; Records<span class="num">12</span></h2>
+        <p>The officer's terminal: name &amp; plate lookups, civilian records, registered vehicles, warrants, citations, a <b>Z-key citation handout</b> (screenshot + save + beep), a <b>Run ID</b> with Roblox mugshot + Discord pfp, a 66-report <b>Report Center</b>, a state <b>Law Book</b> with web law search, an <b>AI Judge</b>, and Jail/Bond. Open with <code>!mdt</code>.</p>
+      </section>
+
+      <section class="doc" id="ai">
+        <h2><span class="si" data-ic="robot"></span>AI Assistant<span class="num">13</span></h2>
+        <p>Mention the bot and it answers, powered by Gemini — with web search, embed &amp; form building, image vision, memory, and a strict moderation layer. The AI Judge and radar-station chat use the same engine, server-side, so the key never touches the browser.</p>
+      </section>
+
+      <section class="doc" id="automations">
+        <h2><span class="si" data-ic="bolt"></span>Automations<span class="num">14</span></h2>
+        <p>A no-code trigger→action engine. Triggers include region enter/exit, a new 911 call, or a plate being seen; actions include sending a message, granting a role, or punishing. Use variables like <code>{player}</code>, <code>{region}</code>, and <code>{emergency.desc}</code>. Up to 25 rules per server.</p>
+      </section>
+
+      <section class="doc" id="security">
+        <h2><span class="si" data-ic="lock"></span>Anti-Raid &amp; Security<span class="num">15</span></h2>
+        <p>An anti-raid engine locks the server down on join-spam. Rate limiting guards every action (2 warnings → timeout → lockout). Secrets are dual-encrypted (AES-256-GCM + HMAC) and never exposed. Full server backup &amp; restore is built in.</p>
+      </section>
+
+      <section class="doc" id="api">
+        <h2><span class="si" data-ic="globe"></span>Developer API<span class="num">16</span></h2>
+        <p>Build on top of Sentinel. Issue API keys with <code>!apikey</code>, then hit the GET/POST endpoints for your data. Keys are stored encrypted and shown only once. Embeddable widgets (like a live leaderboard) drop into any site by URL.</p>
+      </section>
+
+      <section class="doc" id="controls">
+        <h2><span class="si" data-ic="keyboard"></span>Controls &amp; Keybinds<span class="num">17</span></h2>
+        <p>The whole site is keyboard- and controller-driven. Open the <a href="/keybinds">Controls page</a> to rebind any action to a key — or map it to a <b>gamepad, controller, or flight yoke</b> (via the browser Gamepad API).</p>
+        <table>
+          <tr><th>Key</th><th>Action</th></tr>
+          <tr><td><code>Ctrl/⌘ + K</code></td><td>Command palette</td></tr>
+          <tr><td><code>D</code></td><td>Open Dashboard</td></tr>
+          <tr><td><code>G</code></td><td>Open Docs</td></tr>
+          <tr><td><code>C</code></td><td>Commands · <code>T</code> Theme · <code>W/S</code> Scroll</td></tr>
+        </table>
+        <div class="card info"><span data-ic="gamepad"></span> Plug in a controller or yoke and it shows up live on the Controls page — every axis and button in real time. Map an axis to scroll and you can literally fly through the site.</div>
+      </section>
+
+      <section class="doc" id="troubleshooting">
+        <h2><span class="si" data-ic="warning"></span>Troubleshooting &amp; FAQ<span class="num">18</span></h2>
+        <h3>Slash commands aren't showing</h3>
+        <p>Re-invite with <code>applications.commands</code> in the scope, and give it up to an hour. <code>!</code>/<code>?</code> commands work instantly.</p>
+        <h3>Dashboard login fails</h3>
+        <p>The site's login redirect URL must match the current address in the Discord &amp; Google OAuth consoles. If the URL changed, re-register the redirect.</p>
+        <h3>ER:LC / CAD shows no data</h3>
+        <p>Make sure the ER:LC key is set (<code>/erlc link</code>) and the server is online. Test with <code>/erlc server</code>.</p>
+        <div class="card"><span data-ic="star"></span> Still stuck? Type <code>!update</code> in Discord for the full changelog, or visit the <a href="/status">status page</a>.</div>
+      </section>
+    </main>
+  </div>
+
   <script>
-    (function () {
-      var t = localStorage.getItem('theme') || 'dark';
-      if (t !== 'light' && t !== 'dark') t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-      document.documentElement.setAttribute('data-theme', t);
-      var y = document.getElementById('lp-year'); if (y) y.textContent = new Date().getFullYear();
-    })();
+    const links = [...document.querySelectorAll('.side a')];
+    const byId = (id) => links.find((l) => l.getAttribute('href') === '#' + id);
+    new IntersectionObserver((entries) => {
+      entries.forEach((e) => { if (e.isIntersecting) { links.forEach((l) => l.classList.remove('active')); const a = byId(e.target.id); if (a) a.classList.add('active'); } });
+    }, { rootMargin: '-20% 0px -70% 0px' }).observe && document.querySelectorAll('section.doc').forEach((s) => {
+      new IntersectionObserver((entries) => { entries.forEach((e) => { if (e.isIntersecting) { links.forEach((l) => l.classList.remove('active')); const a = byId(e.target.id); if (a) a.classList.add('active'); } }); }, { rootMargin: '-20% 0px -70% 0px' }).observe(s);
+    });
   </script>
 </body>
 </html>

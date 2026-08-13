@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Embed Builder · Sentinel</title>
+<style>
+  :root { color-scheme: dark; } * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: #0b0f14; color: #e8f0ff; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
+  h1 { margin: 0 0 4px; } .sub { color: #7fa8d0; margin-bottom: 22px; font-size: 14px; }
+  .grid { display: flex; gap: 18px; flex-wrap: wrap; }
+  .col { flex: 1 1 340px; }
+  .card { background: #0e1c2c; border: 1px solid #1e3a55; border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+  label { display: block; font-size: 12px; color: #9fc0e0; margin: 10px 0 4px; }
+  select, input, button, textarea { width: 100%; padding: 9px; border-radius: 8px; border: 1px solid #1e3a55; background: #0b1622; color: #e8f0ff; font-size: 13px; }
+  textarea { font-family: monospace; resize: vertical; }
+  button { cursor: pointer; font-weight: 700; background: #1aa3ff; color: #04121f; border: none; }
+  .seg { display: flex; gap: 6px; }
+  .seg button { background: #0b1622; color: #e8f0ff; } .seg button.on { background: #1aa3ff; color: #04121f; }
+  iframe { width: 100%; height: 460px; border: 1px dashed #1e3a55; border-radius: 12px; background: #060b12; }
+  .muted { color: #6d90b3; font-size: 12px; }
+  .ok { color: #37d0a0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🖼️ Embed Builder</h1>
+  <div class="sub">Get a URL or HTML snippet to embed your server's widgets anywhere (Google Sites, Carrd, your own site…).</div>
+  <div id="gate" class="card" style="display:none"><b>🔒 Embeds are off for this server.</b><br><span class="muted">An admin must run <code>!embed on</code> in Discord first (keeps your data from being exposed without consent).</span></div>
+  <div class="grid">
+    <div class="col">
+      <div class="card">
+        <label>Widget</label>
+        <div class="seg"><button id="w-lb" class="on">🏆 Leaderboard</button><button id="w-st">📊 Stats</button></div>
+        <label>Width × Height (px)</label>
+        <div style="display:flex;gap:8px"><input id="w" type="number" value="380"><input id="h" type="number" value="440"></div>
+
+        <label>① iframe URL</label>
+        <input id="url" readonly onclick="this.select()">
+        <button style="margin-top:6px" id="copyUrl">Copy URL</button>
+
+        <label>② HTML snippet <span class="muted">(Google Sites → Insert → Embed → Embed code)</span></label>
+        <textarea id="html" rows="3" readonly onclick="this.select()"></textarea>
+        <button style="margin-top:6px" id="copyHtml">Copy HTML</button>
+        <div class="muted" id="msg" style="margin-top:8px"></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card"><b>Live preview</b><div class="muted" style="margin-bottom:8px">Exactly what visitors see.</div>
+        <iframe id="preview"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const guild = new URLSearchParams(location.search).get('guild');
+let type = 'leaderboard';
+const $ = (id) => document.getElementById(id);
+if (!guild) { document.body.innerHTML = '<p style="text-align:center;padding:40px">Add <code>?guild=YOUR_SERVER_ID</code> to the URL.</p>'; }
+
+function refresh() {
+  const base = location.origin;
+  const url = `${base}/embed/${type}/${guild}`;
+  const w = $('w').value || 380, h = $('h').value || 440;
+  $('url').value = url;
+  $('html').value = `<iframe src="${url}" width="${w}" height="${h}" style="border:0"></iframe>`;
+  $('preview').src = url + '?_=' + Date.now();
+}
+$('w-lb').onclick = () => { type = 'leaderboard'; $('w-lb').classList.add('on'); $('w-st').classList.remove('on'); refresh(); };
+$('w-st').onclick = () => { type = 'stats'; $('w-st').classList.add('on'); $('w-lb').classList.remove('on'); refresh(); };
+$('w').oninput = refresh; $('h').oninput = refresh;
+const copy = (elId, label) => { navigator.clipboard.writeText($(elId).value).then(() => { $('msg').innerHTML = `<span class="ok">✓ ${label} copied!</span>`; setTimeout(() => $('msg').textContent = '', 1800); }); };
+$('copyUrl').onclick = () => copy('url', 'URL');
+$('copyHtml').onclick = () => copy('html', 'HTML');
+
+// Detect if embeds are enabled (the widget page itself says so).
+async function checkGate() {
+  try { const t = await fetch(`/embed/leaderboard/${guild}`).then(r => r.text()); if (t.includes('Embeds off')) $('gate').style.display = 'block'; } catch {}
+}
+if (guild) { refresh(); checkGate(); }
+</script>
+<script src="/a11y.js" defer></script>
+</body>
+</html>

@@ -50,7 +50,7 @@ class MemoryCache {
     return count <= max;
   }
 }
-
+// do not forget to call .del() on keys that are no longer needed, otherwise the in-process cache will grow unbounded!!!!! :/
 // ---- Redis-backed cache ----
 class RedisCache {
   constructor(client) {

@@ -1,0 +1,43 @@
+API Reference
+Run a command in-game as virtual server management
+POST
+/
+v1
+/
+server
+/
+command
+
+Try it
+Authorizations
+​
+server-key
+stringheaderrequired
+REQUIRED ON ALL REQUESTS. Get your server key at https://erlc.link/sk
+
+Body
+application/json
+Command to be executed
+
+​
+command
+string
+The command to be executed
+
+Example:
+":h Hey everyone!"
+
+Response
+
+200
+
+application/json
+Command executed successfully
+
+​
+message
+string
+A message explaining the status of your command
+
+Example:
+"Success"

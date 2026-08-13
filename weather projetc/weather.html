@@ -1,0 +1,1694 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="UTF-8" />
+  <title>Atmospheric Panel · Overland Park, KS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --radius-squircle: 22px;
+      --transition-fast: 0.25s ease-out;
+      --shadow-soft-light: 0 18px 40px rgba(0, 0, 0, 0.08);
+      --shadow-soft-dark: 0 18px 40px rgba(0, 0, 0, 0.55);
+
+      --bg-light: #f4f5f7;
+      --panel-light: #ffffff;
+      --text-main-light: #111827;
+      --text-sub-light: #6b7280;
+
+      --accent-blue-light: #2563eb;
+      --accent-green-light: #16a34a;
+      --accent-yellow-light: #f59e0b;
+      --accent-red-light: #dc2626;
+
+      --bg-dark: #050816;
+      --panel-dark: #0b1020;
+      --text-main-dark: #f9fafb;
+      --text-sub-dark: #9ca3af;
+
+      --accent-blue-dark: #60a5fa;
+      --accent-green-dark: #4ade80;
+      --accent-yellow-dark: #facc15;
+      --accent-red-dark: #f87171;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+      background: var(--bg-light);
+      color: var(--text-main-light);
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+    }
+
+    body.dark {
+      background: radial-gradient(circle at top, #111827 0, #020617 45%, #000 100%);
+      color: var(--text-main-dark);
+    }
+
+    .shell {
+      width: 100%;
+      max-width: 1200px;
+      padding: 20px 14px 80px; /* extra bottom for sticky bar */
+    }
+
+    .header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .header-main {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .header-title {
+      font-size: 22px;
+      font-weight: 650;
+      letter-spacing: 0.02em;
+    }
+
+    .header-sub {
+      font-size: 13px;
+      color: var(--text-sub-light);
+    }
+
+    body.dark .header-sub {
+      color: var(--text-sub-dark);
+    }
+
+    .header-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .pill {
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(15,23,42,0.04);
+      color: var(--text-sub-light);
+    }
+
+    body.dark .pill {
+      background: rgba(148,163,184,0.12);
+      color: var(--text-sub-dark);
+    }
+
+    .pill-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--accent-green-light);
+    }
+
+    body.dark .pill-dot {
+      background: var(--accent-green-dark);
+    }
+
+    .pill-label {
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .pill-value {
+      font-weight: 600;
+    }
+
+    .theme-toggle {
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.4);
+      padding: 6px 10px;
+      font-size: 11px;
+      background: rgba(255,255,255,0.8);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+    }
+
+    body.dark .theme-toggle {
+      background: rgba(15,23,42,0.8);
+      border-color: rgba(55,65,81,0.8);
+      color: var(--text-sub-dark);
+    }
+
+    .theme-toggle span.icon {
+      font-size: 13px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    @media (max-width: 1024px) {
+      .grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 640px) {
+      .grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .tile {
+      border-radius: var(--radius-squircle);
+      padding: 14px 14px 16px;
+      background: var(--panel-light);
+      box-shadow: var(--shadow-soft-light);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+      transition:
+        transform var(--transition-fast),
+        box-shadow var(--transition-fast),
+        background var(--transition-fast);
+    }
+
+    body.dark .tile {
+      background: radial-gradient(circle at top left, #111827 0, #020617 55%, #000 100%);
+      box-shadow: var(--shadow-soft-dark);
+    }
+
+    .tile::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top left, rgba(37,99,235,0.08), transparent 55%);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition-fast);
+    }
+
+    body.dark .tile::before {
+      background: radial-gradient(circle at top left, rgba(96,165,250,0.18), transparent 60%);
+    }
+
+    .tile:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 22px 50px rgba(15,23,42,0.18);
+    }
+
+    .tile:hover::before {
+      opacity: 1;
+    }
+
+    .tile-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .tile-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-sub-light);
+    }
+
+    body.dark .tile-label {
+      color: var(--text-sub-dark);
+    }
+
+    .tile-tag {
+      font-size: 10px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      background: rgba(148,163,184,0.12);
+      color: var(--text-sub-light);
+    }
+
+    body.dark .tile-tag {
+      background: rgba(31,41,55,0.9);
+      color: var(--text-sub-dark);
+    }
+
+    .tile-main {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .tile-value {
+      font-size: 30px;
+      font-weight: 650;
+      letter-spacing: 0.02em;
+    }
+
+    .tile-unit {
+      font-size: 13px;
+      color: var(--text-sub-light);
+    }
+
+    body.dark .tile-unit {
+      color: var(--text-sub-dark);
+    }
+
+    .tile-sub {
+      font-size: 12px;
+      color: var(--text-sub-light);
+      margin-top: 4px;
+    }
+
+    body.dark .tile-sub {
+      color: var(--text-sub-dark);
+    }
+
+    .tile-footer {
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--text-sub-light);
+      display: flex;
+      justify-content: space-between;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    body.dark .tile-footer {
+      color: var(--text-sub-dark);
+    }
+
+    .badge {
+      padding: 3px 7px;
+      border-radius: 999px;
+      font-size: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .badge-blue {
+      background: rgba(37,99,235,0.08);
+      color: var(--accent-blue-light);
+    }
+
+    body.dark .badge-blue {
+      background: rgba(37,99,235,0.18);
+      color: var(--accent-blue-dark);
+    }
+
+    .badge-green {
+      background: rgba(22,163,74,0.08);
+      color: var(--accent-green-light);
+    }
+
+    body.dark .badge-green {
+      background: rgba(22,163,74,0.18);
+      color: var(--accent-green-dark);
+    }
+
+    .badge-yellow {
+      background: rgba(245,158,11,0.08);
+      color: var(--accent-yellow-light);
+    }
+
+    body.dark .badge-yellow {
+      background: rgba(245,158,11,0.18);
+      color: var(--accent-yellow-dark);
+    }
+
+    .badge-red {
+      background: rgba(220,38,38,0.08);
+      color: var(--accent-red-light);
+    }
+
+    body.dark .badge-red {
+      background: rgba(220,38,38,0.18);
+      color: var(--accent-red-dark);
+    }
+
+    .sparkline {
+      width: 80px;
+      height: 32px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, rgba(37,99,235,0.08), rgba(59,130,246,0.02));
+      position: relative;
+      overflow: hidden;
+    }
+
+    body.dark .sparkline {
+      background: linear-gradient(135deg, rgba(96,165,250,0.18), rgba(15,23,42,0.8));
+    }
+
+    .sparkline-line {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        90deg,
+        rgba(59,130,246,0.0),
+        rgba(59,130,246,0.7),
+        rgba(59,130,246,0.0)
+      );
+      opacity: 0.7;
+      transform: translateX(-100%);
+      animation: sweep 4s linear infinite;
+    }
+
+    @keyframes sweep {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    .uv-bar {
+      margin-top: 8px;
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      background: linear-gradient(
+        90deg,
+        #22c55e 0%,
+        #eab308 40%,
+        #f97316 65%,
+        #ef4444 100%
+      );
+      position: relative;
+      overflow: hidden;
+    }
+
+    .uv-indicator {
+      position: absolute;
+      top: 50%;
+      width: 4px;
+      height: 18px;
+      border-radius: 999px;
+      background: #ffffff;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 8px rgba(0,0,0,0.6);
+    }
+
+    .forecast-list {
+      margin-top: 8px;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 6px;
+      font-size: 11px;
+    }
+
+    .forecast-item {
+      padding: 6px 6px 7px;
+      border-radius: 12px;
+      background: rgba(148,163,184,0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      align-items: flex-start;
+    }
+
+    body.dark .forecast-item {
+      background: rgba(15,23,42,0.9);
+    }
+
+    .forecast-day {
+      font-weight: 600;
+    }
+
+    .hourly-list {
+      margin-top: 8px;
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 6px;
+      font-size: 11px;
+    }
+
+    .hourly-item {
+      padding: 6px 6px 7px;
+      border-radius: 12px;
+      background: rgba(148,163,184,0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      align-items: flex-start;
+    }
+
+    body.dark .hourly-item {
+      background: rgba(15,23,42,0.9);
+    }
+
+    .hourly-time {
+      font-weight: 600;
+    }
+
+    .small-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-sub-light);
+    }
+
+    body.dark .small-label {
+      color: var(--text-sub-dark);
+    }
+
+    .small-value {
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .row-split {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .row-split-col {
+      flex: 1;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+      margin-top: 6px;
+    }
+
+    .two-col-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .legend-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+      font-size: 10px;
+      color: var(--text-sub-light);
+    }
+
+    body.dark .legend-row {
+      color: var(--text-sub-dark);
+    }
+
+    .footer-line {
+      margin-top: 14px;
+      font-size: 11px;
+      color: #9ca3af;
+    }
+
+    /* STICKY SYSTEM CONTROL BAR (FULL-WIDTH, TRANSLUCENT) */
+    .system-bar-wrapper {
+      position: sticky;
+      bottom: 10px;
+      z-index: 50;
+      margin-top: 20px;
+    }
+
+    .system-bar {
+      max-width: 1200px;
+      margin: 0 auto;
+      border-radius: 999px;
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: rgba(15,23,42,0.12);
+      border: 1px solid rgba(148,163,184,0.5);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 18px 40px rgba(15,23,42,0.35);
+    }
+
+    body.dark .system-bar {
+      background: rgba(15,23,42,0.65);
+      border-color: rgba(148,163,184,0.8);
+      box-shadow: 0 18px 40px rgba(0,0,0,0.85);
+    }
+
+    .system-bar-left,
+    .system-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .system-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-sub-light);
+    }
+
+    body.dark .system-label {
+      color: var(--text-sub-dark);
+    }
+
+    .system-select,
+    .system-button {
+      font-size: 11px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.6);
+      background: rgba(255,255,255,0.85);
+      padding: 4px 10px;
+      cursor: pointer;
+      color: var(--text-main-light);
+    }
+
+    body.dark .system-select,
+    body.dark .system-button {
+      background: rgba(15,23,42,0.9);
+      color: var(--text-main-dark);
+      border-color: rgba(148,163,184,0.9);
+    }
+
+    .system-select {
+      padding-right: 24px;
+    }
+
+    .system-status-pill {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(22,163,74,0.12);
+      color: var(--accent-green-light);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    body.dark .system-status-pill {
+      background: rgba(22,163,74,0.22);
+      color: var(--accent-green-dark);
+    }
+
+    .system-status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: currentColor;
+    }
+
+    .system-time {
+      font-size: 11px;
+      color: var(--text-sub-light);
+    }
+
+    body.dark .system-time {
+      color: var(--text-sub-dark);
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="header">
+      <div class="header-main">
+        <div class="header-title" id="header-title">
+          Atmospheric Status · Overland Park, KS
+        </div>
+        <div class="header-sub" id="header-sub">
+          Live telemetry from OpenWeather · Initializing...
+        </div>
+      </div>
+      <div class="header-meta">
+        <div class="pill">
+          <div class="pill-dot"></div>
+          <div class="pill-label">Link</div>
+          <div class="pill-value" id="pill-connection">Connecting</div>
+        </div>
+        <div class="pill">
+          <div class="pill-label">Last Update</div>
+          <div class="pill-value" id="pill-updated">--:--:--</div>
+        </div>
+        <button class="theme-toggle" id="theme-toggle">
+          <span class="icon" id="theme-icon">🌞</span>
+          <span id="theme-label">Auto · Daylight</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- 1. Temperature -->
+      <div class="tile" id="tile-temp">
+        <div class="tile-header">
+          <div class="tile-label">Temperature</div>
+          <div class="tile-tag" id="temp-tag">--</div>
+        </div>
+        <div class="tile-main">
+          <div>
+            <div class="tile-value" id="temp-value">--°F</div>
+            <div class="tile-sub" id="temp-sub">Feels like --°F · --</div>
+          </div>
+          <div class="sparkline">
+            <div class="sparkline-line"></div>
+          </div>
+        </div>
+        <div class="tile-footer">
+          <div>
+            High: <strong id="temp-high">--°F</strong> ·
+            Low: <strong id="temp-low">--°F</strong>
+          </div>
+          <div class="badge badge-blue" id="temp-badge">Loading</div>
+        </div>
+      </div>
+
+      <!-- 2. Wind -->
+      <div class="tile" id="tile-wind">
+        <div class="tile-header">
+          <div class="tile-label">Wind</div>
+          <div class="tile-tag" id="wind-tag">--</div>
+        </div>
+        <div class="tile-main">
+          <div>
+            <div class="tile-value" id="wind-value">--</div>
+            <div class="tile-unit">mph</div>
+            <div class="tile-sub" id="wind-sub">Direction --</div>
+          </div>
+          <div class="sparkline">
+            <div class="sparkline-line"></div>
+          </div>
+        </div>
+        <div class="tile-footer">
+          <div>Gust: <strong id="wind-gust">-- mph</strong></div>
+          <div class="badge badge-green" id="wind-badge">Calibrating</div>
+        </div>
+      </div>
+
+      <!-- 3. Humidity -->
+      <div class="tile" id="tile-humidity">
+        <div class="tile-header">
+          <div class="tile-label">Humidity</div>
+          <div class="tile-tag" id="humidity-tag">--</div>
+        </div>
+        <div class="tile-main">
+          <div>
+            <div class="tile-value" id="humidity-value">--%</div>
+            <div class="tile-sub" id="humidity-sub">Dew point --°F</div>
+          </div>
+          <div class="sparkline">
+            <div class="sparkline-line"></div>
+          </div>
+        </div>
+        <div class="tile-footer">
+          <div>Clouds: <strong id="clouds-value">--%</strong></div>
+          <div class="badge badge-yellow" id="humidity-badge">Analyzing</div>
+        </div>
+      </div>
+
+      <!-- 4. Air Quality (from air_pollution endpoint if you want later; placeholder logic here) -->
+      <div class="tile" id="tile-aqi">
+        <div class="tile-header">
+          <div class="tile-label">Air Quality Index</div>
+          <div class="tile-tag" id="aqi-tag">--</div>
+        </div>
+        <div class="tile-main">
+          <div>
+            <div class="tile-value" id="aqi-value">--</div>
+            <div class="tile-sub" id="aqi-sub">Dominant pollutant: --</div>
+          </div>
+          <div class="sparkline">
+            <div class="sparkline-line"></div>
+          </div>
+        </div>
+        <div class="tile-footer">
+          <div id="aqi-text">Awaiting air quality data...</div>
+          <div class="badge badge-green" id="aqi-badge">--</div>
+        </div>
+      </div>
+
+      <!-- 5. Pressure -->
+      <div class="tile" id="tile-pressure">
+        <div class="tile-header">
+          <div class="tile-label">Pressure</div>
+          <div class="tile-tag">Sea Level</div>
+        </div>
+        <div class="tile-main">
+          <div>
+            <div class="tile-value" id="pressure-value">--</div>
+            <div class="tile-unit">hPa</div>
+            <div class="tile-sub" id="pressure-sub">Trend: --</div>
+          </div>
+          <div class="sparkline">
+            <div class="sparkline-line"></div>
+          </div>
+        </div>
+        <div class="tile-footer">
+          <div>Ground: <strong id="pressure-ground">-- hPa</strong></div>
+          <div class="badge badge-blue" id="pressure-badge">Stable</div>
+        </div>
+      </div>
+
+      <!-- 6. Cloud Cover -->
+      <div class="tile" id="tile-clouds">
+        <div class="tile-header">
+          <div class="tile-label">Cloud Cover</div>
+          <div class="tile-tag">Sky Matrix</div>
+        </div>
+        <div class="tile-main">
+          <div>
+            <div class="tile-value" id="clouds-main">--%</div>
+            <div class="tile-sub" id="clouds-sub">Condition: --</div>
+          </div>
+          <div class="sparkline">
+            <div class="sparkline-line"></div>
+          </div>
+        </div>
+        <div class="tile-footer">
+          <div>Visibility: <strong id="visibility-value">-- mi</strong></div>
+          <div class="badge badge-yellow" id="clouds-badge">--</div>
+        </div>
+      </div>
+
+      <!-- 7. Sunrise / Sunset -->
+      <div class="tile" id="tile-sun">
+        <div class="tile-header">
+          <div class="tile-label">Sunrise · Sunset</div>
+          <div class="tile-tag" id="sun-tag">--</div>
+        </div>
+        <div class="tile-main">
+          <div>
+            <div class="small-label">Sunrise</div>
+            <div class="small-value" id="sunrise-value">--:--</div>
+            <div class="small-label" style="margin-top:6px;">Sunset</div>
+            <div class="small-value" id="sunset-value">--:--</div>
+          </div>
+          <div class="row-split">
+            <div class="row-split-col">
+              <div class="small-label">Day Length</div>
+              <div class="small-value" id="daylength-value">-- h -- m</div>
+            </div>
+            <div class="row-split-col">
+              <div class="small-label">Local Time</div>
+              <div class="small-value" id="localtime-value">--:--</div>
+            </div>
+          </div>
+        </div>
+        <div class="tile-footer">
+          <div id="sun-footer">Theme auto-switch based on sun cycle.</div>
+          <div class="badge badge-blue" id="sun-badge">Auto</div>
+        </div>
+      </div>
+
+      <!-- 8. Feels Like -->
+      <div class="tile" id="tile-feels">
+        <div class="tile-header">
+          <div class="tile-label">Thermal Perception</div>
+          <div class="tile-tag">Feels Like</div>
+        </div>
+        <div class="tile-main">
+          <div>
+            <div class="tile-value" id="feels-value">--°F</div>
+            <div class="tile-sub" id="feels-sub">Relative to actual: --</div>
+          </div>
+          <div class="sparkline">
+            <div class="sparkline-line"></div>
+          </div>
+        </div>
+        <div class="tile-footer">
+          <div>Humidity: <strong id="feels-humidity">--%</strong></div>
+          <div class="badge badge-green" id="feels-badge">Comfort</div>
+        </div>
+      </div>
+
+      <!-- 9. 5-Day Forecast -->
+      <div class="tile" id="tile-forecast">
+        <div class="tile-header">
+          <div class="tile-label">5-Day Outlook</div>
+          <div class="tile-tag">Daily Snapshot</div>
+        </div>
+        <div class="tile-main">
+          <div>
+            <div class="tile-sub">Next 5 days at local noon.</div>
+            <div class="forecast-list" id="forecast-list"></div>
+          </div>
+        </div>
+        <div class="tile-footer">
+          <div id="forecast-footer">Loading forecast...</div>
+          <div class="badge badge-blue">Model</div>
+        </div>
+      </div>
+
+      <!-- 10. Radar-style Concept -->
+      <div class="tile" id="tile-radar">
+        <div class="tile-header">
+          <div class="tile-label">Local Radar Style</div>
+          <div class="tile-tag">Conceptual</div>
+        </div>
+        <div class="tile-main">
+          <div>
+            <div class="tile-sub">
+              Conceptual radar visualization centered on your coordinates.
+            </div>
+            <div class="radar-map" style="
+              margin-top:8px;
+              border-radius:18px;
+              overflow:hidden;
+              height:120px;
+              background:#020617;
+              position:relative;
+            ">
+              <div class="radar-grid" style="
+                position:absolute;
+                inset:0;
+                background-image:
+                  linear-gradient(to right, rgba(148,163,184,0.12) 1px, transparent 1px),
+                  linear-gradient(to bottom, rgba(148,163,184,0.12) 1px, transparent 1px);
+                background-size:18px 18px;
+                opacity:0.4;
+              "></div>
+              <div class="radar-overlay" style="
+                position:absolute;
+                inset:0;
+                background-image:radial-gradient(circle at center, rgba(96,165,250,0.4) 0, transparent 55%);
+                opacity:0.25;
+                mix-blend-mode:screen;
+              "></div>
+              <div class="radar-sweep" style="
+                position:absolute;
+                top:50%;
+                left:50%;
+                width:160px;
+                height:160px;
+                border-radius:50%;
+                border:1px solid rgba(96,165,250,0.4);
+                transform:translate(-50%, -50%) rotate(0deg);
+                transform-origin:center;
+                overflow:hidden;
+                animation:radar-spin 6s linear infinite;
+              ">
+                <div style="
+                  content:'';
+                  position:absolute;
+                  inset:0;
+                  background:conic-gradient(from 0deg, rgba(59,130,246,0.7), transparent 55%);
+                "></div>
+              </div>
+              <div class="radar-center-dot" style="
+                position:absolute;
+                top:50%;
+                left:50%;
+                width:6px;
+                height:6px;
+                border-radius:999px;
+                background:#22c55e;
+                transform:translate(-50%, -50%);
+                box-shadow:0 0 12px rgba(34,197,94,0.9);
+              "></div>
+            </div>
+          </div>
+        </div>
+        <div class="tile-footer">
+          <div>Lat/Lon: <strong id="radar-coords">-- / --</strong></div>
+          <div class="badge badge-green">Local Node</div>
+        </div>
+      </div>
+
+      <!-- 11. Dew Point & Comfort -->
+      <div class="tile" id="tile-dew">
+        <div class="tile-header">
+          <div class="tile-label">Dew Point & Comfort</div>
+          <div class="tile-tag">Microclimate</div>
+        </div>
+        <div class="tile-main">
+          <div>
+            <div class="tile-value" id="dew-value">--°F</div>
+            <div class="tile-sub" id="dew-sub">Comfort band: --</div>
+          </div>
+          <div class="sparkline">
+            <div class="sparkline-line"></div>
+          </div>
+        </div>
+        <div class="tile-footer">
+          <div>Clouds: <strong id="dew-clouds">--%</strong></div>
+          <div class="badge badge-yellow" id="dew-badge">--</div>
+        </div>
+      </div>
+
+      <!-- 12. System Telemetry -->
+      <div class="tile" id="tile-telemetry">
+        <div class="tile-header">
+          <div class="tile-label">System Telemetry</div>
+          <div class="tile-tag">Diagnostics</div>
+        </div>
+        <div class="tile-main">
+          <div>
+            <div class="tile-sub">Internal atmospheric matrix diagnostics.</div>
+            <div class="row-split" style="margin-top:8px;">
+              <div class="row-split-col">
+                <div class="small-label">Layer A</div>
+                <div class="small-value" id="telemetry-a">-- nodes</div>
+              </div>
+              <div class="row-split-col">
+                <div class="small-label">Layer B</div>
+                <div class="small-value" id="telemetry-b">-- nodes</div>
+              </div>
+            </div>
+            <div class="row-split" style="margin-top:6px;">
+              <div class="row-split-col">
+                <div class="small-label">Layer C</div>
+                <div class="small-value" id="telemetry-c">-- nodes</div>
+              </div>
+              <div class="row-split-col">
+                <div class="small-label">Layer D</div>
+                <div class="small-value" id="telemetry-d">-- nodes</div>
+              </div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+              <div class="badge badge-blue" id="telemetry-chip-1">Matrix Stable</div>
+              <div class="badge badge-green" id="telemetry-chip-2">API Linked</div>
+              <div class="badge badge-yellow" id="telemetry-chip-3">Node Sync</div>
+            </div>
+          </div>
+        </div>
+        <div class="tile-footer">
+          <div id="telemetry-footer">Initializing structural arrays...</div>
+          <div class="badge badge-blue">OK</div>
+        </div>
+      </div>
+
+      <!-- 13. UV Index -->
+      <div class="tile" id="tile-uv">
+        <div class="tile-header">
+          <div class="tile-label">UV Index</div>
+          <div class="tile-tag" id="uv-tag">--</div>
+        </div>
+        <div class="tile-main">
+          <div>
+            <div class="tile-value" id="uv-value">--</div>
+            <div class="tile-sub" id="uv-sub">Exposure: --</div>
+            <div class="uv-bar">
+              <div class="uv-indicator" id="uv-indicator" style="left: 0%;"></div>
+            </div>
+          </div>
+        </div>
+        <div class="tile-footer">
+          <div id="uv-footer">UV data from One Call 3.0.</div>
+          <div class="badge badge-yellow">Solar</div>
+        </div>
+      </div>
+
+      <!-- 14. Hourly Snapshot -->
+      <div class="tile" id="tile-hourly">
+        <div class="tile-header">
+          <div class="tile-label">Hourly Snapshot</div>
+          <div class="tile-tag">Next 6 Hours</div>
+        </div>
+        <div class="tile-main">
+          <div>
+            <div class="tile-sub">Temperature & conditions for the next 6 hours.</div>
+            <div class="hourly-list" id="hourly-list"></div>
+          </div>
+        </div>
+        <div class="tile-footer">
+          <div id="hourly-footer">Loading hourly data...</div>
+          <div class="badge badge-blue">Timeline</div>
+        </div>
+      </div>
+
+      <!-- 15. Local Indices -->
+      <div class="tile" id="tile-indices">
+        <div class="tile-header">
+          <div class="tile-label">Local Indices</div>
+          <div class="tile-tag">Comfort & Risk</div>
+        </div>
+        <div class="tile-main">
+          <div class="two-col">
+            <div class="two-col-item">
+              <span class="small-label">Heat Index</span>
+              <span class="small-value" id="index-heat">--</span>
+            </div>
+            <div class="two-col-item">
+              <span class="small-label">Wind Chill</span>
+              <span class="small-value" id="index-chill">--</span>
+            </div>
+            <div class="two-col-item">
+              <span class="small-label">Visibility Class</span>
+              <span class="small-value" id="index-visibility">--</span>
+            </div>
+            <div class="two-col-item">
+              <span class="small-label">Cloud Class</span>
+              <span class="small-value" id="index-cloudclass">--</span>
+            </div>
+          </div>
+        </div>
+        <div class="tile-footer">
+          <div id="indices-footer">Derived from current conditions.</div>
+          <div class="badge badge-green">Derived</div>
+        </div>
+      </div>
+
+      <!-- 16. Legend / Meta -->
+      <div class="tile" id="tile-legend">
+        <div class="tile-header">
+          <div class="tile-label">Legend & Meta</div>
+          <div class="tile-tag">Overland Park, KS</div>
+        </div>
+        <div class="tile-main">
+          <div>
+            <div class="tile-sub">
+              This panel is locked to <strong>Overland Park, Kansas</strong> using OpenWeather One Call 3.0.
+            </div>
+            <div class="legend-row">
+              <span>· Temp: °F</span>
+              <span>· Wind: mph</span>
+              <span>· Pressure: hPa</span>
+              <span>· Visibility: miles</span>
+              <span>· UV: 0–11+</span>
+            </div>
+            <div class="legend-row">
+              <span>· Auto theme: sunrise/sunset</span>
+              <span>· Radar: conceptual only</span>
+              <span>· Telemetry: synthetic nodes</span>
+            </div>
+          </div>
+        </div>
+        <div class="tile-footer">
+          <div id="legend-footer">Atmospheric Command Panel · OP, KS Node.</div>
+          <div class="badge badge-blue">v1.0 · One Call 3.0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-line" id="error-line"></div>
+  </div>
+
+  <!-- STICKY SYSTEM CONTROL BAR -->
+  <div class="system-bar-wrapper">
+    <div class="system-bar">
+      <div class="system-bar-left">
+        <span class="system-label">System Control</span>
+        <select id="refresh-select" class="system-select">
+          <option value="1">Refresh: 1 min</option>
+          <option value="2" selected>Refresh: 2 min</option>
+          <option value="5">Refresh: 5 min</option>
+          <option value="10">Refresh: 10 min</option>
+          <option value="0">Refresh: Manual only</option>
+        </select>
+        <button id="manual-refresh" class="system-button">Refresh now</button>
+      </div>
+      <div class="system-bar-right">
+        <div class="system-status-pill" id="system-status-pill">
+          <span class="system-status-dot"></span>
+          <span id="system-status-text">API: Initializing</span>
+        </div>
+        <span class="system-time" id="system-time">Last update: --:--:--</span>
+        <button id="system-theme-toggle" class="system-button">Theme: Auto</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // CONFIG – OVERLAND PARK, KANSAS
+    // 🔒 The API key stays SERVER-SIDE. This page calls the bot's /api/weather proxy,
+    // which reads OPENWEATHER_API_KEY from .env and forwards the request — so the key
+    // is NEVER exposed in the browser. Open this page at <your-bot-url>/weather-panel.
+    const WEATHER_API = '/api/weather';
+    const LAT = 38.9822;
+    const LON = -94.6708;
+
+    let refreshMinutes = 2;
+    let refreshTimer = null;
+    let lastTimezoneOffset = 0;
+    let themeMode = "auto"; // auto | light | dark
+
+    // DOM HOOKS
+    const headerSub = document.getElementById("header-sub");
+    const pillConnection = document.getElementById("pill-connection");
+    const pillUpdated = document.getElementById("pill-updated");
+    const errorLine = document.getElementById("error-line");
+
+    const tempValue = document.getElementById("temp-value");
+    const tempSub = document.getElementById("temp-sub");
+    const tempHigh = document.getElementById("temp-high");
+    const tempLow = document.getElementById("temp-low");
+    const tempBadge = document.getElementById("temp-badge");
+    const tempTag = document.getElementById("temp-tag");
+
+    const windValue = document.getElementById("wind-value");
+    const windSub = document.getElementById("wind-sub");
+    const windGust = document.getElementById("wind-gust");
+    const windBadge = document.getElementById("wind-badge");
+    const windTag = document.getElementById("wind-tag");
+
+    const humidityValue = document.getElementById("humidity-value");
+    const humiditySub = document.getElementById("humidity-sub");
+    const humidityBadge = document.getElementById("humidity-badge");
+    const humidityTag = document.getElementById("humidity-tag");
+    const cloudsValue = document.getElementById("clouds-value");
+
+    const aqiValue = document.getElementById("aqi-value");
+    const aqiSub = document.getElementById("aqi-sub");
+    const aqiText = document.getElementById("aqi-text");
+    const aqiBadge = document.getElementById("aqi-badge");
+    const aqiTag = document.getElementById("aqi-tag");
+
+    const pressureValue = document.getElementById("pressure-value");
+    const pressureSub = document.getElementById("pressure-sub");
+    const pressureGround = document.getElementById("pressure-ground");
+    const pressureBadge = document.getElementById("pressure-badge");
+
+    const cloudsMain = document.getElementById("clouds-main");
+    const cloudsSub = document.getElementById("clouds-sub");
+    const cloudsBadge = document.getElementById("clouds-badge");
+    const visibilityValue = document.getElementById("visibility-value");
+
+    const sunriseValue = document.getElementById("sunrise-value");
+    const sunsetValue = document.getElementById("sunset-value");
+    const daylengthValue = document.getElementById("daylength-value");
+    const localtimeValue = document.getElementById("localtime-value");
+    const sunTag = document.getElementById("sun-tag");
+    const sunBadge = document.getElementById("sun-badge");
+    const sunFooter = document.getElementById("sun-footer");
+
+    const feelsValue = document.getElementById("feels-value");
+    const feelsSub = document.getElementById("feels-sub");
+    const feelsHumidity = document.getElementById("feels-humidity");
+    const feelsBadge = document.getElementById("feels-badge");
+
+    const forecastList = document.getElementById("forecast-list");
+    const forecastFooter = document.getElementById("forecast-footer");
+    const radarCoords = document.getElementById("radar-coords");
+
+    const dewValue = document.getElementById("dew-value");
+    const dewSub = document.getElementById("dew-sub");
+    const dewClouds = document.getElementById("dew-clouds");
+    const dewBadge = document.getElementById("dew-badge");
+
+    const telemetryA = document.getElementById("telemetry-a");
+    const telemetryB = document.getElementById("telemetry-b");
+    const telemetryC = document.getElementById("telemetry-c");
+    const telemetryD = document.getElementById("telemetry-d");
+    const telemetryFooter = document.getElementById("telemetry-footer");
+    const telemetryChip1 = document.getElementById("telemetry-chip-1");
+    const telemetryChip2 = document.getElementById("telemetry-chip-2");
+    const telemetryChip3 = document.getElementById("telemetry-chip-3");
+
+    const themeToggle = document.getElementById("theme-toggle");
+    const themeIcon = document.getElementById("theme-icon");
+    const themeLabel = document.getElementById("theme-label");
+
+    const uvValue = document.getElementById("uv-value");
+    const uvSub = document.getElementById("uv-sub");
+    const uvTag = document.getElementById("uv-tag");
+    const uvIndicator = document.getElementById("uv-indicator");
+    const uvFooter = document.getElementById("uv-footer");
+
+    const hourlyList = document.getElementById("hourly-list");
+    const hourlyFooter = document.getElementById("hourly-footer");
+
+    const indexHeat = document.getElementById("index-heat");
+    const indexChill = document.getElementById("index-chill");
+    const indexVisibility = document.getElementById("index-visibility");
+    const indexCloudclass = document.getElementById("index-cloudclass");
+    const indicesFooter = document.getElementById("indices-footer");
+    const legendFooter = document.getElementById("legend-footer");
+
+    const refreshSelect = document.getElementById("refresh-select");
+    const manualRefreshBtn = document.getElementById("manual-refresh");
+    const systemStatusPill = document.getElementById("system-status-pill");
+    const systemStatusText = document.getElementById("system-status-text");
+    const systemTime = document.getElementById("system-time");
+    const systemThemeToggle = document.getElementById("system-theme-toggle");
+
+    // HELPERS
+    function formatTimeFromUnix(unix, offsetSeconds) {
+      const date = new Date((unix + offsetSeconds) * 1000);
+      const hours = date.getUTCHours().toString().padStart(2, "0");
+      const minutes = date.getUTCMinutes().toString().padStart(2, "0");
+      return `${hours}:${minutes}`;
+    }
+
+    function formatLocalTime(offsetSeconds) {
+      const now = new Date();
+      const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+      const local = new Date(utc + offsetSeconds * 1000);
+      const h = local.getHours().toString().padStart(2, "0");
+      const m = local.getMinutes().toString().padStart(2, "0");
+      const s = local.getSeconds().toString().padStart(2, "0");
+      return `${h}:${m}:${s}`;
+    }
+
+    function computeDayLength(sunriseUnix, sunsetUnix) {
+      const diff = sunsetUnix - sunriseUnix;
+      const hours = Math.floor(diff / 3600);
+      const minutes = Math.floor((diff % 3600) / 60);
+      return `${hours}h ${minutes}m`;
+    }
+
+    function classifyTemp(tempF) {
+      if (tempF <= 32) return "Freezing";
+      if (tempF <= 50) return "Chilly";
+      if (tempF <= 68) return "Mild";
+      if (tempF <= 82) return "Warm";
+      return "Hot";
+    }
+
+    function classifyWind(speed) {
+      if (speed < 3) return "Calm";
+      if (speed < 10) return "Breeze";
+      if (speed < 20) return "Windy";
+      return "Strong";
+    }
+
+    function classifyHumidity(h) {
+      if (h < 30) return "Dry";
+      if (h < 60) return "Comfort";
+      if (h < 80) return "Humid";
+      return "Very Humid";
+    }
+
+    function classifyUV(uvi) {
+      if (uvi < 3) return "Low";
+      if (uvi < 6) return "Moderate";
+      if (uvi < 8) return "High";
+      if (uvi < 11) return "Very High";
+      return "Extreme";
+    }
+
+    function classifyVisibility(miles) {
+      if (miles >= 10) return "Excellent";
+      if (miles >= 6) return "Good";
+      if (miles >= 3) return "Fair";
+      return "Poor";
+    }
+
+    function classifyClouds(c) {
+      if (c < 20) return "Clear";
+      if (c < 60) return "Partly Cloudy";
+      return "Mostly Cloudy";
+    }
+
+    function computeHeatIndex(tempF, humidity) {
+      if (tempF < 80 || humidity < 40) return tempF;
+      const T = tempF;
+      const R = humidity;
+      const HI =
+        -42.379 +
+        2.04901523 * T +
+        10.14333127 * R -
+        0.22475541 * T * R -
+        0.00683783 * T * T -
+        0.05481717 * R * R +
+        0.00122874 * T * T * R +
+        0.00085282 * T * R * R -
+        0.00000199 * T * T * R * R;
+      return Math.round(HI);
+    }
+
+    function computeWindChill(tempF, windMph) {
+      if (tempF > 50 || windMph < 3) return tempF;
+      const T = tempF;
+      const V = windMph;
+      const WC =
+        35.74 +
+        0.6215 * T -
+        35.75 * Math.pow(V, 0.16) +
+        0.4275 * T * Math.pow(V, 0.16);
+      return Math.round(WC);
+    }
+
+    function degToCompass(num) {
+      const val = Math.floor((num / 22.5) + 0.5);
+      const arr = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+      return arr[(val % 16)];
+    }
+
+    // THEME
+    function applyTheme(mode, sunriseUnix, sunsetUnix) {
+      if (mode === "light") {
+        document.body.classList.remove("dark");
+        themeIcon.textContent = "🌞";
+        themeLabel.textContent = "Manual · Light";
+        systemThemeToggle.textContent = "Theme: Light";
+        return;
+      }
+      if (mode === "dark") {
+        document.body.classList.add("dark");
+        themeIcon.textContent = "🌙";
+        themeLabel.textContent = "Manual · Dark";
+        systemThemeToggle.textContent = "Theme: Dark";
+        return;
+      }
+      // auto
+      if (sunriseUnix && sunsetUnix) {
+        const now = new Date();
+        const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+        const local = new Date(utc + lastTimezoneOffset * 1000);
+        const localUnix = Math.floor(local.getTime() / 1000);
+        const isDay = localUnix >= sunriseUnix && localUnix <= sunsetUnix;
+        if (isDay) {
+          document.body.classList.remove("dark");
+          themeIcon.textContent = "🌞";
+          themeLabel.textContent = "Auto · Daylight";
+        } else {
+          document.body.classList.add("dark");
+          themeIcon.textContent = "🌙";
+          themeLabel.textContent = "Auto · Night";
+        }
+      }
+      systemThemeToggle.textContent = "Theme: Auto";
+    }
+
+    themeToggle.addEventListener("click", () => {
+      if (themeMode === "auto") {
+        themeMode = "dark";
+      } else if (themeMode === "dark") {
+        themeMode = "light";
+      } else {
+        themeMode = "auto";
+      }
+      applyTheme(themeMode, null, null);
+    });
+
+    systemThemeToggle.addEventListener("click", () => {
+      if (themeMode === "auto") {
+        themeMode = "dark";
+      } else if (themeMode === "dark") {
+        themeMode = "light";
+      } else {
+        themeMode = "auto";
+      }
+      applyTheme(themeMode, null, null);
+    });
+
+    // REFRESH CONTROL
+    function scheduleRefresh() {
+      if (refreshTimer) clearInterval(refreshTimer);
+      if (refreshMinutes <= 0) return;
+      refreshTimer = setInterval(fetchWeather, refreshMinutes * 60 * 1000);
+    }
+
+    refreshSelect.addEventListener("change", () => {
+      const val = parseInt(refreshSelect.value, 10);
+      refreshMinutes = isNaN(val) ? 2 : val;
+      scheduleRefresh();
+    });
+
+    manualRefreshBtn.addEventListener("click", () => {
+      fetchWeather();
+    });
+
+    // MAIN ONE CALL FETCH
+    async function fetchWeather() {
+      try {
+        pillConnection.textContent = "Linking...";
+        headerSub.textContent = "Live telemetry from OpenWeather · Updating...";
+        errorLine.textContent = "";
+        systemStatusText.textContent = "API: Requesting...";
+        systemStatusPill.style.background = "rgba(59,130,246,0.18)";
+        systemStatusPill.style.color = "#2563eb";
+
+        const url = `${WEATHER_API}?lat=${LAT}&lon=${LON}`; // → bot proxy, key stays server-side
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+
+        pillConnection.textContent = "Online";
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        pillUpdated.textContent = timeStr;
+        systemTime.textContent = "Last update: " + timeStr;
+        headerSub.textContent = "Live telemetry from OpenWeather · One Call 3.0 active.";
+        systemStatusText.textContent = "API: OK";
+        systemStatusPill.style.background = "rgba(22,163,74,0.22)";
+        systemStatusPill.style.color = "#16a34a";
+
+        updateFromOneCall(data);
+      } catch (err) {
+        console.error("Weather fetch failed", err);
+        pillConnection.textContent = "Error";
+        errorLine.textContent = "Error fetching data from One Call 3.0: " + err.message;
+        systemStatusText.textContent = "API: Error";
+        systemStatusPill.style.background = "rgba(220,38,38,0.22)";
+        systemStatusPill.style.color = "#dc2626";
+      }
+    }
+
+    function updateFromOneCall(data) {
+      const cur = data.current || {};
+      const daily = data.daily && data.daily[0] ? data.daily[0] : {};
+      const hourly = data.hourly || [];
+      lastTimezoneOffset = data.timezone_offset || 0;
+
+      // Temperature
+      const temp = typeof cur.temp === "number" ? Math.round(cur.temp) : null;
+      const feels = typeof cur.feels_like === "number" ? Math.round(cur.feels_like) : null;
+      const desc = cur.weather && cur.weather[0] ? cur.weather[0].description : "No description";
+
+      if (temp !== null) tempValue.textContent = `${temp}°F`;
+      else tempValue.textContent = "--°F";
+
+      if (feels !== null) {
+        const rel = feels > temp ? "Warmer than actual" : feels < temp ? "Cooler than actual" : "Matches actual";
+        tempSub.textContent = `Feels like ${feels}°F · ${rel}`;
+        feelsValue.textContent = `${feels}°F`;
+        feelsSub.textContent = `Relative to actual: ${rel}`;
+      } else {
+        tempSub.textContent = "Feels like --°F · --";
+        feelsValue.textContent = "--°F";
+        feelsSub.textContent = "Relative to actual: --";
+      }
+
+      if (typeof daily.temp?.max === "number") tempHigh.textContent = `${Math.round(daily.temp.max)}°F`;
+      else tempHigh.textContent = "--°F";
+
+      if (typeof daily.temp?.min === "number") tempLow.textContent = `${Math.round(daily.temp.min)}°F`;
+      else tempLow.textContent = "--°F";
+
+      if (temp !== null) {
+        tempTag.textContent = classifyTemp(temp);
+        tempBadge.textContent = "Stable";
+      } else {
+        tempTag.textContent = "--";
+        tempBadge.textContent = "Unknown";
+      }
+
+      // Wind
+      const windSpeed = typeof cur.wind_speed === "number" ? Math.round(cur.wind_speed) : null;
+      const windDeg = typeof cur.wind_deg === "number" ? cur.wind_deg : null;
+      const windG = typeof cur.wind_gust === "number" ? Math.round(cur.wind_gust) : null;
+
+      if (windSpeed !== null) windValue.textContent = windSpeed;
+      else windValue.textContent = "--";
+
+      if (windDeg !== null) {
+        const dir = degToCompass(windDeg);
+        windSub.textContent = `Direction ${dir} (${windDeg}°)`;
+      } else {
+        windSub.textContent = "Direction --";
+      }
+
+      if (windG !== null) windGust.textContent = `${windG} mph`;
+      else windGust.textContent = "-- mph";
+
+      if (windSpeed !== null) {
+        windTag.textContent = classifyWind(windSpeed);
+        windBadge.textContent = "Linked";
+      } else {
+        windTag.textContent = "--";
+        windBadge.textContent = "Unknown";
+      }
+
+      // Humidity / Clouds / Dew
+      const hum = typeof cur.humidity === "number" ? cur.humidity : null;
+      const dew = typeof cur.dew_point === "number" ? Math.round(cur.dew_point) : null;
+      const clouds = typeof cur.clouds === "number" ? cur.clouds : null;
+      const visMeters = typeof cur.visibility === "number" ? cur.visibility : null;
+
+      if (hum !== null) {
+        humidityValue.textContent = `${hum}%`;
+        feelsHumidity.textContent = `${hum}%`;
+        humidityTag.textContent = classifyHumidity(hum);
+        humidityBadge.textContent = "Linked";
+      } else {
+        humidityValue.textContent = "--%";
+        feelsHumidity.textContent = "--%";
+        humidityTag.textContent = "--";
+        humidityBadge.textContent = "Unknown";
+      }
+
+      if (dew !== null) {
+        humiditySub.textContent = `Dew point ${dew}°F`;
+        dewValue.textContent = `${dew}°F`;
+        dewSub.textContent = dew <= 55 ? "Comfort band: Dry" : dew <= 65 ? "Comfort band: Comfortable" : "Comfort band: Muggy";
+      } else {
+        humiditySub.textContent = "Dew point --°F";
+        dewValue.textContent = "--°F";
+        dewSub.textContent = "Comfort band: --";
+      }
+
+      if (clouds !== null) {
+        cloudsValue.textContent = `${clouds}%`;
+        cloudsMain.textContent = `${clouds}%`;
+        cloudsSub.textContent = `Condition: ${classifyClouds(clouds)}`;
+        dewClouds.textContent = `${clouds}%`;
+        cloudsBadge.textContent = classifyClouds(clouds);
+        indexCloudclass.textContent = classifyClouds(clouds);
+      } else {
+        cloudsValue.textContent = "--%";
+        cloudsMain.textContent = "--%";
+        cloudsSub.textContent = "Condition: --";
+        dewClouds.textContent = "--%";
+        cloudsBadge.textContent = "--";
+        indexCloudclass.textContent = "--";
+      }
+
+      if (visMeters !== null) {
+        const miles = Math.round((visMeters / 1609.34) * 10) / 10;
+        visibilityValue.textContent = `${miles} mi`;
+        indexVisibility.textContent = classifyVisibility(miles);
+      } else {
+        visibilityValue.textContent = "-- mi";
+        indexVisibility.textContent = "--";
+      }
+
+      // UV
+      const uvi = typeof cur.uvi === "number" ? cur.uvi : null;
+      if (uvi !== null) {
+        uvValue.textContent = uvi.toFixed(1);
+        const risk = classifyUV(uvi);
+        uvSub.textContent = `Exposure: ${risk}`;
+        uvTag.textContent = risk;
+        const pos = Math.max(0, Math.min(100, (uvi / 11) * 100));
+        uvIndicator.style.left = `${pos}%`;
+      } else {
+        uvValue.textContent = "--";
+        uvSub.textContent = "Exposure: --";
+        uvTag.textContent = "--";
+        uvIndicator.style.left = "0%";
+      }
+
+      // Sunrise / Sunset / Time
+      const sunriseUnix = daily.sunrise || cur.sunrise;
+      const sunsetUnix = daily.sunset || cur.sunset;
+      if (sunriseUnix && sunsetUnix) {
+        sunriseValue.textContent = formatTimeFromUnix(sunriseUnix, lastTimezoneOffset);
+        sunsetValue.textContent = formatTimeFromUnix(sunsetUnix, lastTimezoneOffset);
+        daylengthValue.textContent = computeDayLength(sunriseUnix, sunsetUnix);
+        sunTag.textContent = "Solar Cycle";
+        sunBadge.textContent = "Auto";
+        sunFooter.textContent = "Theme auto-switch based on sun cycle.";
+        if (themeMode === "auto") applyTheme("auto", sunriseUnix, sunsetUnix);
+      } else {
+        sunriseValue.textContent = "--:--";
+        sunsetValue.textContent = "--:--";
+        daylengthValue.textContent = "-- h -- m";
+        sunTag.textContent = "--";
+      }
+
+      localtimeValue.textContent = formatLocalTime(lastTimezoneOffset);
+
+      // Radar coords
+      radarCoords.textContent = `${LAT.toFixed(4)} / ${LON.toFixed(4)}`;
+
+      // Hourly (next 6)
+      hourlyList.innerHTML = "";
+      const slice = hourly.slice(0, 6);
+      slice.forEach((h) => {
+        const t = typeof h.temp === "number" ? Math.round(h.temp) : null;
+        const dt = h.dt;
+        const descH = h.weather && h.weather[0] ? h.weather[0].main : "--";
+        const timeLabel = formatTimeFromUnix(dt, lastTimezoneOffset);
+
+        const div = document.createElement("div");
+        div.className = "hourly-item";
+        div.innerHTML = `
+          <div class="hourly-time">${timeLabel}</div>
+          <div class="hourly-temp">${t !== null ? t + "°F" : "--°F"}</div>
+          <div class="tile-sub" style="font-size:11px;">${descH}</div>
+        `;
+        hourlyList.appendChild(div);
+      });
+      hourlyFooter.textContent = "Next 6 hours from One Call hourly.";
+
+      // Forecast (next 5 days)
+      forecastList.innerHTML = "";
+      const days = data.daily ? data.daily.slice(0, 5) : [];
+      days.forEach((d) => {
+        const dt = d.dt;
+        const max = typeof d.temp?.max === "number" ? Math.round(d.temp.max) : null;
+        const min = typeof d.temp?.min === "number" ? Math.round(d.temp.min) : null;
+        const descD = d.weather && d.weather[0] ? d.weather[0].main : "--";
+
+        const date = new Date((dt + lastTimezoneOffset) * 1000);
+        const dayName = date.toLocaleDateString([], { weekday: "short" });
+
+        const div = document.createElement("div");
+        div.className = "forecast-item";
+        div.innerHTML = `
+          <div class="forecast-day">${dayName}</div>
+          <div class="forecast-temp">${max !== null ? max + "°" : "--°"} / ${min !== null ? min + "°" : "--°"}</div>
+          <div class="tile-sub" style="font-size:11px;">${descD}</div>
+        `;
+        forecastList.appendChild(div);
+      });
+      forecastFooter.textContent = "Daily forecast from One Call daily.";
+
+      // Indices
+      if (temp !== null && hum !== null) {
+        const hi = computeHeatIndex(temp, hum);
+        indexHeat.textContent = `${hi}°F`;
+      } else {
+        indexHeat.textContent = "--";
+      }
+
+      if (temp !== null && windSpeed !== null) {
+        const wc = computeWindChill(temp, windSpeed);
+        indexChill.textContent = `${wc}°F`;
+      } else {
+        indexChill.textContent = "--";
+      }
+
+      indicesFooter.textContent = "Derived from current temperature, humidity, wind, and visibility.";
+
+      // Telemetry (fun synthetic)
+      telemetryA.textContent = "16 nodes";
+      telemetryB.textContent = "24 nodes";
+      telemetryC.textContent = "32 nodes";
+      telemetryD.textContent = "12 nodes";
+      telemetryFooter.textContent = "Matrix synchronized with One Call 3.0.";
+      telemetryChip1.textContent = "Matrix Stable";
+      telemetryChip2.textContent = "API Linked";
+      telemetryChip3.textContent = "Node Sync";
+
+      legendFooter.textContent = "Atmospheric Command Panel · OP, KS Node · One Call 3.0 live.";
+    }
+
+    // INIT
+    document.addEventListener("DOMContentLoaded", () => {
+      applyTheme(themeMode, null, null);
+      fetchWeather();
+      scheduleRefresh();
+    });
+
+    // Radar spin keyframes (inline style used above, but we define keyframes here)
+    const styleEl = document.createElement("style");
+    styleEl.textContent = `
+      @keyframes radar-spin {
+        0% { transform: translate(-50%, -50%) rotate(0deg); }
+        100% { transform: translate(-50%, -50%) rotate(360deg); }
+      }
+    `;
+    document.head.appendChild(styleEl);
+  </script>
+  <script src="/projnav.js" defer></script>
+</body>
+</html>

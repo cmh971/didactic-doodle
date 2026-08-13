@@ -11,6 +11,8 @@
 // Runs in the same process as the bot, so it shares the SQLite store directly.
 import express from 'express';
 import session from 'express-session';
+import { SqliteSessionStore } from './sessionStore.js';
+import { listForHelp as prefixList } from '../prefix/index.js';
 import { EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,10 +24,17 @@ import {
 } from '../economy/store.js';
 import { getDb } from '../db/index.js';
 import { getGuild, saveGuild, setModule } from '../systems/guilds.js';
-import { getCfg, setNested } from '../setup/store.js';
+import { getCfg, setNested, setSetting } from '../setup/store.js';
+import { getEmbedCfg, sanitizeEmbedCfg, DEFAULT_EMBED_CFG } from '../features/infractionEmbed.js';
+import { VARIABLES, TEMPLATE_TYPES, getTemplates, saveTemplate, deleteTemplate, renderTemplate } from '../features/templates.js';
+import { MATCH_TYPES, getAutoresponders, saveAutoresponders } from '../features/autoresponders.js';
+import { getAntiping, saveAntiping } from '../features/antiping.js';
+import { getShiftCfg, saveShiftCfg, shiftData } from '../features/shifts.js';
+import { getDeptCfg, saveDeptCfg, deptData } from '../features/departments.js';
 import { renderPanel } from '../setup/ui.js';
 import { leaderboard as xpLeaderboard } from '../systems/leveling.js';
 import { series as analyticsSeries, totals as analyticsTotals } from '../systems/analytics.js';
+import { pulseSnapshot } from '../systems/pulse.js';
 import { listGiveaways, createGiveawayWeb, endGiveaway, reroll as rerollGiveaway } from '../features/giveaways.js';
 import { listGuildReactionRoles, addReactionRoleWeb, removeReactionRole } from '../features/reactionRoles.js';
 import { renderMemberCard } from '../render/cards.js';
@@ -45,6 +54,15 @@ import { getCommunity, updateCommunity, getCommunityByCustomId } from '../commun
 import { encryptSecret, decryptSecret } from '../systems/secureStore.js';
 import { topCommands, recentCommands, totalCommands, commandsSince, bySource } from '../systems/usage.js';
 import { getLogsAfter } from './logbus.js';
+import { registerSpecsRoutes } from '../features/specs.js';
+import { listRegions, addRegion, deleteRegion, getRegionCfg, setRegionCfg, fetchLiveServer, fetchServerLogs } from '../features/erlcRegions.js';
+import { hit as rlHit } from '../systems/ratelimit.js';
+import { registerDevApi } from '../features/devApi.js';
+import { registerEmbedRoutes } from '../features/embedWidgets.js';
+import { registerFormRoutes } from '../features/formBuilder.js';
+import { registerCadRoutes } from '../features/cad.js';
+import { registerMdtRoutes } from '../features/mdt.js';
+import { registerPortalRoutes } from '../features/portal.js';
 import { aiIsBadword } from '../ai/gemini.js';
 import { registerCommunity } from './community.js';
 import { LOCALES, DEFAULT_LOCALE, LANG_LIST } from '../i18n/index.js';
@@ -109,15 +127,41 @@ export function startWeb(client) {
   const googleEnabled = Boolean(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET);
 
   const app = express();
+  // ---------- origin-side security headers (non-breaking hardening) ----------
+  // Sent on every response. We deliberately DON'T set a strict Content-Security-Policy
+  // here: the dashboard leans on inline <script>/<style> and a few CDNs, so a tight
+  // CSP would break the whole UI. These headers are safe with the current pages.
+  app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');          // no MIME-sniffing
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');              // block clickjacking
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains'); // force HTTPS (6mo)
+    res.setHeader('X-DNS-Prefetch-Control', 'off');
+    next();
+  });
   app.use(express.json());
   app.use(
     session({
+      store: new SqliteSessionStore(), // persist across restarts so logins stick
       secret: process.env.SESSION_SECRET || 'change-me-please',
       resave: false,
       saveUninitialized: false,
-      cookie: { maxAge: 7 * 24 * 60 * 60 * 1000, httpOnly: true, sameSite: 'lax' },
+      rolling: true, // refresh the 30-day window on every visit
+      cookie: { maxAge: 30 * 24 * 60 * 60 * 1000, httpOnly: true, sameSite: 'lax' },
     }),
   );
+
+  // Anti-spam rate limiter — guards "click actions" (API calls + writes) with the
+  // same escalation as the bot (warn → timeout → lockout → owner review). Passive
+  // polling endpoints are skipped so an open dashboard never trips itself.
+  app.use((req, res, next) => {
+    // Only guard WRITE actions (the spam-clickable ones). GET reads — including the
+    // dashboard's own page-load API calls — are never limited, so nothing "Could not load".
+    if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
+    const rl = rlHit('web:' + (req.sessionID || req.ip || 'anon'), 'web');
+    if (rl.action === 'ok') return next();
+    return res.status(rl.action === 'locked' ? 403 : 429).json({ error: rl.message, rateLimited: true, action: rl.action });
+  });
 
   // ---------- auth helpers ----------
   const requireAuth = (req, res, next) => {
@@ -141,7 +185,7 @@ export function startWeb(client) {
     if (req.method !== 'GET') return next();
     const p = req.path;
     // Never gate APIs, auth flows, or static assets (so the block pages can load CSS).
-    if (p.startsWith('/api/') || p.startsWith('/auth/') || p === '/login' || p === '/callback' || p === '/logout') return next();
+    if (p.startsWith('/api/') || p.startsWith('/auth/') || p.startsWith('/embed/') || p.startsWith('/form/') || p === '/login' || p === '/callback' || p === '/logout' || p === '/signin' || p === '/developers' || p === '/cad' || p === '/mdt' || p === '/portal' || p === '/cad-hub' || p === '/bodycam') return next();
     if (/\.[a-z0-9]+$/i.test(p)) return next();
     if (p === '/maintenance' || p === '/banned') return next(); // owner preview pages
     if (isOwner(req)) return next(); // the owner is never locked out
@@ -269,6 +313,109 @@ export function startWeb(client) {
     }
   };
 
+  // ---- Infraction embed designer (dashboard) ----
+  // The guilds the logged-in user can manage — feeds the page's guild picker.
+  app.get('/api/infraction-embed/guilds', (req, res) => {
+    if (!req.session.user) return res.status(401).json({ error: 'Not logged in' });
+    const guilds = (req.session.guilds || [])
+      .filter((g) => { try { return (BigInt(g.permissions) & MANAGE_GUILD) === MANAGE_GUILD || g.owner; } catch { return false; } })
+      .filter((g) => client.guilds.cache.has(g.id)) // only guilds the bot is actually in
+      .map((g) => ({ id: g.id, name: g.name }));
+    res.json({ defaults: DEFAULT_EMBED_CFG, guilds });
+  });
+  app.get('/api/infraction-embed/:guildId', (req, res) => {
+    if (!canManage(req, req.params.guildId)) return res.status(403).json({ error: 'No access to that server' });
+    res.json({ config: getEmbedCfg(req.params.guildId), defaults: DEFAULT_EMBED_CFG });
+  });
+  app.post('/api/infraction-embed/:guildId', (req, res) => {
+    if (!canManage(req, req.params.guildId)) return res.status(403).json({ error: 'No access to that server' });
+    const clean = sanitizeEmbedCfg(req.body || {});
+    setSetting(req.params.guildId, 'infractionEmbed', clean);
+    res.json({ ok: true, config: clean });
+  });
+
+  // ---- Template builder (save warning / startup / announcement templates) ----
+  app.get('/api/templates/vars', (req, res) => res.json({ variables: VARIABLES, types: TEMPLATE_TYPES }));
+  app.get('/api/templates/:guildId', (req, res) => {
+    if (!canManage(req, req.params.guildId)) return res.status(403).json({ error: 'No access to that server' });
+    res.json({ templates: getTemplates(req.params.guildId) });
+  });
+  app.post('/api/templates/:guildId', (req, res) => {
+    if (!canManage(req, req.params.guildId)) return res.status(403).json({ error: 'No access to that server' });
+    res.json({ ok: true, template: saveTemplate(req.params.guildId, req.body || {}) });
+  });
+  app.delete('/api/templates/:guildId/:id', (req, res) => {
+    if (!canManage(req, req.params.guildId)) return res.status(403).json({ error: 'No access to that server' });
+    deleteTemplate(req.params.guildId, req.params.id);
+    res.json({ ok: true });
+  });
+  // ---- Autoresponders (keyword → auto-reply) ----
+  app.get('/api/autoresponders/meta', (req, res) => res.json({ matchTypes: MATCH_TYPES, variables: VARIABLES }));
+  app.get('/api/autoresponders/:guildId', (req, res) => {
+    if (!canManage(req, req.params.guildId)) return res.status(403).json({ error: 'No access to that server' });
+    res.json({ autoresponders: getAutoresponders(req.params.guildId) });
+  });
+  app.post('/api/autoresponders/:guildId', (req, res) => {
+    if (!canManage(req, req.params.guildId)) return res.status(403).json({ error: 'No access to that server' });
+    res.json({ ok: true, autoresponders: saveAutoresponders(req.params.guildId, req.body?.autoresponders || []) });
+  });
+
+  // ---- Anti-Ping (protect staff from pings) ----
+  app.get('/api/antiping/:guildId', (req, res) => {
+    if (!canManage(req, req.params.guildId)) return res.status(403).json({ error: 'No access to that server' });
+    const guild = client.guilds.cache.get(req.params.guildId);
+    const roles = guild ? [...guild.roles.cache.values()].filter((r) => r.id !== guild.id).sort((a, b) => b.position - a.position).map((r) => ({ id: r.id, name: r.name })) : [];
+    res.json({ config: getAntiping(req.params.guildId), roles });
+  });
+  app.post('/api/antiping/:guildId', (req, res) => {
+    if (!canManage(req, req.params.guildId)) return res.status(403).json({ error: 'No access to that server' });
+    res.json({ ok: true, config: saveAntiping(req.params.guildId, req.body || {}) });
+  });
+
+  // ---- Shift Management ----
+  app.get('/api/shifts/:guildId', (req, res) => {
+    if (!canManage(req, req.params.guildId)) return res.status(403).json({ error: 'No access to that server' });
+    const guild = client.guilds.cache.get(req.params.guildId);
+    const roles = guild ? [...guild.roles.cache.values()].filter((r) => r.id !== guild.id).sort((a, b) => b.position - a.position).map((r) => ({ id: r.id, name: r.name })) : [];
+    const channels = guild ? [...guild.channels.cache.values()].filter((c) => c.type === 0).map((c) => ({ id: c.id, name: c.name })) : [];
+    res.json({ config: getShiftCfg(req.params.guildId), roles, channels });
+  });
+  app.post('/api/shifts/:guildId', (req, res) => {
+    if (!canManage(req, req.params.guildId)) return res.status(403).json({ error: 'No access to that server' });
+    res.json({ ok: true, config: saveShiftCfg(req.params.guildId, req.body || {}) });
+  });
+  app.get('/api/shifts/:guildId/data', (req, res) => {
+    if (!canManage(req, req.params.guildId)) return res.status(403).json({ error: 'No access' });
+    res.json(shiftData(req.params.guildId));
+  });
+
+  // ---- Departments ----
+  app.get('/api/departments/:guildId', (req, res) => {
+    if (!canManage(req, req.params.guildId)) return res.status(403).json({ error: 'No access to that server' });
+    const guild = client.guilds.cache.get(req.params.guildId);
+    const roles = guild ? [...guild.roles.cache.values()].filter((r) => r.id !== guild.id).sort((a, b) => b.position - a.position).map((r) => ({ id: r.id, name: r.name })) : [];
+    const channels = guild ? [...guild.channels.cache.values()].filter((c) => c.type === 0).map((c) => ({ id: c.id, name: c.name })) : [];
+    res.json({ config: getDeptCfg(req.params.guildId), data: deptData(req.params.guildId), roles, channels });
+  });
+  app.post('/api/departments/:guildId', (req, res) => {
+    if (!canManage(req, req.params.guildId)) return res.status(403).json({ error: 'No access to that server' });
+    res.json({ ok: true, config: saveDeptCfg(req.params.guildId, req.body || {}) });
+  });
+
+  // Live preview — fills the template with REAL server data + the previewer as the sample user.
+  app.post('/api/templates/:guildId/preview', (req, res) => {
+    if (!canManage(req, req.params.guildId)) return res.status(403).json({ error: 'No access' });
+    const guild = client.guilds.cache.get(req.params.guildId);
+    const u = req.session.user;
+    const fakeUser = u ? { id: u.id, username: u.username, tag: u.username, displayAvatarURL: () => u.avatar ? `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png` : '', createdTimestamp: Date.now() - 3e10 } : null;
+    const rendered = renderTemplate(String(req.body?.content || ''), {
+      guild, target: fakeUser, mod: fakeUser,
+      session: { code: 'ABC123', players: 12, max: 40, votes: 6, needed: 6, region: 'NA-East', status: '🟢 SSU', link: 'https://policeroleplay.community/join?code=ABC123' },
+      infraction: { reason: 'Sample reason', action: 'warn', caseId: 42, count: 2, notes: 'Sample note', duration: '1h' },
+    });
+    res.json({ rendered });
+  });
+
   // ---------- OAuth2 ----------
   app.get('/login', (req, res) => {
     if (!oauthEnabled) return res.redirect('/dashboard?error=oauth_not_configured');
@@ -318,9 +465,141 @@ export function startWeb(client) {
 
   app.get('/logout', (req, res) => req.session.destroy(() => res.redirect('/')));
 
+  // Two-step sign-in page (Google → then Discord).
+  app.get('/signin', (req, res) => res.sendFile(join(__dirname, 'public', 'login.html')));
+  // Developer API docs + the API itself (/api/v1/*).
+  app.get('/developers', (req, res) => res.sendFile(join(__dirname, 'public', 'developers.html')));
+  registerDevApi(app, client);
+  registerEmbedRoutes(app, client);
+  registerSpecsRoutes(app, client);
+  app.get('/specs', (req, res) => sendPage(res, 'specs.html'));
+  app.get(['/infractions', '/infraction-embed', '/modlog-designer'], (req, res) => sendPage(res, 'infractions.html'));
+  app.get(['/templates', '/template-builder', '/builder'], (req, res) => sendPage(res, 'templates.html'));
+  app.get(['/autoresponders', '/autoresponder', '/responders'], (req, res) => sendPage(res, 'autoresponders.html'));
+  app.get(['/antiping', '/anti-ping', '/pingprotect'], (req, res) => sendPage(res, 'antiping.html'));
+  app.get(['/shifts', '/shift', '/clock'], (req, res) => sendPage(res, 'shifts.html'));
+  app.get(['/departments', '/department', '/depts'], (req, res) => sendPage(res, 'departments.html'));
+  registerFormRoutes(app);
+  const sendPage = (res, file) => res.sendFile(join(__dirname, 'public', file));
+
+  // Weather panel (a side project) + a key-safe proxy. The browser NEVER sees the
+  // OpenWeather key — it calls /api/weather here, and the server forwards the request
+  // using OPENWEATHER_API_KEY from .env. Open the panel at <bot-url>/weather-panel.
+  app.get('/weather-panel', (req, res) => res.sendFile(join(__dirname, '..', '..', 'weather projetc', 'weather.html')));
+  app.get('/tornado-panel', (req, res) => res.sendFile(join(__dirname, '..', '..', 'weather projetc', 'torando.html')));
+  app.get('/radar-panel', (req, res) => res.sendFile(join(__dirname, '..', '..', 'weather projetc', 'rader.html')));
+  // Radar auth check — logged in via Discord OR Google (both handled by our own OAuth).
+  // The weather site is Google-only (fully separate from Discord).
+  const wxMe = (req, res) => {
+    const g = req.session.google;
+    if (g) return res.json({ authed: true, name: (g.name || (g.email || '').split('@')[0] || 'Operator'), avatar: g.picture || null });
+    res.json({ authed: false });
+  };
+  app.get('/api/radar/me', wxMe);
+  app.get('/api/wx/me', wxMe);
+  app.get('/cams-panel', (req, res) => res.sendFile(join(__dirname, '..', '..', 'weather projetc', 'cams.html')));
+  app.get(['/weather-hub', '/wx'], (req, res) => sendPage(res, 'hub.html'));
+  app.get(['/keybinds', '/controls'], (req, res) => sendPage(res, 'keybinds.html'));
+  app.get(['/pulse', '/live'], (req, res) => sendPage(res, 'pulse.html'));
+  app.get(['/leaderboard', '/board', '/top'], (req, res) => sendPage(res, 'leaderboard.html'));
+  app.get(['/dispatch', '/map', '/cad-map'], (req, res) => sendPage(res, 'dispatch.html'));
+  app.get(['/feed', '/server-feed'], (req, res) => sendPage(res, 'feed.html'));
+  app.get(['/team', '/meet', '/meet-the-team'], (req, res) => sendPage(res, 'team.html'));
+  app.get('/offline', (req, res) => sendPage(res, 'offline.html'));
+  app.get(['/playground', '/api-playground'], (req, res) => sendPage(res, 'playground.html'));
+  app.get(['/explore', '/pages', '/sitemap'], (req, res) => sendPage(res, 'explore.html'));
+  app.get(['/assistant', '/echo', '/chat', '/talk'], (req, res) => sendPage(res, 'assistant.html'));
+  app.get(['/setup-center', '/configure', '/setup-guide'], (req, res) => sendPage(res, 'setup-center.html'));
+  app.get('/500', (req, res) => res.status(500).sendFile(join(__dirname, 'public', '500.html')));
+
+  // ---------- Developer applications + access requests ----------
+  // Saved to /data (so the lead dev can review) AND DM'd to the owner(s) — both see it.
+  const saveJson = async (dir, obj) => {
+    const { promises: fsp } = await import('node:fs');
+    const d = join(__dirname, '..', '..', 'data', dir);
+    await fsp.mkdir(d, { recursive: true });
+    const file = join(d, Date.now() + '.json');
+    await fsp.writeFile(file, JSON.stringify(obj, null, 2));
+    return file;
+  };
+  const dmOwners = async (text) => { for (const id of ownerIds()) { try { const u = await client.users.fetch(id); await u.send(text.slice(0, 1900)); } catch { /* DMs closed */ } } };
+
+  app.get('/apply', (req, res) => sendPage(res, 'apply.html'));
+  app.post('/api/apply', async (req, res) => {
+    const b = req.body || {};
+    const a = { name: (b.name || '').slice(0, 80), discord: (b.discord || '').slice(0, 80), role: (b.role || '').slice(0, 40), experience: (b.experience || '').slice(0, 2000), github: (b.github || '').slice(0, 200), links: (b.links || '').slice(0, 300), why: (b.why || '').slice(0, 2000), at: new Date().toISOString(), ip: req.ip };
+    if (!a.name || !a.discord) return res.status(400).json({ error: 'Name and Discord are required.' });
+    try { await saveJson('applications', a); } catch (e) { console.error('save application:', e.message); }
+    dmOwners(`📥 **New ${a.role || 'staff'} application**\n**Name:** ${a.name}\n**Discord:** ${a.discord}\n**GitHub:** ${a.github || '—'}\n**Links:** ${a.links || '—'}\n**Experience:** ${a.experience.slice(0, 400) || '—'}\n**Why:** ${a.why.slice(0, 400) || '—'}\n_Saved to \`data/applications\` for review._`);
+    res.json({ ok: true });
+  });
+  app.post('/api/access-request', async (req, res) => {
+    const b = req.body || {};
+    const r = { name: (b.name || 'anon').slice(0, 80), reason: (b.reason || '').slice(0, 500), page: (b.page || '').slice(0, 200), at: new Date().toISOString(), ip: req.ip };
+    try { await saveJson('access-requests', r); } catch { /* ignore */ }
+    dmOwners(`🔐 **Console-access request** (DevTools gate)\n**From:** ${r.name}\n**Reason:** ${r.reason || '—'}\n**Page:** ${r.page}`);
+    res.json({ ok: true });
+  });
+  // Radar AI — server-side Gemini, so no key touches the browser. Login required.
+  app.post('/api/radar-ai', async (req, res) => {
+    if (!req.session.google) return res.status(401).json({ text: '🔒 Sign in with Google first.' });
+    const prompt = String(req.body?.prompt || '').slice(0, 500);
+    if (!prompt) return res.json({ text: 'Ask me anything about the weather.' });
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) return res.json({ text: '⚠️ AI not configured (no GEMINI_API_KEY).' });
+    try {
+      const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+        body: JSON.stringify({ system_instruction: { parts: [{ text: 'You are a concise, friendly weather station AI on a radar dashboard. Answer weather questions clearly in 1-3 sentences. If asked something off-topic, gently steer back to weather.' }] }, contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature: 0.6, maxOutputTokens: 400 } }),
+      });
+      const data = await r.json();
+      const text = (data?.candidates?.[0]?.content?.parts || []).map((p) => p.text).join('').trim();
+      res.json({ text: text || '⚠️ No response from the AI.' });
+    } catch (e) { res.json({ text: '⚠️ Connection error: ' + e.message }); }
+  });
+  app.get('/api/weather', async (req, res) => {
+    res.set('Access-Control-Allow-Origin', '*'); // allow the panel even if opened elsewhere
+    const key = process.env.OPENWEATHER_API_KEY;
+    if (!key) return res.status(500).json({ error: 'OPENWEATHER_API_KEY not set in .env' });
+    const lat = encodeURIComponent(req.query.lat || '38.9822');
+    const lon = encodeURIComponent(req.query.lon || '-94.6708');
+    try {
+      const r = await fetch(`https://api.openweathermap.org/data/3.0/onecall?lat=${lat}&lon=${lon}&units=imperial&appid=${key}`);
+      const data = await r.json();
+      res.status(r.ok ? 200 : r.status).json(data);
+    } catch (e) { res.status(502).json({ error: e.message }); }
+  });
+
+  // Chris's side-projects showcase — shows only the projects, nothing else.
+  app.get(['/projects', '/chris'], (req, res) => sendPage(res, 'projects.html'));
+  // LEO access gate: server managers always pass; otherwise the user must hold one of
+  // the configured department roles (PD/EMS/DOT/…, set with `!cadaccess`).
+  const hasCadAccess = async (req, guildId) => {
+    if (canManage(req, guildId)) return true;
+    const uid = req.session.user?.id; if (!uid) return false;
+    const guild = client?.guilds?.cache.get(guildId); if (!guild) return false;
+    const roles = getCfg(guildId).settings.cadRoles || [];
+    if (!roles.length) return false;
+    const m = guild.members.cache.get(uid) || await guild.members.fetch(uid).catch(() => null);
+    return !!(m && roles.some((r) => m.roles.cache.has(r)));
+  };
+  const cadAuth = { requireAuth, canManage, access: hasCadAccess };
+  registerCadRoutes(app, client, cadAuth, sendPage);
+  registerMdtRoutes(app, client, cadAuth, sendPage);
+  registerPortalRoutes(app, client, { requireAuth }, sendPage);
+  app.get('/cad-hub', requireAuth, (req, res) => sendPage(res, 'cad-hub.html'));
+  app.get('/bodycam', requireAuth, (req, res) => sendPage(res, 'bodycam.html'));
+  // Sign out of Google ONLY (keeps any Discord session). GET = button, POST = sendBeacon on leave.
+  app.all('/auth/google/logout', (req, res) => {
+    if (req.session) delete req.session.google;
+    if (req.method === 'POST') return res.sendStatus(204);
+    res.redirect('/signin');
+  });
+
   // ---------- Google OAuth2 (real sign-in) ----------
   app.get('/auth/google', (req, res) => {
     if (!googleEnabled) return res.redirect('/dashboard?error=google_not_configured');
+    if (req.query.next && String(req.query.next).startsWith('/')) req.session.googleNext = String(req.query.next).slice(0, 200);
     const url = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
       client_id: GOOGLE_CLIENT_ID,
       redirect_uri: GOOGLE_REDIRECT_URI,
@@ -354,7 +633,8 @@ export function startWeb(client) {
       }).then((r) => r.json());
       req.session.google = { id: info.id, email: info.email, name: info.name, picture: info.picture, verified: info.verified_email };
       console.log(`[login] 🔵 Google: ${info.name} <${info.email}> · verified ${info.verified_email} · ip ${req.ip}`);
-      res.redirect('/dashboard?google=ok');
+      const next = req.session.googleNext; delete req.session.googleNext;
+      res.redirect(next && next.startsWith('/') ? next : '/signin'); // return to the page that sent them (e.g. /radar-panel), else the sign-in card
     } catch (err) {
       console.error('Google OAuth error:', err.message);
       res.redirect('/dashboard?error=google_failed');
@@ -372,7 +652,7 @@ export function startWeb(client) {
     user: req.session.user || null,
     google: req.session.google || null,
     owner: isOwner(req),
-    oauthEnabled, googleEnabled, clientId: CLIENT_ID || null,
+    oauthEnabled, googleEnabled, clientId: CLIENT_ID || null, googleClientId: GOOGLE_CLIENT_ID || null,
   }));
 
   app.get('/api/stats', (req, res) => {
@@ -395,6 +675,183 @@ export function startWeb(client) {
       name: client?.users?.cache.get(r.id)?.username || `User ${r.id.slice(-4)}`,
     }));
     res.json(rows);
+  });
+
+  // ---------- live server pulse ----------
+  // Pick the guild to watch: ?guild=<id>, else the configured home server
+  // (GUILD_ID), else the largest guild the bot is in.
+  const biggestGuild = () => {
+    let best = null;
+    for (const g of client?.guilds?.cache?.values() || []) {
+      if (!best || (g.memberCount || 0) > (best.memberCount || 0)) best = g;
+    }
+    return best;
+  };
+  // Home server first (Sentinel), then the registration guild, then the biggest.
+  const HOME_GUILD_ID = process.env.HOME_GUILD_ID || '1521295950654734538';
+  const defaultGuild = () =>
+    client?.guilds?.cache.get(HOME_GUILD_ID) ||
+    (process.env.GUILD_ID && client?.guilds?.cache.get(String(process.env.GUILD_ID))) ||
+    biggestGuild();
+  // Server switcher: the guilds this bot can show a pulse for.
+  app.get('/api/pulse/servers', (req, res) => {
+    const list = [...(client?.guilds?.cache?.values() || [])]
+      .map((g) => ({ id: g.id, name: g.name, members: g.memberCount || 0 }))
+      .sort((a, b) => b.members - a.members);
+    res.json({ home: HOME_GUILD_ID, servers: list });
+  });
+  // ---------- combined leaderboards (coins / xp / officers) ----------
+  let officerStmt = null, officerTried = false;
+  const officerBoard = (guildId, n) => {
+    if (!officerTried) {
+      officerTried = true;
+      try {
+        officerStmt = getDb().prepare(
+          "SELECT officer, COUNT(*) AS n, COALESCE(SUM(fine),0) AS fines FROM cad_citations WHERE guild_id=? AND officer IS NOT NULL AND officer<>'' GROUP BY officer ORDER BY n DESC LIMIT ?",
+        );
+      } catch { officerStmt = null; }
+    }
+    if (!officerStmt) return [];
+    try { return officerStmt.all(String(guildId), n); } catch { return []; }
+  };
+  app.get('/api/leaderboards', (req, res) => {
+    const g = (req.query.guild && client?.guilds?.cache.get(String(req.query.guild))) || defaultGuild();
+    const uname = (id) => client?.users?.cache.get(id)?.username || `User ${String(id).slice(-4)}`;
+    const uav = (id) => client?.users?.cache.get(id)?.displayAvatarURL?.({ size: 64 }) || null;
+    const coins = leaderboard(15).map((r) => ({ id: r.id, name: uname(r.id), avatar: uav(r.id), value: r.total }));
+    const xp = xpLeaderboard(g?.id || '0', 15).map((r) => ({ id: r.id, name: uname(r.id), avatar: uav(r.id), value: r.xp, level: r.level }));
+    const officers = officerBoard(g?.id || '0', 15).map((r) => ({ name: r.officer, value: r.n, fines: r.fines }));
+    res.json({ guildId: g?.id || null, guildName: g?.name || 'Server', coins, xp, officers });
+  });
+
+  // ---------- live ER:LC dispatch map ----------
+  // The official Liberty County map is 3121×3121 with world (0,0) at the center pixel.
+  const MAP_PX = 3121, MAP_CENTER = 1560.5;
+  // Clean aliases for the (space-named) map raster folder.
+  const MAP_FILES = {
+    fall: 'fall_postals.png', fall_blank: 'fall_blank.png',
+    winter: 'winter snow_postals.png', winter_blank: 'winter snow_blank.png',
+  };
+  app.get('/maps/:name', (req, res) => {
+    const f = MAP_FILES[String(req.params.name).replace(/\.png$/i, '')];
+    if (!f) return res.status(404).end();
+    res.sendFile(join(__dirname, 'public', 'erlc map.png', f));
+  });
+  // The ER:LC API bans IPs that hammer it (see their rate-limit docs), and warns
+  // "don't request data you already have." So we cache each guild's live snapshot
+  // for a few seconds and COALESCE concurrent viewers into a single upstream call.
+  const dispatchCache = new Map();    // guildId -> { at, data }
+  const dispatchInflight = new Map(); // guildId -> Promise
+  const DISPATCH_TTL = 4000;
+  const cachedLiveServer = (guildId) => {
+    const hit = dispatchCache.get(guildId);
+    if (hit && Date.now() - hit.at < DISPATCH_TTL) return Promise.resolve(hit.data);
+    if (dispatchInflight.has(guildId)) return dispatchInflight.get(guildId);
+    const p = (async () => {
+      let data = null;
+      try { data = await fetchLiveServer(guildId); } catch { data = null; }
+      dispatchCache.set(guildId, { at: Date.now(), data });
+      dispatchInflight.delete(guildId);
+      return data;
+    })();
+    dispatchInflight.set(guildId, p);
+    return p;
+  };
+  // Live positional data is sensitive (per PRC's API guidelines) — require login.
+  app.get('/api/dispatch', requireAuth, async (req, res) => {
+    const g = (req.query.guild && client?.guilds?.cache.get(String(req.query.guild))) || defaultGuild();
+    if (!g) return res.json({ ok: false, reason: 'no-guild' });
+    const data = await cachedLiveServer(g.id);
+    if (!data || (data.code && data.message)) {
+      return res.json({ ok: false, reason: data?.message || 'Server offline or no key set', guildName: g.name });
+    }
+    // Per ER:LC DOC 12: world (0,0) is the map centre and 1 world unit = 1 map pixel
+    // on the official 3121×3121 images. So the mapping is a direct 1:1 (no scaling).
+    const toFrac = (x, z) => [
+      (MAP_CENTER + (Number(x) || 0)) / MAP_PX,
+      (MAP_CENTER + (Number(z) || 0)) / MAP_PX,
+    ];
+    const players = (Array.isArray(data.Players) ? data.Players : []).map((p) => {
+      const [name, id] = String(p.Player || '').split(':');
+      const loc = p.Location || {};
+      const hasLoc = loc.LocationX !== undefined && loc.LocationX !== null;
+      const [fx, fy] = toFrac(loc.LocationX, loc.LocationZ);
+      return {
+        name: name || 'Unknown', id: id || null,
+        team: p.Team || 'Civilian', callsign: p.Callsign || '',
+        permission: p.Permission || 'Normal',
+        fx, fy, hasLoc, heading: Number(loc.Heading) || null,
+        street: loc.StreetName || '', postal: loc.PostalCode != null ? String(loc.PostalCode) : '',
+      };
+    });
+    // Emergency calls carry Position:[x,z] (an array), NOT a Location object.
+    // Caller is a Roblox user id (integer), not a name.
+    const calls = (Array.isArray(data.EmergencyCalls) ? data.EmergencyCalls : []).map((e) => {
+      const pos = Array.isArray(e.Position) ? e.Position : null;
+      const [fx, fy] = pos ? toFrac(pos[0], pos[1]) : [null, null];
+      return { number: e.CallNumber ?? '', caller: String(e.Caller ?? ''), team: e.Team || '', desc: e.Description || '', where: e.PositionDescriptor || '', fx, fy };
+    });
+    res.json({
+      ok: true, guildName: g.name,
+      server: { name: data.Name || g.name, players: data.CurrentPlayers ?? players.length, max: data.MaxPlayers ?? null },
+      players, calls, vehicles: Array.isArray(data.Vehicles) ? data.Vehicles.length : 0, ts: Date.now(),
+    });
+  });
+
+  // ---------- live ER:LC server feed (join/kill/mod/command logs + queue) ----------
+  const nameOf = (s) => String(s ?? '').split(':')[0] || 'Unknown';
+  app.get('/api/feed', requireAuth, async (req, res) => {
+    const g = (req.query.guild && client?.guilds?.cache.get(String(req.query.guild))) || defaultGuild();
+    if (!g) return res.json({ ok: false, reason: 'no-guild' });
+    const data = await fetchServerLogs(g.id);
+    if (!data || (data.code && data.message)) {
+      return res.json({ ok: false, reason: data?.message || 'Server offline or no key set', guildName: g.name });
+    }
+    // Normalize every log type into one timeline (newest first).
+    const events = [];
+    for (const j of (data.JoinLogs || [])) events.push({ type: j.Join ? 'join' : 'leave', t: j.Timestamp || 0, who: nameOf(j.Player) });
+    for (const k of (data.KillLogs || [])) events.push({ type: 'kill', t: k.Timestamp || 0, who: nameOf(k.Killer), target: nameOf(k.Killed) });
+    for (const m of (data.ModCalls || [])) events.push({ type: 'modcall', t: m.Timestamp || 0, who: nameOf(m.Caller), mod: m.Moderator ? nameOf(m.Moderator) : null });
+    for (const c of (data.CommandLogs || [])) events.push({ type: 'command', t: c.Timestamp || 0, who: nameOf(c.Player), text: String(c.Command || '').slice(0, 120) });
+    events.sort((a, b) => b.t - a.t);
+    res.json({
+      ok: true, guildName: g.name,
+      server: { name: data.Name || g.name, players: data.CurrentPlayers ?? null, max: data.MaxPlayers ?? null },
+      queue: Array.isArray(data.Queue) ? data.Queue.length : 0,
+      events: events.slice(0, 80), ts: Date.now(),
+    });
+  });
+
+  app.get('/api/pulse', (req, res) => {
+    const g = (req.query.guild && client?.guilds?.cache.get(String(req.query.guild))) || defaultGuild();
+    const snap = pulseSnapshot(g?.id || null);
+    // Live online count from the presence cache (0 if the presence intent is off).
+    let online = 0, presenceKnown = false;
+    try {
+      const pres = g?.presences?.cache;
+      if (pres && pres.size) {
+        presenceKnown = true;
+        for (const p of pres.values()) if (p.status && p.status !== 'offline') online++;
+      }
+    } catch { /* ignore */ }
+    // Resolve the top talkers to names + avatars.
+    const top = snap.top.map((t) => {
+      const u = client?.users?.cache.get(t.id);
+      return {
+        id: t.id, n: t.n,
+        name: u?.username || `User ${t.id.slice(-4)}`,
+        avatar: u?.displayAvatarURL?.({ size: 64 }) || null,
+      };
+    });
+    res.json({
+      guildId: g?.id || null,
+      guildName: g?.name || 'Server',
+      members: g?.memberCount || 0,
+      online, presenceKnown,
+      ping: Math.max(0, Math.round(client?.ws?.ping ?? 0)),
+      uptime: client?.uptime ?? 0,
+      ...snap, top,
+    });
   });
 
   app.get('/api/shop', (req, res) => res.json(getShopItems()));
@@ -469,13 +926,18 @@ export function startWeb(client) {
     if (cmds) {
       for (const [name, mod] of cmds) {
         const cat = mod.category || 'other';
-        (byCat[cat] ??= []).push({ name, description: mod.data?.description || '' });
+        (byCat[cat] ??= []).push({ name: '/' + name, description: mod.data?.description || '' });
       }
     }
+    // Fold in the "?" prefix pack and the "!" power commands so the count is the REAL total.
+    try { for (const c of prefixList()) (byCat[c.category] ??= []).push({ name: '?' + c.name, description: c.description || '' }); } catch { /* pack unavailable */ }
+    const BANG = [['update', '23-page changelog viewer'], ['coinwatch', 'Memecoin analyzer alerts'], ['tts', 'Text-to-speech → MP3'], ['cad', 'Open the CAD console'], ['mdt', 'Open the MDT terminal'], ['bodycam', 'Open bodycam recorder'], ['portal', 'Open civilian portal'], ['erlc', 'Login / CAD link buttons'], ['path', 'A* pathfinding engine'], ['nav', 'Step-by-step navigation'], ['search', 'Web search (Google/DDG)'], ['3d', '3D model helper'], ['render', 'Render helper'], ['media', 'Media tools'], ['source', 'Fetch a file’s source'], ['putfile', 'Save text/uploads to a file'], ['backup', 'Server backup & restore'], ['apikey', 'Developer API keys'], ['embed', 'Rich embed builder'], ['form', 'Form builder → Google Forms'], ['cadaccess', 'Set CAD/MDT access roles'], ['locks', 'Rate-limit lockouts'], ['session', 'ER:LC session tools'], ['server', 'Server admin tools'], ['setup', 'Setup wizard'], ['verify', 'Roblox verification'], ['py', 'Run a Python snippet'], ['lua', 'Run a Lua snippet'], ['fight', 'Fight minigame'], ['pizza', '🍕 Pizza delivery sim (canvas game)'], ['ashsay', 'Ash speaks in your voice channel'], ['mine', '⛏️ Minecraft mining minigame (canvas)']];
+    for (const [n, d] of BANG) (byCat['power'] ??= []).push({ name: '!' + n, description: d });
     const out = Object.entries(byCat)
       .map(([category, commands]) => ({ category, commands: commands.sort((a, b) => a.name.localeCompare(b.name)) }))
       .sort((a, b) => a.category.localeCompare(b.category));
-    res.json({ total: cmds?.size ?? 0, categories: out });
+    const total = out.reduce((a, c) => a + c.commands.length, 0);
+    res.json({ total, categories: out });
   });
 
   // ---------- guild management ----------
@@ -582,6 +1044,24 @@ export function startWeb(client) {
       .map((c) => ({ id: c.id, name: c.name, type: c.type }))
       .sort((a, b) => a.name.localeCompare(b.name));
     res.json(chans);
+  });
+
+  // ---------- ER:LC Regions (map polygon/postal regions + VC auto-move) ----------
+  app.get('/api/guild/:id/erlc-regions', requireAuth, (req, res) => {
+    if (!canManage(req, req.params.id)) return res.status(403).json({ error: 'No permission' });
+    const guild = client?.guilds?.cache.get(req.params.id);
+    const vcs = guild ? [...guild.channels.cache.values()].filter((c) => c.type === 2).map((c) => ({ id: c.id, name: c.name })).sort((a, b) => a.name.localeCompare(b.name)) : [];
+    res.json({ cfg: getRegionCfg(req.params.id), regions: listRegions(req.params.id), vcs });
+  });
+  app.post('/api/guild/:id/erlc-regions', requireAuth, (req, res) => {
+    if (!canManage(req, req.params.id)) return res.status(403).json({ error: 'No permission' });
+    const { action } = req.body || {};
+    try {
+      if (action === 'add' && req.body.region) addRegion(req.params.id, req.body.region);
+      else if (action === 'del') deleteRegion(req.params.id, Number(req.body.id));
+      else if (action === 'cfg' && req.body.cfg) for (const [k, v] of Object.entries(req.body.cfg)) setRegionCfg(req.params.id, k, v);
+      res.json({ ok: true, cfg: getRegionCfg(req.params.id), regions: listRegions(req.params.id) });
+    } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
   app.get('/api/guild/:id/roles', requireAuth, (req, res) => {
@@ -1422,6 +1902,15 @@ export function startWeb(client) {
   app.use((req, res) => {
     if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'Not found' });
     res.status(404).sendFile(join(__dirname, 'public', '404.html'));
+  });
+
+  // ---------- 500 for any unhandled error (must be last, 4-arg middleware) ----------
+  // eslint-disable-next-line no-unused-vars
+  app.use((err, req, res, next) => {
+    console.error('[web] unhandled error:', err?.stack || err?.message || err);
+    if (res.headersSent) return; // response already started — nothing safe to do
+    if (req.path.startsWith('/api/')) return res.status(500).json({ error: 'Internal server error' });
+    res.status(500).sendFile(join(__dirname, 'public', '500.html'));
   });
 
   return new Promise((resolve) => {

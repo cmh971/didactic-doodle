@@ -4,6 +4,7 @@
 // them down. Everything is configurable on the dashboard or via /staff.
 import { getDb } from '../db/index.js';
 import { getCfg, setSetting } from '../setup/store.js';
+import { guardRoleAssign } from '../systems/modGuard.js';
 
 const db = getDb();
 db.exec(`CREATE TABLE IF NOT EXISTS staff_log (
@@ -44,28 +45,46 @@ export async function applyAction(client, { guildId, targetId, action, roleId, m
   const ranks = listRanks(guildId).filter((r) => r.roleId);
   let detail = '';
 
+  // Whoever triggered this (dashboard user or /staff caller). If present, enforce
+  // rank hierarchy so a staffer can't grant/promote past their own top role.
+  const moderator = moderatorId ? await guild.members.fetch(moderatorId).catch(() => null) : null;
+  const guardRole = (roleObj) => {
+    if (!moderator || !roleObj) return null;
+    return guardRoleAssign({ guild, invokerMember: moderator, targetMember: member, role: roleObj });
+  };
+
   if (action === 'promote' || action === 'demote') {
     if (ranks.length < 1) return { ok: false, error: 'No rank ladder set up yet — add ranks on the dashboard (Staff Manager).' };
     const cur = currentRankIndex(member, ranks);
     const next = action === 'promote' ? cur + 1 : cur - 1;
     if (next < 0) return { ok: false, error: `${member.user.username} is already at the lowest rank.` };
     if (next > ranks.length - 1) return { ok: false, error: `${member.user.username} is already at the top rank.` };
+    const blocked = guardRole(guild.roles.cache.get(ranks[next].roleId));
+    if (blocked) return { ok: false, error: blocked };
     for (const r of ranks) if (member.roles.cache.has(r.roleId)) await member.roles.remove(r.roleId, `Staff ${action}`).catch(() => {});
     await member.roles.add(ranks[next].roleId, `Staff ${action}`).catch(() => {});
     detail = `${cur < 0 ? '—' : ranks[cur].name} → ${ranks[next].name}`;
   } else if (action === 'addrole') {
     if (!roleId) return { ok: false, error: 'Pick a role to add.' };
+    const blocked = guardRole(guild.roles.cache.get(roleId));
+    if (blocked) return { ok: false, error: blocked };
     const okAdd = await member.roles.add(roleId, 'Staff action').then(() => true).catch(() => false);
     if (!okAdd) return { ok: false, error: 'Could not add that role (check the bot\'s role position/permissions).' };
     detail = `+${guild.roles.cache.get(roleId)?.name || roleId}`;
   } else if (action === 'removerole') {
     if (!roleId) return { ok: false, error: 'Pick a role to remove.' };
+    const blocked = guardRole(guild.roles.cache.get(roleId));
+    if (blocked) return { ok: false, error: blocked };
     const okRem = await member.roles.remove(roleId, 'Staff action').then(() => true).catch(() => false);
     if (!okRem) return { ok: false, error: 'Could not remove that role (check the bot\'s role position/permissions).' };
     detail = `-${guild.roles.cache.get(roleId)?.name || roleId}`;
   } else if (action === 'infract') {
     detail = 'infraction logged';
-    if (roleId) await member.roles.add(roleId, `Infraction: ${reason || 'no reason'}`).catch(() => {});
+    if (roleId) {
+      const blocked = guardRole(guild.roles.cache.get(roleId));
+      if (blocked) return { ok: false, error: blocked };
+      await member.roles.add(roleId, `Infraction: ${reason || 'no reason'}`).catch(() => {});
+    }
   } else {
     return { ok: false, error: 'Unknown action.' };
   }

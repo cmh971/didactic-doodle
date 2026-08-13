@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MDT · Sentinel CAD</title>
+<style>
+  :root { color-scheme: dark; } * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0f16; color: #e8f0ff; }
+  header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: #0e1c2c; border-bottom: 1px solid #1e3a55; }
+  header h1 { font-size: 17px; margin: 0; }
+  .tabs { display: flex; gap: 6px; padding: 10px 16px 0; flex-wrap: wrap; }
+  .tabs button { background: #0b1622; color: #e8f0ff; border: 1px solid #1e3a55; border-radius: 8px 8px 0 0; padding: 8px 14px; cursor: pointer; font-weight: 700; }
+  .tabs button.on { background: #1aa3ff; color: #04121f; }
+  .wrap { padding: 12px 16px; max-width: 980px; }
+  .card { background: #0e1c2c; border: 1px solid #1e3a55; border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+  .card h2 { font-size: 13px; margin: 0 0 8px; color: #9fc0e0; text-transform: uppercase; letter-spacing: .5px; }
+  label { font-size: 11px; color: #9fc0e0; display: block; margin: 8px 0 3px; }
+  input, select, textarea, button { background: #0b1622; color: #e8f0ff; border: 1px solid #1e3a55; border-radius: 7px; padding: 8px; font-size: 13px; width: 100%; }
+  button.p { background: #22c55e; color: #04121f; border: none; font-weight: 700; cursor: pointer; }
+  button.d { background: #ef4444; color: #fff; border: none; cursor: pointer; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; } .row > * { flex: 1; min-width: 120px; }
+  .hide { display: none; }
+  .flag { display: inline-block; background: #7f1d1d; color: #fecaca; border-radius: 5px; padding: 1px 7px; font-size: 11px; margin: 2px; }
+  .rec { border-left: 3px solid #1aa3ff; background: #0b1622; border-radius: 7px; padding: 8px 10px; margin: 6px 0; font-size: 13px; }
+  .rec.war { border-color: #ef4444; } .rec.stolen { border-color: #ef4444; }
+  .muted { color: #6d90b3; font-size: 12px; }
+  .big { font-size: 16px; font-weight: 700; }
+</style>
+</head>
+<body>
+  <header><h1>👮 Mobile Data Terminal</h1><span class="muted" id="gid"></span></header>
+  <div class="tabs">
+    <button class="on" data-t="name">🔍 Name</button>
+    <button data-t="plate">🚗 Plate</button>
+    <button data-t="records">📋 Records</button>
+    <button data-t="warrants">⚖️ Warrants</button>
+    <button data-t="citations">🎟️ Citations</button>
+    <button data-t="codes">📖 Codes</button>
+    <button data-t="lawbook">📕 Law Book</button>
+    <button data-t="reports">📝 Reports</button>
+    <button data-t="judge">⚖️ Judge</button>
+  </div>
+  <div class="wrap">
+    <!-- NAME -->
+    <section id="t-name">
+      <div class="card"><h2>NCIC Name Lookup</h2><div class="row"><input id="nq" placeholder="Civilian name…"><button class="p" style="max-width:120px" onclick="lookupName()">Search</button></div></div>
+      <div id="nameRes"></div>
+    </section>
+    <!-- PLATE -->
+    <section id="t-plate" class="hide">
+      <div class="card"><h2>Plate Lookup</h2><div class="row"><input id="pq" placeholder="ABC-123"><button class="p" style="max-width:120px" onclick="lookupPlate()">Run plate</button></div></div>
+      <div id="plateRes"></div>
+      <div class="card"><h2>🚨 BOLO / ALPR</h2>
+        <div class="row"><select id="bolo-kind" style="max-width:110px"><option value="plate">Plate</option><option value="person">Person</option></select><input id="bolo-val" placeholder="Plate or name"><input id="bolo-reason" placeholder="Reason"></div>
+        <button class="p" style="margin-top:8px" onclick="addBoloUI()">Add BOLO</button>
+        <div class="muted" style="margin-top:4px">Flagged plates/persons auto-alert on the Dispatcher map when they appear in-game.</div>
+        <div id="boloList" style="margin-top:8px"></div>
+      </div>
+    </section>
+    <!-- RECORDS -->
+    <section id="t-records" class="hide">
+      <div class="card"><h2>Add civilian</h2>
+        <div class="row"><input id="cv-name" placeholder="Full name"><input id="cv-dob" placeholder="DOB"><input id="cv-gender" placeholder="Gender"></div>
+        <label>Address</label><input id="cv-addr" placeholder="123 Postal St">
+        <label>Phone number</label><input id="cv-phone" placeholder="(555) 123-4567">
+        <label>Licenses (comma: Driver, CDL, Weapon)</label><input id="cv-lic" placeholder="Driver, Weapon">
+        <button class="p" style="margin-top:10px" onclick="addCiv()">Create record</button></div>
+      <div class="card"><h2>Register vehicle</h2>
+        <div class="row"><input id="vh-plate" placeholder="Plate"><input id="vh-owner" placeholder="Owner name"></div>
+        <div class="row"><input id="vh-model" placeholder="Model"><input id="vh-color" placeholder="Color"><select id="vh-ins"><option>Valid</option><option>Expired</option><option>None</option></select></div>
+        <button class="p" style="margin-top:10px" onclick="addVeh()">Register</button></div>
+      <div id="recMsg" class="muted"></div>
+    </section>
+    <!-- WARRANTS -->
+    <section id="t-warrants" class="hide">
+      <div class="card"><h2>Issue warrant</h2>
+        <div class="row"><input id="w-subj" placeholder="Subject name"><select id="w-sev"><option>Infraction</option><option selected>Misdemeanor</option><option>Felony</option></select></div>
+        <label>Reason</label><input id="w-reason" placeholder="Failure to appear…">
+        <button class="p" style="margin-top:10px" onclick="issueWar()">Issue</button></div>
+      <div class="card"><h2>Active warrants</h2><div id="warList"></div></div>
+    </section>
+    <!-- CITATIONS -->
+    <section id="t-citations" class="hide">
+      <div class="card"><h2>Write citation / arrest</h2>
+        <label>Unit # &amp; agency (brands every citation/report)</label>
+        <div class="row"><input id="cfg-unit" placeholder="Unit # (e.g. 1-ADAM-12)"><input id="cfg-agency" placeholder="Agency (e.g. SPD)"></div>
+        <div class="row"><input id="ci-subj" placeholder="Subject"><input id="ci-off" placeholder="Officer"></div>
+        <label>Add penal charge (auto-fills fine + jail)</label><select id="ci-penal"><option value="">— pick a penal code —</option></select>
+        <label>Charges</label><input id="ci-charge" placeholder="Speeding, Reckless…">
+        <div class="row"><input id="ci-fine" type="number" placeholder="Fine $"><input id="ci-jail" type="number" placeholder="Jail (mins)"></div>
+        <label>Narrative</label><textarea id="ci-notes" rows="2"></textarea>
+        <div class="row"><button class="p" style="margin-top:10px" onclick="writeCit()">File</button><button class="p" style="margin-top:10px;background:#1aa3ff" onclick="openHandout()">🎫 Hand Out (Z)</button></div></div>
+      <div class="card"><h2>🪪 Run ID — mugshot + in-game + record</h2>
+        <div class="row"><input id="id-name" placeholder="Player / civilian name"><button class="p" style="max-width:110px" onclick="runID()">Run ID</button></div>
+        <div id="id-result" style="margin-top:8px"></div>
+      </div>
+      <div class="card"><h2>Recent citations</h2><div id="citList"></div></div>
+    </section>
+    <!-- CODES -->
+    <section id="t-codes" class="hide">
+      <div class="card"><h2>Penal codes</h2>
+        <div class="row"><input id="p-code" placeholder="P.11" style="max-width:80px"><input id="p-title" placeholder="Offense"><input id="p-cat" placeholder="Category" style="max-width:110px"></div>
+        <div class="row"><input id="p-fine" type="number" placeholder="Fine $"><input id="p-jail" type="number" placeholder="Jail (min)"><button class="p" style="max-width:90px" onclick="addPenal()">Add</button></div>
+        <button class="p" style="margin-top:8px" onclick="loadFullCode()">⚖️ Load full 50-state code (82 charges)</button>
+        <div id="penalList" style="margin-top:8px"></div>
+      </div>
+      <div class="card"><h2>10-codes</h2>
+        <div class="row"><input id="t-code" placeholder="10-42" style="max-width:100px"><input id="t-mean" placeholder="Meaning"><button class="p" style="max-width:90px" onclick="addTen()">Add</button></div>
+        <div id="tenList" style="margin-top:8px"></div>
+      </div>
+    </section>
+    <!-- LAW BOOK -->
+    <section id="t-lawbook" class="hide">
+      <div class="card"><h2>📕 State Law Book</h2>
+        <div class="row"><select id="lb-state" style="max-width:230px"></select></div>
+        <div id="lb-stateinfo" class="muted" style="margin-top:8px"></div>
+      </div>
+      <div class="card"><h2>🔎 Search real laws (web · legal sources only)</h2>
+        <div class="row"><input id="lb-q" placeholder="e.g. California speeding law, theft penal code…"><button class="p" style="max-width:110px" onclick="lawSearch()">Search</button></div>
+        <div class="muted" style="margin-top:4px">Results are filtered to law/legal sources. Hit ➕ to save one into your Law Book.</div>
+        <div id="lb-results" style="margin-top:8px"></div>
+      </div>
+      <div class="card"><h2>📌 Saved laws</h2><div id="lb-saved"></div></div>
+      <div class="card"><h2>⚖️ Unified Penal Code (all 50 states)</h2>
+        <input id="lb-filter" placeholder="Filter charges…" style="margin-bottom:8px">
+        <div id="lb-list"></div>
+      </div>
+    </section>
+    <!-- REPORTS -->
+    <section id="t-reports" class="hide">
+      <div class="card"><h2>📝 Report Center</h2>
+        <div class="row"><select id="rp-cat"></select><select id="rp-type"></select></div>
+        <div class="muted" style="margin-top:4px">Pick a division + report, or choose “➕ Custom Report”. Everything can be saved, downloaded, printed, or copied.</div>
+      </div>
+      <div class="card"><h2 id="rp-title">—</h2>
+        <div id="rp-form"></div>
+        <div class="row" style="margin-top:10px;flex-wrap:wrap">
+          <button class="p" onclick="rpSave()">💾 Save</button>
+          <button class="p" style="background:#1aa3ff" onclick="rpDownload()">⬇ Download</button>
+          <button class="p" style="background:#16283d;color:#9fc0e0" onclick="rpPrint()">🖨️ Print</button>
+          <button class="p" style="background:#16283d;color:#9fc0e0" onclick="rpCopy()">📋 Copy</button>
+        </div>
+      </div>
+      <div class="card"><h2>Recent reports</h2><div id="rp-list"></div></div>
+    </section>
+    <!-- JUDGE -->
+    <section id="t-judge" class="hide">
+      <div class="card"><h2>⚖️ AI Judge — verdict + Jail/Bond</h2>
+        <div class="muted" style="margin-bottom:6px">Assist mode: the AI proposes a verdict; a human judge reviews and 🔒 <b>Locks</b> it (which charges the bond from the subject’s wallet). Prior record is auto-pulled.</div>
+        <div class="row"><input id="jd-subject" placeholder="Subject name"><input id="jd-charges" placeholder="Charges"></div>
+        <div class="row"><input id="jd-jail" type="number" placeholder="Req. jail (min)"><input id="jd-fine" type="number" placeholder="Req. fine $"></div>
+        <label>Evidence</label><input id="jd-evidence" placeholder="Dashcam, testimony…">
+        <label>Narrative</label><textarea id="jd-narrative" rows="2"></textarea>
+        <button class="p" style="margin-top:10px" onclick="genVerdict()">🤖 Generate AI Verdict</button>
+        <div id="jd-result" style="margin-top:10px"></div>
+      </div>
+      <div class="card"><h2>Case docket</h2><div id="jd-list"></div></div>
+    </section>
+  </div>
+<script>
+const guild = new URLSearchParams(location.search).get('guild');
+const $ = (id) => document.getElementById(id);
+$('gid').textContent = guild ? 'server ' + guild : '';
+function esc(s){ return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+async function api(path, body){ const r = await fetch(`/api/mdt/${guild}${path}`, body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{}); return r.json(); }
+
+// tabs
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  document.querySelectorAll('section').forEach(s=>s.classList.add('hide')); $('t-'+b.dataset.t).classList.remove('hide');
+  if(b.dataset.t==='warrants') loadWarrants(); if(b.dataset.t==='citations'){ loadCits(); loadPenalDropdown(); } if(b.dataset.t==='codes') loadCodes(); if(b.dataset.t==='lawbook') loadLawbook(); if(b.dataset.t==='reports') loadReports(); if(b.dataset.t==='plate') loadBolos(); if(b.dataset.t==='judge') loadJudge();
+});
+
+window.lookupName = async ()=>{
+  const d = await api('/lookup/name?q='+encodeURIComponent($('nq').value)); const el=$('nameRes');
+  if(!d.civilian && !d.vehicles.length && !d.warrants.length){ el.innerHTML='<div class="card muted">No records found. Add one under 📋 Records.</div>'; return; }
+  const c=d.civilian;
+  el.innerHTML = `<div class="card"><div class="big">${esc(d.query)}</div>
+    ${c?`<div class="muted">DOB ${esc(c.dob||'?')} · ${esc(c.gender||'?')} · ${esc(c.address||'no address')}</div>
+    <div style="margin-top:6px">Licenses: ${Object.keys(c.licenses||{}).length?Object.entries(c.licenses).map(([k,v])=>`${esc(k)} (${esc(v)})`).join(', '):'none on file'}</div>
+    <div style="margin-top:6px">${(c.flags||[]).map(f=>`<span class="flag">⚑ ${esc(f)}</span>`).join('')||'<span class="muted">no flags</span>'}</div>`:'<div class="muted">No civilian record on file.</div>'}
+    </div>
+    <div class="card"><h2>Registered vehicles</h2>${d.vehicles.length?d.vehicles.map(v=>`<div class="rec ${v.stolen?'stolen':''}">🚗 ${esc(v.plate)} — ${esc(v.model||'?')} ${esc(v.color||'')} · ${esc(v.insurance)}${v.stolen?' · <b style="color:#ef4444">STOLEN</b>':''}</div>`).join(''):'<span class="muted">none</span>'}</div>
+    <div class="card"><h2>Active warrants</h2>${d.warrants.length?d.warrants.map(w=>`<div class="rec war">⚖️ ${esc(w.severity)} — ${esc(w.reason||'')}</div>`).join(''):'<span class="muted">clear</span>'}</div>
+    <div class="card"><h2>Record (citations/arrests)</h2>${d.citations.length?d.citations.map(x=>`<div class="rec">🎟️ ${esc(x.charges||'')} · $${x.fine} · ${x.jail}min <span class="muted">by ${esc(x.officer||'?')}</span></div>`).join(''):'<span class="muted">no record</span>'}</div>`;
+};
+window.lookupPlate = async ()=>{
+  const p=$('pq').value; const d = await api('/lookup/plate?q='+encodeURIComponent(p)); const el=$('plateRes');
+  if(d.source==='none'){ el.innerHTML='<div class="card muted">Plate not found (not registered, not on the road).</div>'; return; }
+  el.innerHTML = `<div class="card ${d.stolen?'stolen':''}"><div class="big">${esc(d.plate)} ${d.stolen?'<b style="color:#ef4444">⚠ STOLEN</b>':''}${d.repo?' <b style="color:#f59e0b">⚠ REPO ELIGIBLE</b>':''}</div>
+    <div class="muted">source: ${d.source}</div>
+    <div style="margin-top:6px">Owner: <b>${esc(d.owner||'Unknown')}</b><br>Model: ${esc(d.model||'?')} · Color: ${esc(d.color||'?')} · Insurance: ${esc(d.insurance||'?')}</div>
+    <div class="row" style="margin-top:10px"><button class="d" onclick="markStolen('${esc(d.plate)}',1)">Flag stolen</button><button class="p" onclick="markStolen('${esc(d.plate)}',0)">Clear stolen</button></div>
+    ${(d.warrants||[]).length?`<div style="margin-top:8px">⚖️ Owner has ${d.warrants.length} active warrant(s)!</div>`:''}</div>`;
+};
+window.markStolen = async (plate,st)=>{ await api('/stolen',{plate,stolen:st}); lookupPlate(); };
+async function loadBolos(){ const b=await api('/bolos'); $('boloList').innerHTML = b.length? b.map(x=>`<div class="rec">${x.kind==='person'?'👤':'🚗'} <b>${esc(x.value)}</b> <span class="muted">${esc(x.reason||'')}</span> <button class="d" style="width:auto;padding:2px 8px;float:right" onclick="delBoloUI(${x.id})">✕</button></div>`).join('') : '<span class="muted">No active BOLOs.</span>'; }
+window.addBoloUI=async()=>{ const val=$('bolo-val').value.trim(); if(!val) return; await api('/bolo',{kind:$('bolo-kind').value,value:val,reason:$('bolo-reason').value}); $('bolo-val').value=$('bolo-reason').value=''; loadBolos(); };
+window.delBoloUI=async(id)=>{ await api(`/bolo/${id}/delete`,{}); loadBolos(); };
+window.addCiv = async ()=>{ const lic={}; $('cv-lic').value.split(',').map(s=>s.trim()).filter(Boolean).forEach(l=>lic[l]='Valid'); await api('/civilian',{name:$('cv-name').value,dob:$('cv-dob').value,gender:$('cv-gender').value,address:$('cv-addr').value,phone:$('cv-phone').value,licenses:lic}); $('recMsg').textContent='✅ Civilian added.'; };
+window.addVeh = async ()=>{ await api('/vehicle',{plate:$('vh-plate').value,owner:$('vh-owner').value,model:$('vh-model').value,color:$('vh-color').value,insurance:$('vh-ins').value}); $('recMsg').textContent='✅ Vehicle registered.'; };
+window.issueWar = async ()=>{ await api('/warrant',{subject:$('w-subj').value,reason:$('w-reason').value,severity:$('w-sev').value}); $('w-subj').value=$('w-reason').value=''; loadWarrants(); };
+async function loadWarrants(){ const w=await api('/warrants'); $('warList').innerHTML = w.length?w.map(x=>`<div class="rec war">⚖️ <b>${esc(x.subject)}</b> — ${esc(x.severity)} — ${esc(x.reason||'')} <button class="d" style="width:auto;padding:2px 8px;float:right" onclick="clearWar(${x.id})">Clear</button></div>`).join(''):'<span class="muted">none</span>'; }
+window.clearWar = async (id)=>{ await api(`/warrant/${id}/clear`,{}); loadWarrants(); };
+window.writeCit = async ()=>{ await api('/citation',{subject:$('ci-subj').value,officer:$('ci-off').value,charges:$('ci-charge').value,fine:$('ci-fine').value,jail:$('ci-jail').value,notes:$('ci-notes').value}); $('ci-subj').value=$('ci-charge').value=''; loadCits(); };
+async function loadCits(){ const c=await api('/citations'); $('citList').innerHTML = c.length?c.map(x=>`<div class="rec">🎟️ <b>${esc(x.subject)}</b> — ${esc(x.charges||'')} · $${x.fine} · ${x.jail}min <span class="muted">by ${esc(x.officer||'?')}</span></div>`).join(''):'<span class="muted">none</span>'; }
+// penal codes + 10-codes live under /api/cad
+async function cad(path, body){ const r=await fetch(`/api/cad/${guild}${path}`, body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{}); return r.json(); }
+let penalCache=[];
+async function loadPenalDropdown(){ penalCache = await cad('/penal'); const sel=$('ci-penal'); sel.innerHTML='<option value="">— pick a penal code —</option>'+penalCache.map(p=>`<option value="${p.id}">${esc(p.code)} · ${esc(p.title)} ($${p.fine}/${p.jail}m)</option>`).join(''); }
+if($('ci-penal')) $('ci-penal').onchange = ()=>{ const p=penalCache.find(x=>String(x.id)===$('ci-penal').value); if(!p)return; const cur=$('ci-charge').value.trim(); $('ci-charge').value=cur?cur+', '+p.title:p.title; $('ci-fine').value=(Number($('ci-fine').value)||0)+p.fine; $('ci-jail').value=(Number($('ci-jail').value)||0)+p.jail; $('ci-penal').value=''; };
+async function loadCodes(){
+  const pen=await cad('/penal'); $('penalList').innerHTML = pen.map(p=>`<div class="rec">📖 <b>${esc(p.code)}</b> ${esc(p.title)} <span class="muted">${esc(p.category)} · $${p.fine} · ${p.jail}m</span> <button class="d" style="width:auto;padding:2px 8px;float:right" onclick="delPenal(${p.id})">✕</button></div>`).join('');
+  const ten=await cad('/tencodes'); $('tenList').innerHTML = ten.map(t=>`<div class="rec">🔟 <b>${esc(t.code)}</b> — ${esc(t.meaning)} <button class="d" style="width:auto;padding:2px 8px;float:right" onclick="delTen(${t.id})">✕</button></div>`).join('');
+}
+window.addPenal=async()=>{ await cad('/penal',{code:$('p-code').value,title:$('p-title').value,category:$('p-cat').value,fine:$('p-fine').value,jail:$('p-jail').value}); $('p-code').value=$('p-title').value=''; loadCodes(); };
+window.delPenal=async(id)=>{ await cad(`/penal/${id}/delete`,{}); loadCodes(); };
+window.addTen=async()=>{ await cad('/tencodes',{code:$('t-code').value,meaning:$('t-mean').value}); $('t-code').value=$('t-mean').value=''; loadCodes(); };
+window.delTen=async(id)=>{ await cad(`/tencodes/${id}/delete`,{}); loadCodes(); };
+window.loadFullCode=async()=>{ if(!confirm('Add the full Unified Penal Code (82 charges) to this server’s citation list?')) return; const r=await api('/penal/loadfull',{}); alert('✅ Added '+r.added+' charges to your penal codes.'); loadCodes&&loadCodes(); loadPenalDropdown&&loadPenalDropdown(); };
+
+// ---- Law Book tab ----
+let lawbook=null, lawResults=[];
+async function loadLawbook(){
+  if(!lawbook){
+    lawbook = await api('/lawbook');
+    const sel=$('lb-state'); sel.innerHTML = lawbook.states.map(s=>`<option value="${s.abbr}">${esc(s.name)} (${s.abbr})</option>`).join('');
+    sel.onchange=renderState; $('lb-filter').oninput=renderPenal;
+    $('lb-q').addEventListener('keydown',e=>{ if(e.key==='Enter') lawSearch(); });
+  }
+  renderState(); renderPenal(); loadSaved();
+}
+function renderState(){ if(!lawbook)return; const st=lawbook.states.find(s=>s.abbr===$('lb-state').value)||lawbook.states[0]; $('lb-stateinfo').innerHTML=`📍 <b>${esc(st.name)}</b> · Capital: ${esc(st.capital)} · Max highway speed: <b>${st.limit} mph</b> <span class="muted">(state-specific)</span>`; }
+function renderPenal(){ if(!lawbook)return; const term=($('lb-filter').value||'').toLowerCase(); const rows=lawbook.penalCode.filter(c=>!term||(c.code+' '+c.title+' '+c.category+' '+c.cls).toLowerCase().includes(term)); const clr=x=>x==='Felony'?'#ef4444':x==='Misdemeanor'?'#f59e0b':'#37d0a0'; $('lb-list').innerHTML=rows.length?rows.map(c=>`<div class="rec">📖 <b>${esc(c.code)}</b> ${esc(c.title)} <span class="muted">· <span style="color:${clr(c.cls)}">${esc(c.cls)}</span> · $${c.fine}${c.jail?` · ${c.jail} mo`:''}</span></div>`).join(''):'<span class="muted">No matches.</span>'; }
+window.lawSearch=async()=>{ const qy=$('lb-q').value.trim(); if(!qy)return; $('lb-results').innerHTML='<span class="muted">🔎 Searching legal sources…</span>'; lawResults=await api('/lawsearch?q='+encodeURIComponent(qy)); if(!lawResults.length){ $('lb-results').innerHTML='<span class="muted">No legal results — try different words.</span>'; return; } $('lb-results').innerHTML=lawResults.map((x,i)=>`<div class="rec"><button class="p" style="width:auto;padding:2px 8px;float:right" onclick="saveLaw(${i})">➕</button><b>${esc(x.title||'(untitled)')}</b><div class="muted">${esc((x.snippet||'').slice(0,170))}</div><a href="${esc(x.url)}" target="_blank" rel="noopener" style="color:#37d0a0;font-size:12px">${esc(x.url||'')}</a></div>`).join(''); };
+window.saveLaw=async(i)=>{ const x=lawResults[i]; if(!x)return; await api('/lawref',{title:x.title,snippet:x.snippet,url:x.url}); loadSaved(); };
+async function loadSaved(){ const s=await api('/lawrefs'); $('lb-saved').innerHTML=s.length?s.map(x=>`<div class="rec">📌 <b>${esc(x.title||'')}</b> <button class="d" style="width:auto;padding:2px 8px;float:right" onclick="delLaw(${x.id})">✕</button>${x.snippet?`<div class="muted">${esc(x.snippet.slice(0,170))}</div>`:''}${x.url?`<a href="${esc(x.url)}" target="_blank" rel="noopener" style="color:#37d0a0;font-size:12px">${esc(x.url)}</a>`:''}</div>`).join(''):'<span class="muted">Nothing saved yet — search above and hit ➕.</span>'; }
+window.delLaw=async(id)=>{ await api(`/lawref/${id}/delete`,{}); loadSaved(); };
+
+// ---- Citation Z-key handout + unit/agency branding + Run ID ----
+const brand = (()=>{ try{ return JSON.parse(localStorage.getItem('mdtBrand')||'{}'); }catch{ return {}; } })();
+(function(){ const u=$('cfg-unit'), a=$('cfg-agency'); if(u){ u.value=brand.unit||''; u.onchange=()=>{ brand.unit=u.value; localStorage.setItem('mdtBrand',JSON.stringify(brand)); }; } if(a){ a.value=brand.agency||''; a.onchange=()=>{ brand.agency=a.value; localStorage.setItem('mdtBrand',JSON.stringify(brand)); }; } })();
+function renderCitation(d){
+  const c=document.createElement('canvas'); c.width=540; c.height=360; const x=c.getContext('2d');
+  x.fillStyle='#0e1c2c'; x.fillRect(0,0,c.width,c.height);
+  x.strokeStyle='#37d0a0'; x.lineWidth=3; x.strokeRect(10,10,c.width-20,c.height-20);
+  x.fillStyle='#37d0a0'; x.font='bold 20px sans-serif'; x.fillText((brand.agency||'Sentinel PD')+' — CITATION', 26, 44);
+  x.fillStyle='#9fc0e0'; x.font='12px monospace'; x.fillText('OFFICIAL DIGITAL CITATION', 26, 64);
+  x.fillStyle='#e8f0ff'; x.font='14px monospace';
+  const L=[`Date:    ${new Date().toLocaleString()}`,`Unit:    ${brand.unit||'—'}`,`Officer: ${d.officer||'—'}`,`Subject: ${d.subject||'—'}`,`Charges: ${(d.charges||'—').slice(0,44)}`,`Fine:    $${d.fine||0}`,`Jail:    ${d.jail||0} min`];
+  L.forEach((l,i)=>x.fillText(l, 26, 100+i*30));
+  x.fillStyle='#6d90b3'; x.font='11px monospace'; x.fillText('Handed to driver · '+new Date().toISOString(), 26, c.height-24);
+  return c.toDataURL('image/png');
+}
+window.openHandout=()=>{ const o=$('handout-overlay'); if(o) o.style.display='flex'; };
+window.closeHandout=()=>{ const o=$('handout-overlay'); if(o) o.style.display='none'; };
+window.handoutDone=async()=>{
+  const d={subject:$('ci-subj').value,officer:$('ci-off').value||brand.unit||'',charges:$('ci-charge').value,fine:$('ci-fine').value,jail:$('ci-jail').value,notes:$('ci-notes').value};
+  const shot=renderCitation(d);
+  const r=await api('/citation',{...d,shot});
+  if(window.SFX) SFX.bodycamOn();
+  const a=document.createElement('a'); a.href=shot; a.download='citation-'+(r.id||Date.now())+'.png'; a.click();
+  closeHandout(); $('ci-subj').value=$('ci-charge').value=''; loadCits();
+};
+document.addEventListener('keydown',(e)=>{ if((e.key==='z'||e.key==='Z') && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName||'')){ const sec=$('t-citations'); if(sec && !sec.classList.contains('hide')){ e.preventDefault(); openHandout(); } } });
+const idSeen=new Set();
+window.runID=async()=>{
+  const name=$('id-name').value.trim(); if(!name) return;
+  $('id-result').innerHTML='<span class="muted">🪪 Scanning ID…</span>';
+  const d=await api('/id?name='+encodeURIComponent(name));
+  if(window.SFX) SFX.bodycamOn();
+  const repeat=idSeen.has(name.toLowerCase()); idSeen.add(name.toLowerCase());
+  const mug=d.mugshot&&d.mugshot.url, disc=d.discord&&d.discord.avatar, ig=d.ingame, rec=d.record;
+  const warr=(rec&&rec.warrants&&rec.warrants.length)||0, cits=(rec&&rec.citations&&rec.citations.length)||0;
+  const priorFlag=(repeat||cits>0)?'<div style="color:#f59e0b;font-weight:800;margin-top:4px">⚑ MULTIPLE PRIOR CONTACT ON FILE</div>':'';
+  $('id-result').innerHTML=`<div class="card" style="display:flex;gap:12px;align-items:flex-start">
+    <div style="display:flex;flex-direction:column;gap:6px">${mug?`<img src="${mug}" width="88" height="88" style="border-radius:10px;border:1px solid #1e3a55" title="Roblox mugshot">`:'<div class="muted" style="width:88px;text-align:center">no avatar</div>'}${disc?`<img src="${disc}" width="88" height="88" style="border-radius:10px;border:1px solid #5865F2" title="Discord pfp">`:''}</div>
+    <div style="flex:1">
+      <div class="big">${esc(d.name)}</div>
+      ${ig?`<div class="muted">🎮 In-game: ${esc(ig.team)} · 📍 ${esc(ig.street||ig.postal||'unknown')}${ig.callsign?` · ${esc(ig.callsign)}`:''}</div>`:'<div class="muted">Not currently in-game.</div>'}
+      ${d.discord?`<div class="muted">💬 ${esc(d.discord.tag)}</div>`:''}
+      <div class="muted">${warr?`⚖️ <b style="color:#ef4444">${warr} active warrant(s)</b>`:'✅ No active warrants'} · 🎟️ ${cits} prior citation(s)</div>
+      ${rec&&rec.civilian?`<div class="muted">Licenses: ${Object.keys(rec.civilian.licenses||{}).join(', ')||'none'}${rec.civilian.phone?` · ☎ ${esc(rec.civilian.phone)}`:''}</div>`:''}
+      ${priorFlag}
+    </div></div>`;
+};
+
+// ---- Report Center ----
+let rpCatalog=null, rpCurrent=null;
+async function loadReports(){
+  if(!rpCatalog){
+    rpCatalog = await api('/reports/catalog');
+    const cat=$('rp-cat'); cat.innerHTML = rpCatalog.map((c,i)=>`<option value="${i}">${esc(c.cat)}</option>`).join('')+'<option value="custom">➕ Custom Report</option>';
+    cat.onchange=fillTypes; $('rp-type').onchange=renderReportForm; fillTypes();
+  }
+  rpList();
+}
+function fillTypes(){
+  const v=$('rp-cat').value, tsel=$('rp-type');
+  if(v==='custom'){ tsel.innerHTML='<option value="custom">Custom / Other</option>'; renderReportForm(); return; }
+  tsel.innerHTML=rpCatalog[+v].reports.map((r,i)=>`<option value="${i}">${esc(r.title)}</option>`).join(''); renderReportForm();
+}
+function currentReport(){ if($('rp-cat').value==='custom') return {id:'custom',title:'Custom Report',fields:[],custom:true}; return rpCatalog[+$('rp-cat').value].reports[+$('rp-type').value]; }
+function fieldHTML(f){ const id='rf-'+f.key;
+  if(f.type==='area') return `<label>${esc(f.label)}</label><textarea id="${id}" rows="2"></textarea>`;
+  if(f.type==='chk') return `<label style="display:flex;align-items:center;gap:6px;margin-top:6px"><input type="checkbox" id="${id}" style="width:auto"> ${esc(f.label)}</label>`;
+  if(f.type==='num') return `<label>${esc(f.label)}</label><input id="${id}" type="number">`;
+  if(f.type==='date') return `<label>${esc(f.label)}</label><input id="${id}" type="date">`;
+  if(f.type==='opt') return `<label>${esc(f.label)}</label><select id="${id}">${f.options.map(o=>`<option>${esc(o)}</option>`).join('')}</select>`;
+  return `<label>${esc(f.label)}</label><input id="${id}">`;
+}
+function renderReportForm(){
+  const r=currentReport(); rpCurrent=r; $('rp-title').textContent=r.title;
+  let html=`<div class="row"><input id="rf-subject" placeholder="Subject / involved party"><input id="rf-location" placeholder="Location / postal"></div>`;
+  if(r.custom){ html=`<label>Report title</label><input id="rf-customtitle" placeholder="Other report title…">`+html+`<label>Custom fields (one per line: <code>Label = value</code>)</label><textarea id="rf-customfields" rows="4"></textarea>`; }
+  else { html+=r.fields.map(fieldHTML).join(''); }
+  html+=`<label>Narrative</label><textarea id="rf-narrative" rows="3"></textarea>`;
+  $('rp-form').innerHTML=html;
+}
+function gatherReport(){
+  const r=rpCurrent, data={}, lines=[];
+  const push=(label,val)=>{ if(val!==''&&val!=null&&val!==false){ data[label]=(val===true?'Yes':val); lines.push(`${label}: ${val===true?'Yes':val}`); } };
+  push('Subject',$('rf-subject')?.value||''); push('Location',$('rf-location')?.value||'');
+  let title=r.title;
+  if(r.custom){ title=$('rf-customtitle')?.value||'Custom Report'; ($('rf-customfields')?.value||'').split('\n').forEach(l=>{ const i=l.indexOf('='); if(i>0) push(l.slice(0,i).trim(),l.slice(i+1).trim()); else if(l.trim()) push(l.trim(),'—'); }); }
+  else { for(const f of r.fields){ const el=$('rf-'+f.key); if(!el) continue; push(f.label, f.type==='chk'?el.checked:el.value); } }
+  push('Narrative',$('rf-narrative')?.value||'');
+  return { type:r.id, title, officer:(brand&&brand.unit)||'', subject:$('rf-subject')?.value||'', agency:(brand&&brand.agency)||'', data, lines };
+}
+function reportText(r){ return `${(r.agency||'SENTINEL PD')} — ${r.title.toUpperCase()}\nDate: ${new Date().toLocaleString()}   Unit: ${r.officer||'—'}\n${'='.repeat(42)}\n`+r.lines.join('\n'); }
+window.rpSave=async()=>{ const r=gatherReport(); const res=await api('/report',{type:r.type,title:r.title,officer:r.officer,subject:r.subject,data:r.data}); if(window.SFX) SFX.confirm(); alert('💾 Report #'+res.id+' saved.'); rpList(); };
+window.rpCopy=async()=>{ const r=gatherReport(); try{ await navigator.clipboard.writeText(reportText(r)); alert('📋 Copied — paste into Google Docs or anywhere.'); }catch{ alert('Copy failed.'); } };
+window.rpPrint=()=>{ const r=gatherReport(); const w=window.open('','_blank'); if(!w) return alert('Allow pop-ups to print.'); w.document.write(`<pre style="font:14px monospace;padding:24px;white-space:pre-wrap">${esc(reportText(r))}</pre>`); w.document.close(); w.focus(); setTimeout(()=>w.print(),150); };
+window.rpDownload=()=>{ const r=gatherReport(); const lines=reportText(r).split('\n'); const c=document.createElement('canvas'); c.width=640; c.height=Math.max(300,56+lines.length*22); const x=c.getContext('2d'); x.fillStyle='#0e1c2c'; x.fillRect(0,0,c.width,c.height); x.strokeStyle='#37d0a0'; x.lineWidth=3; x.strokeRect(8,8,c.width-16,c.height-16); x.fillStyle='#e8f0ff'; x.font='14px monospace'; lines.forEach((l,i)=>x.fillText(l.slice(0,76),24,40+i*22)); const a=document.createElement('a'); a.href=c.toDataURL('image/png'); a.download='report-'+(r.type||'custom')+'-'+Date.now()+'.png'; a.click(); if(window.SFX) SFX.blip(); };
+async function rpList(){ const l=await api('/reports'); $('rp-list').innerHTML=l.length?l.map(x=>`<div class="rec">📝 <b>${esc(x.title)}</b> ${x.subject?('· '+esc(x.subject)):''} <span class="muted">${x.officer?('· '+esc(x.officer)):''} · ${new Date(x.created_at).toLocaleDateString()}</span></div>`).join(''):'<span class="muted">No reports filed yet.</span>'; }
+
+// ---- AI Judge ----
+let lastVerdict=null;
+window.genVerdict=async()=>{
+  const b={subject:$('jd-subject').value,charges:$('jd-charges').value,jail:$('jd-jail').value,fine:$('jd-fine').value,evidence:$('jd-evidence').value,narrative:$('jd-narrative').value};
+  if(!b.charges){ alert('Enter charges first.'); return; }
+  $('jd-result').innerHTML='<span class="muted">⚖️ The AI judge is deliberating…</span>';
+  const v=await api('/judge/verdict',b);
+  if(v.error){ $('jd-result').innerHTML='<span class="muted">⚠️ '+esc(v.error)+'</span>'; return; }
+  if(window.SFX) SFX.confirm();
+  lastVerdict={...b,...v,ai:1};
+  const col=v.verdict==='Guilty'?'#ef4444':v.verdict==='Not Guilty'?'#22c55e':'#f59e0b';
+  $('jd-result').innerHTML=`<div class="card" style="border-left:4px solid ${col}">
+    <div class="big" style="color:${col}">${esc(v.verdict||'—')}</div>
+    <div>⛓️ Sentence: <b>${esc(v.sentence||'—')}</b></div>
+    <div>💵 Fine: $${v.fine||0} · 💰 Bond: $${v.bond||0}</div>
+    <div>📋 Parole: ${esc(v.parole||'None')}</div>
+    <div class="muted" style="margin-top:6px">${esc(v.reasoning||'')}</div>
+    <button class="p" style="margin-top:10px" onclick="saveVerdictUI()">💾 File as Pending (judge locks it)</button>
+    <div class="muted" style="font-size:11px;margin-top:4px">🤖 AI recommendation — not final until a judge locks it.</div>
+  </div>`;
+};
+window.saveVerdictUI=async()=>{ if(!lastVerdict)return; const r=await api('/judge/save',lastVerdict); alert('💾 Case #'+r.id+' filed as pending.'); loadJudge(); };
+async function loadJudge(){ const l=await api('/judge'); $('jd-list').innerHTML = l.length? l.map(v=>{
+  const locked=v.status==='locked';
+  return `<div class="rec"><b>#${v.id} ${esc(v.subject||'?')}</b> — <span style="color:${v.verdict==='Guilty'?'#ef4444':'#37d0a0'}">${esc(v.verdict||'')}</span> · ${esc(v.sentence||'')} <span class="muted">$${v.fine||0} / bond $${v.bond||0}</span>
+    ${locked?`<span class="badge" style="background:#14283d">🔒 ${esc(v.judge||'Judge')}${v.bond_paid?' · bond paid':''}${v.repo?' · <b style="color:#ef4444">REPO</b>':''}</span>`:`<button class="p" style="width:auto;padding:2px 8px;float:right" onclick="lockVerdictUI(${v.id})">🔒 Lock</button>`}
+    <div class="muted">${esc(v.charges||'')}</div></div>`;
+}).join('') : '<span class="muted">No cases on the docket yet.</span>'; }
+window.lockVerdictUI=async(id)=>{ if(!confirm('Lock this verdict as final? This charges the bond from the subject’s wallet.')) return; const r=await api(`/judge/${id}/lock`,{}); if(window.SFX) SFX.confirm(); alert(r.repo?('⚠️ Locked. Subject couldn’t afford $'+r.bond+' bond — their vehicles are flagged REPO ELIGIBLE.'):('🔒 Verdict locked.'+(r.bondPaid?(' Bond $'+r.bond+' charged.'):''))); loadJudge(); };
+
+if(!guild){ document.body.innerHTML='<p style="text-align:center;padding:40px">Add <code>?guild=YOUR_SERVER_ID</code> to the URL.</p>'; }
+</script>
+<!-- Z-key citation handout overlay -->
+<div id="handout-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(2,6,11,.92);align-items:center;justify-content:center">
+  <div style="background:#0e1c2c;border:1px solid #37d0a0;border-radius:16px;padding:28px;text-align:center;max-width:420px">
+    <div style="font-size:44px">🎫</div>
+    <h2 style="margin:6px 0;color:#37d0a0">Hand the citation to the driver</h2>
+    <p style="color:#9fc0e0">Give them the ticket in-game, then confirm below.</p>
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:10px">
+      <button style="max-width:220px;background:#22c55e;color:#04121f;border:none;border-radius:8px;padding:11px 16px;font-weight:800;cursor:pointer" onclick="handoutDone()">✅ Done — Handed Out</button>
+      <button style="max-width:120px;background:#16283d;color:#9fc0e0;border:none;border-radius:8px;padding:11px 16px;cursor:pointer" onclick="closeHandout()">Cancel</button>
+    </div>
+  </div>
+</div>
+<script src="/a11y.js" defer></script>
+<script src="/sfx.js" defer></script>
+</body>
+</html>

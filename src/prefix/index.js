@@ -7,6 +7,37 @@ export const QCAT_META = {
   qmath: { emoji: '🔢', label: 'Math & Convert (?)' },
   qfun: { emoji: '🎉', label: 'More Fun (?)' },
   qutil: { emoji: '🧰', label: 'Utilities (?)' },
+  // ---- expansion-pack categories (the road to 1,000) ----
+  qcasino: { emoji: '🎰', label: 'Casino & Events (?)' },
+  qai: { emoji: '🧠', label: 'AI Memory (?)' },
+  qtext2: { emoji: '✂️', label: 'Text Tools (?)' },
+  qmath2: { emoji: '➗', label: 'More Math (?)' },
+  qgen: { emoji: '🎲', label: 'Generators (?)' },
+  qgame: { emoji: '🕹️', label: 'Mini-Games (?)' },
+  qconv: { emoji: '📐', label: 'Unit Conversions (?)' },
+  qmath3: { emoji: '🧮', label: 'Geometry & Stats (?)' },
+  qcipher: { emoji: '🔐', label: 'Ciphers & Encoders (?)' },
+  qstr: { emoji: '🔤', label: 'String Tools (?)' },
+  qtime: { emoji: '⏰', label: 'Date & Time (?)' },
+  qgen2: { emoji: '🧪', label: 'More Generators (?)' },
+  qstyle: { emoji: '🔠', label: 'Text Styles (?)' },
+  qmath4: { emoji: '📊', label: 'Advanced Math (?)' },
+  qcipher2: { emoji: '🕵️', label: 'More Ciphers (?)' },
+  qstr2: { emoji: '📝', label: 'More String Tools (?)' },
+  qtime2: { emoji: '📅', label: 'More Time Tools (?)' },
+  qgen3: { emoji: '🎁', label: 'Random Generators (?)' },
+  qstyle2: { emoji: '😀', label: 'Kaomoji & Faces (?)' },
+  qphys: { emoji: '⚛️', label: 'Physics & Formulas (?)' },
+  qgen4: { emoji: '🎰', label: 'Fantasy Generators (?)' },
+  qmath5: { emoji: '📐', label: 'More Geometry (?)' },
+  qkao: { emoji: '🙂', label: 'Kaomoji Library (?)' },
+  qaero: { emoji: '✈️', label: 'Aviation (?)' },
+  qauto: { emoji: '🏎️', label: 'Automotive (?)' },
+  qfin: { emoji: '💰', label: 'Finance (?)' },
+  qsci: { emoji: '🔬', label: 'Science (?)' },
+  qmusic: { emoji: '🎵', label: 'Music Theory (?)' },
+  qmath6: { emoji: '🧠', label: 'Algorithms (?)' },
+  qapi: { emoji: '🌐', label: 'Live APIs & Games (?)' },
 };
 
 // name/alias -> command
@@ -53,6 +84,10 @@ export async function handlePrefixCommand(message) {
   try {
     const result = await cmd.run({ args, argv: restArr, message });
     if (typeof result === 'string' && result.trim()) await message.reply(result.slice(0, 2000)).catch(() => {});
+    // Commands may also return a message payload ({ embeds }, { content }, { files }).
+    else if (result && typeof result === 'object' && (result.embeds || result.content || result.files)) {
+      await message.reply({ allowedMentions: { parse: [] }, ...result }).catch(() => {});
+    }
   } catch (err) {
     await message.reply(`⚠️ ${err.message}`).catch(() => {});
   }

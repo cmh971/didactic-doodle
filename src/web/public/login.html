@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sign in · Sentinel</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    font-family: 'Segoe UI', system-ui, sans-serif; color: #e8f0ff;
+    background: radial-gradient(circle at 50% -10%, #16324f, #0a1420 55%); }
+  .card { position: relative; width: min(420px, 92vw); background: #0e1c2c; border: 1px solid #1e3a55;
+    border-radius: 16px; padding: 30px 26px; box-shadow: 0 20px 60px #0008; text-align: center; }
+  .close { position: absolute; top: 12px; right: 14px; cursor: pointer; color: #6d90b3; font-size: 20px; background: none; border: none; }
+  .close:hover { color: #e8f0ff; }
+  h1 { font-size: 20px; margin: 6px 0 2px; }
+  .sub { color: #7fa8d0; font-size: 13px; margin-bottom: 22px; }
+  button.act { width: 100%; padding: 12px; border-radius: 10px; border: none; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .g { background: #fff; color: #1f1f1f; }
+  .d { background: #5865f2; color: #fff; }
+  .ghost { background: #16283d; color: #9fc0e0; }
+  .who { display: flex; align-items: center; gap: 12px; background: #0b1622; border: 1px solid #1e3a55; border-radius: 12px; padding: 12px; text-align: left; margin-bottom: 8px; }
+  .who img { width: 46px; height: 46px; border-radius: 50%; }
+  .who .n { font-weight: 700; }
+  .who .e { color: #7fa8d0; font-size: 12px; word-break: break-all; }
+  .step { color: #37d0a0; font-size: 13px; margin: 14px 0 4px; }
+  /* modal */
+  .overlay { position: fixed; inset: 0; background: #000a; display: none; align-items: center; justify-content: center; }
+  .overlay.on { display: flex; }
+  .modal { background: #10202f; border: 1px solid #1e3a55; border-radius: 14px; padding: 22px; width: min(360px,90vw); text-align: center; }
+  .modal p { color: #cfe0f2; }
+  .modal .rowb { display: flex; gap: 8px; margin-top: 14px; }
+  .modal button { flex: 1; padding: 10px; border-radius: 8px; border: none; font-weight: 700; cursor: pointer; }
+  .stay { background: #22c55e; color: #04121f; }
+  .leave { background: #ef4444; color: #fff; }
+  .spin { color: #6d90b3; }
+</style>
+</head>
+<body>
+  <div class="card" id="card">
+    <button class="close" id="xbtn" title="Close">✕</button>
+    <div id="body"><p class="spin">Loading…</p></div>
+  </div>
+
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <p><b>Go back?</b><br>You’re signed in with Google but haven’t finished. Leaving will <b>sign you out of Google</b>.</p>
+      <div class="rowb">
+        <button class="stay" id="stay">Stay</button>
+        <button class="leave" id="leave">Leave &amp; sign out</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+let googleActive = false; // in the "one last step" state → guard the exit
+
+function ding() {
+  try {
+    const a = new (window.AudioContext || window.webkitAudioContext)();
+    const o = a.createOscillator(), g = a.createGain();
+    o.connect(g); g.connect(a.destination); o.type = 'sine';
+    o.frequency.setValueAtTime(880, a.currentTime);
+    o.frequency.setValueAtTime(660, a.currentTime + 0.12);
+    g.gain.setValueAtTime(0.25, a.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + 0.45);
+    o.start(); o.stop(a.currentTime + 0.45);
+  } catch {}
+}
+
+async function render() {
+  const me = await fetch('/api/me').then(r => r.json()).catch(() => ({}));
+  const body = document.getElementById('body');
+
+  // Already fully signed in → go to the dashboard.
+  if (me.user) { location.replace('/dashboard'); return; }
+
+  // Step 2: Google done, Discord not → the "one last step" card.
+  if (me.google) {
+    googleActive = true;
+    const g = me.google;
+    body.innerHTML = `
+      <h1>One last step${g.name ? ', ' + escapeHtml(g.name.split(' ')[0]) : ''} 👋</h1>
+      <div class="sub">Signed in with Google — now connect Discord to finish.</div>
+      <div class="who">
+        ${g.picture ? `<img src="${g.picture}" alt="">` : ''}
+        <div><div class="n">${escapeHtml(g.name || 'Google user')}</div><div class="e">${escapeHtml(g.email || '')}</div></div>
+      </div>
+      <button class="act ghost" id="signout">Sign out of Google</button>
+      <div class="step">➡️ ${escapeHtml((g.name || 'You').split(' ')[0])}, sign in with Discord to continue</div>
+      <button class="act d" id="discord">Continue with Discord</button>
+    `;
+    document.getElementById('discord').onclick = () => { googleActive = false; location.href = '/login'; };
+    document.getElementById('signout').onclick = () => { googleActive = false; location.href = '/auth/google/logout'; };
+    return;
+  }
+
+  // Step 1: nothing yet → offer Google (and a direct Discord option).
+  body.innerHTML = `
+    <h1>Sign in to Sentinel</h1>
+    <div class="sub">Start with Google, then connect Discord.</div>
+    ${me.googleEnabled ? `<button class="act g" id="google">🔵 Sign in with Google</button>` : ''}
+    <button class="act d" id="discord2">Continue with Discord</button>
+  `;
+  const gbtn = document.getElementById('google'); if (gbtn) gbtn.onclick = () => location.href = '/auth/google';
+  document.getElementById('discord2').onclick = () => location.href = '/login';
+}
+
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+// In-page ✕ → ding + custom confirm (only meaningful once Google is connected).
+document.getElementById('xbtn').onclick = () => {
+  if (!googleActive) { location.href = '/'; return; }
+  ding();
+  document.getElementById('overlay').classList.add('on');
+};
+document.getElementById('stay').onclick = () => document.getElementById('overlay').classList.remove('on');
+document.getElementById('leave').onclick = () => { googleActive = false; location.href = '/auth/google/logout'; };
+
+// Real browser tab-close: native prompt (browsers won't allow a custom dialog/sound
+// here), and sign out of Google if they actually leave mid-flow.
+window.addEventListener('beforeunload', (e) => { if (googleActive) { e.preventDefault(); e.returnValue = ''; } });
+window.addEventListener('pagehide', () => { if (googleActive) navigator.sendBeacon('/auth/google/logout'); });
+
+render();
+</script>
+<script src="/a11y.js" defer></script>
+</body>
+</html>

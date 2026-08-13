@@ -1,0 +1,34 @@
+API Use Guidelines
+Rules and responsibilities for accessing the ER:LC Private Server API, including prohibited uses, key security, and community standards.
+
+Using the ER:LC Private Server API comes with a set of responsibilities. Whether you are building a Discord bot, a web dashboard, or any other integration, you must follow these guidelines to maintain your API access and protect the broader ER:LC community.
+​
+Support scope
+We provide API support exclusively to developers who have direct access to their own code. If you are building a product for end users, you are responsible for supporting those users yourself, ER:LC will not troubleshoot issues on behalf of people who simply use your application.
+​
+Prohibited uses
+The following uses are strictly prohibited and will result in your API access being permanently revoked, along with potential bans from the ER:LC game:
+Nuking or raiding private servers
+Impersonating players, staff, or PRC personnel
+Spreading disinformation or misinformation
+Threatening users in any form
+Spamming servers, players, or the API itself
+Any other bad-faith or nefarious use of the API
+​
+Safeguarding credentials and data
+You are responsible for keeping your API access keys, server-keys, and any data returned by the API secure. Do not expose keys in public repositories, client-side code, or any location accessible to unauthorized parties. If a key is compromised, rotate it immediately.
+​
+Requirements for large-scale applications
+If your application makes a high volume of requests, you must implement adequate rate limiting, error handling, abuse prevention, and data protection measures. PRC reserves the right to suspend or restrict access for any application that degrades service performance, compromises security, or creates unreasonable risk to the community.
+See Global API Keys for Large-Scale Applications for guidance on handling high request volumes and applying for a global API key.
+​
+Stopping automation after removal
+When your service is removed from a private server, you must immediately stop making API requests that use that server’s key.
+Example: If your bot is kicked from a Discord guild, you must cease all API requests that use the server-key you obtained from that guild.
+​
+PRC Community Guidelines
+The API cannot be used to enable any behaviour that violates the ER:LC Community Guidelines. These are available via the #community-guidelines channel in the PRC Discord server.
+​
+Reporting security issues
+If you discover a security vulnerability affecting the ER:LC API or its infrastructure, email flatbird@erlc.gg immediately. Do not disclose the vulnerability publicly before contacting us.
+---------------------------------------------------------------------------------------------------------------------------ss
