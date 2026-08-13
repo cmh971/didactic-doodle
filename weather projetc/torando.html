@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Convective Threat & Tornado Risk Matrix</title>
+    <style>
+        :root {
+            --bg-main: #030712;
+            --bg-card: #0b1329;
+            --border: #1e293b;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+            --matrix-green: #10b981;
+            --matrix-blue: #3b82f6;
+            --level-1: #10b981; /* Marginal */
+            --level-2: #eab308; /* Slight */
+            --level-3: #f97316; /* Enhanced */
+            --level-4: #ef4444; /* Moderate */
+            --level-5: #7c2d12; /* High */
+            --emergency: #dc2626;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+
+        .navbar {
+            background-color: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .navbar h1 {
+            margin: 0;
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: var(--text-main);
+        }
+
+        .radar-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            background: rgba(59, 130, 246, 0.1);
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid var(--matrix-blue);
+            color: var(--matrix-blue);
+        }
+
+        .radar-pulse {
+            width: 8px;
+            height: 8px;
+            background-color: var(--matrix-blue);
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        .main-container {
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .matrix-panel {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 35px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sector-tag {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-sub);
+            margin-bottom: 10px;
+        }
+
+        /* Dynamic Alert Window */
+        .risk-display {
+            margin: 25px 0;
+        }
+
+        .risk-number {
+            font-size: 96px;
+            font-weight: 900;
+            line-height: 1;
+            margin: 0;
+            text-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .risk-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-top: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .alert-banner {
+            display: none;
+            background: rgba(220, 38, 38, 0.15);
+            border: 2px solid var(--emergency);
+            padding: 20px;
+            border-radius: 12px;
+            color: #fca5a5;
+            font-weight: 700;
+            font-size: 18px;
+            margin: 20px 0;
+            animation: flash 1s infinite alternate;
+        }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 30px;
+            border-top: 1px solid var(--border);
+            padding-top: 25px;
+            text-align: left;
+        }
+
+        .metric-box {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .metric-label {
+            font-size: 11px;
+            color: var(--text-sub);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .metric-value {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        /* Risk Spectrum Visual Indicator */
+        .spectrum-bar {
+            display: flex;
+            gap: 4px;
+            max-width: 300px;
+            margin: 20px auto 0 auto;
+        }
+
+        .spectrum-step {
+            flex: 1;
+            height: 6px;
+            background-color: #1e293b;
+            border-radius: 3px;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(59, 130, 246, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+
+        @keyframes flash {
+            0% { background: rgba(220, 38, 38, 0.05); border-color: rgba(220, 38, 38, 0.4); }
+            100% { background: rgba(220, 38, 38, 0.25); border-color: var(--emergency); box-shadow: 0 0 15px rgba(220, 38, 38, 0.4); }
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <h1>CONVECTIVE THREAT EVALUATION INFRASTRUCTURE</h1>
+        <div class="radar-status">
+            <div class="radar-pulse" id="status-pulse"></div>
+            <span id="status-text">SCANNING SYSTEM</span>
+        </div>
+    </nav>
+
+    <main class="main-container">
+        <div class="matrix-panel">
+            <div class="sector-tag">📡 Geographic Vector // Local Convective Grid</div>
+            
+            <div class="alert-banner" id="tornado-emergency">
+                ⚠️ CRITICAL ATMOSPHERIC EMERGENCY DETECTED: TORNADO / SEVERE CONVECTIVE THREAT ACTIVE IN SECTOR AREA. TAKE IMMEDIATE COVER.
+            </div>
+
+            <div class="risk-display" id="standard-risk-window">
+                <div class="risk-number" id="risk-level-num">-</div>
+                <div class="risk-title" id="risk-level-string">LOADING METRICS</div>
+                
+                <div class="spectrum-bar">
+                    <div class="spectrum-step" id="step-1"></div>
+                    <div class="spectrum-step" id="step-2"></div>
+                    <div class="spectrum-step" id="step-3"></div>
+                    <div class="spectrum-step" id="step-4"></div>
+                    <div class="spectrum-step" id="step-5"></div>
+                </div>
+            </div>
+
+            <div class="metric-grid">
+                <div class="metric-box">
+                    <div class="metric-label">Atmospheric Instability (Wind Speed)</div>
+                    <div class="metric-value" id="val-wind">-- mph</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-label">Moisture Content (Relative Humidity)</div>
+                    <div class="metric-value" id="val-humidity">--%</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-label">Current Local Conditions</div>
+                    <div class="metric-value" id="val-phrase" style="color: #38bdf8;">Checking Arrays...</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-label">Radar Update Cadence</div>
+                    <div class="metric-value" style="color: var(--matrix-blue);">Auto-Poll // 60s</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Static Coordinate Targeting (Hardlocked profile vector)
+        const LATITUDE = 38.9822;
+        const LONGITUDE = -94.6708;
+
+        // Comprehensive WMO Code Mapping Matrix to Human-Readable Phrases
+        const wmoCodeMap = {
+            0: "Clear Sky (Calm Conditions)",
+            1: "Mainly Clear (Scattered Clouds)",
+            2: "Partly Cloudy Matrix",
+            3: "Overcast Atmosphere",
+            45: "Fog Layer Present",
+            48: "Depositing Rime Fog",
+            51: "Light Drizzle",
+            53: "Moderate Drizzle",
+            55: "Dense High-Intensity Drizzle",
+            56: "Light Freezing Drizzle",
+            57: "Dense Freezing Drizzle",
+            61: "Slight Continuous Rain",
+            63: "Moderate Continuous Rain",
+            65: "Heavy Concentrated Rain",
+            66: "Light Freezing Rain",
+            67: "Heavy Freezing Rain",
+            71: "Slight Snowfall Fallback",
+            73: "Moderate Snowfall Fallback",
+            75: "Heavy Concentrated Snowfall",
+            77: "Snow Grains Detected",
+            80: "Slight Dynamic Rain Showers",
+            81: "Moderate Rain Showers",
+            82: "Violent Rain Showers (Convective Flash Threat)",
+            85: "Slight Snow Showers",
+            86: "Heavy Snow Showers",
+            95: "Thunderstorm Grid (Active Lightning)",
+            96: "Thunderstorm with Slight Hail Variant",
+            99: "Severe Convective Thunderstorm (High Hail / Tornado Proxy Potential)"
+        };
+
+        async function analyzeConvectiveAtmosphere() {
+            try {
+                document.getElementById('status-text').textContent = "POLLING ARRAY...";
+                
+                // Fetch high-fidelity convective parameters from public Open-Meteo infrastructure
+                const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LATITUDE}&longitude=${LONGITUDE}&current=relative_humidity_2m,weather_code,wind_speed_10m,wind_gusts_10m&timezone=auto`);
+                const data = await response.json();
+                const metrics = data.current;
+
+                const windSpeed = metrics.wind_speed_10m;
+                const windGusts = metrics.wind_gusts_10m;
+                const humidity = metrics.relative_humidity_2m;
+                const wmoCode = metrics.weather_code;
+
+                // Map WMO Code to descriptive, human-readable weather phrase
+                const weatherPhrase = wmoCodeMap[wmoCode] || `Unknown Code Signature [${wmoCode}]`;
+
+                // Bind core diagnostics to UI nodes
+                document.getElementById('val-wind').textContent = `${windSpeed} mph (Gusts: ${windGusts} mph)`;
+                document.getElementById('val-humidity').textContent = `${humidity}%`;
+                document.getElementById('val-phrase').textContent = weatherPhrase;
+
+                // RESET STEP STYLES BEFORE CALCULATING
+                for(let i=1; i<=5; i++) document.getElementById(`step-${i}`).style.backgroundColor = '#1e293b';
+
+                /**
+                 * EVALUATION PIPELINE
+                 * Check for convective storm indicators via WMO code matrices
+                 * Codes 95, 96, 99 indicate heavy or convective thunderstorm arrays.
+                 */
+                if (wmoCode === 95 || wmoCode === 96 || wmoCode === 99 || windGusts > 55) {
+                    // EMERGENCY STATE ENGAGED
+                    document.getElementById('tornado-emergency').style.display = 'block';
+                    document.getElementById('standard-risk-window').style.display = 'none';
+                    
+                    // Modify status lighting
+                    document.getElementById('status-pulse').style.backgroundColor = 'var(--emergency)';
+                    document.getElementById('status-text').style.color = 'var(--emergency)';
+                    document.getElementById('status-text').textContent = "CRITICAL ALERT";
+                } else {
+                    // STANDBY MATRIX CALCULATION (Scale 1-5 Risk Index based on thermodynamic markers)
+                    document.getElementById('tornado-emergency').style.display = 'none';
+                    document.getElementById('standard-risk-window').style.display = 'block';
+                    
+                    document.getElementById('status-pulse').style.backgroundColor = 'var(--matrix-blue)';
+                    document.getElementById('status-text').style.color = 'var(--matrix-blue)';
+                    document.getElementById('status-text').textContent = "SYSTEM NOMINAL";
+
+                    let riskLevel = 1;
+                    let riskString = "Level 1: Minimal / Marginal";
+                    let riskColor = 'var(--level-1)';
+
+                    // Risk Scaling Metrics based on shear (wind) and boundary moisture parameters
+                    if (windGusts >= 20 && windGusts < 30) {
+                        riskLevel = 2;
+                        riskString = "Level 2: Low / Slight Risk";
+                        riskColor = 'var(--level-2)';
+                    } else if (windGusts >= 30 && windGusts < 40) {
+                        riskLevel = 3;
+                        riskString = "Level 3: Moderate / Enhanced Risk";
+                        riskColor = 'var(--level-3)';
+                    } else if (windGusts >= 40 && windGusts < 50) {
+                        riskLevel = 4;
+                        riskString = "Level 4: High / Severe Risk";
+                        riskColor = 'var(--level-4)';
+                    } else if (windGusts >= 50 || wmoCode === 82) {
+                        riskLevel = 5;
+                        riskString = "Level 5: Extreme Convective Peril";
+                        riskColor = 'var(--level-5)';
+                    }
+
+                    // Update Main Matrix display
+                    const numNode = document.getElementById('risk-level-num');
+                    const strNode = document.getElementById('risk-level-string');
+                    
+                    numNode.textContent = riskLevel;
+                    numNode.style.color = riskColor;
+                    strNode.textContent = riskString;
+
+                    // Illuminate corresponding step components inside the spectrum bar
+                    for(let i=1; i<=riskLevel; i++) {
+                        document.getElementById(`step-${i}`).style.backgroundColor = riskColor;
+                    }
+                }
+            } catch (error) {
+                console.error("Telemetry Retrieval Fault:", error);
+                document.getElementById('status-text').textContent = "SYNC DISCREPANCY";
+            }
+        }
+
+        // Initialize monitoring array and map continuous update cycle
+        analyzeConvectiveAtmosphere();
+        setInterval(analyzeConvectiveAtmosphere, 60000);
+    </script>
+    <script src="/projnav.js" defer></script>
+</body>
+</html>

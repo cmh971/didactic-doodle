@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dispatcher Console · Sentinel CAD</title>
+<style>
+  :root { color-scheme: dark; } * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0f16; color: #e8f0ff; }
+  header { display: flex; align-items: center; gap: 14px; padding: 10px 16px; background: #0e1c2c; border-bottom: 1px solid #1e3a55; }
+  header h1 { font-size: 17px; margin: 0; }
+  header .live { margin-left: auto; font-size: 13px; color: #7fa8d0; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: #ef4444; display: inline-block; margin-right: 5px; }
+  .dot.on { background: #22c55e; }
+  .grid { display: grid; grid-template-columns: 320px 1fr 300px; gap: 12px; padding: 12px; height: calc(100vh - 54px); }
+  .col { overflow-y: auto; }
+  .card { background: #0e1c2c; border: 1px solid #1e3a55; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+  .card h2 { font-size: 13px; margin: 0 0 8px; color: #9fc0e0; text-transform: uppercase; letter-spacing: .5px; }
+  .call { border-left: 4px solid #f59e0b; background: #0b1622; border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
+  .call.p1 { border-color: #ef4444; } .call.p2 { border-color: #f97316; } .call.p3 { border-color: #f59e0b; } .call.p4 { border-color: #3b82f6; } .call.p5 { border-color: #6b7280; }
+  .call.game { border-style: dashed; }
+  .call .t { font-weight: 700; } .call .m { font-size: 12px; color: #9fc0e0; }
+  .call .units { font-size: 11px; color: #37d0a0; margin-top: 4px; }
+  .call button { font-size: 11px; padding: 2px 7px; margin-top: 6px; margin-right: 4px; border: none; border-radius: 6px; cursor: pointer; }
+  input, select, textarea, button { background: #0b1622; color: #e8f0ff; border: 1px solid #1e3a55; border-radius: 7px; padding: 7px; font-size: 13px; width: 100%; }
+  button.p { background: #22c55e; color: #04121f; border: none; font-weight: 700; }
+  label { font-size: 11px; color: #9fc0e0; display: block; margin: 6px 0 2px; }
+  canvas { width: 100%; border: 1px solid #1e3a55; border-radius: 10px; background: #000; }
+  .unit { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-bottom: 1px solid #14283d; font-size: 13px; }
+  .badge { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+  .unit .nm { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .unit select { width: auto; padding: 3px; font-size: 11px; }
+  .st { font-size: 10px; padding: 1px 5px; border-radius: 5px; background: #14283d; }
+  .row2 { display: flex; gap: 6px; }
+  #err { color: #ef4444; font-size: 12px; }
+  .hbtn { width: auto; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 12px; }
+  #btn-panic { background: #ef4444; color: #fff; border: none; }
+  #btn-sig { background: #0b1622; color: #fca5a5; border: 1px solid #ef4444; }
+  #banner { display: none; padding: 9px 16px; text-align: center; font-weight: 800; }
+  #banner.on { display: block; background: #7f1d1d; color: #fff; animation: flash 1s infinite; }
+  @keyframes flash { 50% { background: #b91c1c; } }
+</style>
+</head>
+<body>
+  <header>
+    <h1>🚨 Dispatcher Console</h1>
+    <span id="server" class="live">—</span>
+    <span class="live"><span class="dot" id="livedot"></span><span id="pcount">0</span> online</span>
+    <button class="hbtn" id="btn-panic">🆘 PANIC</button>
+    <button class="hbtn" id="btn-sig">SIGNAL 100</button>
+  </header>
+  <div id="banner"></div>
+  <div class="grid">
+    <!-- CALLS -->
+    <div class="col">
+      <div class="card">
+        <h2>➕ New call</h2>
+        <label>Title</label><input id="c-title" placeholder="Traffic stop / Robbery…">
+        <div class="row2"><div style="flex:2"><label>Type</label><input id="c-type" placeholder="10-11 / 911…"></div><div style="flex:1"><label>Priority</label><select id="c-pri"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option></select></div></div>
+        <label>Postal</label><input id="c-postal" placeholder="604">
+        <label>Notes</label><textarea id="c-notes" rows="2"></textarea>
+        <button class="p" id="c-add" style="margin-top:8px">Create call</button>
+      </div>
+      <div class="card">
+        <h2>📞 Active calls</h2>
+        <div id="calls"><div class="m">—</div></div>
+      </div>
+      <div id="err"></div>
+    </div>
+    <!-- MAP -->
+    <div class="col">
+      <div class="card"><h2>🗺️ Live map</h2><canvas id="map" width="900" height="900"></canvas>
+        <div class="m" style="margin-top:6px">🔵 Police · 🟤 Sheriff · 🔴 Fire · 🟢 EMS · 🟠 DOT · ⚪ Civ · 🟡 active call</div>
+        <div style="margin-top:8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <button class="hbtn" id="z-toggle" style="background:#16283d;color:#9fc0e0">✏️ Draw jurisdiction</button>
+          <input type="color" id="z-color" value="#3b82f6" style="width:42px;height:30px;padding:2px;border-radius:6px">
+          <button class="hbtn" id="z-save" style="background:#22c55e;color:#04121f;display:none">💾 Save</button>
+          <button class="hbtn" id="z-cancel" style="background:#ef4444;color:#fff;display:none">✖</button>
+          <span class="m" id="z-hint"></span>
+        </div>
+        <div id="zoneList" class="m" style="margin-top:6px"></div>
+      </div>
+    </div>
+    <!-- UNITS -->
+    <div class="col">
+      <div class="card"><h2>🚨 Patrol Ops</h2>
+        <div class="row2" style="align-items:center;gap:6px;flex-wrap:wrap">
+          <label style="margin:0">Speed limit</label>
+          <input id="patrol-limit" type="number" value="80" style="width:70px">
+          <button class="hbtn" id="patrol-voice" style="background:#16283d;color:#9fc0e0">🔊 Voice</button>
+        </div>
+        <div style="margin-top:8px"><b style="font-size:11px;color:#9fc0e0;letter-spacing:.5px">📡 SPEED RADAR</b><div id="patrol-radar"><div class="m">—</div></div></div>
+        <div style="margin-top:8px"><b style="font-size:11px;color:#9fc0e0;letter-spacing:.5px">📻 AUTO-DISPATCH</b><div id="patrol-dispatch"><div class="m">—</div></div></div>
+        <div style="margin-top:8px"><b style="font-size:11px;color:#9fc0e0;letter-spacing:.5px">🚨 BOLO / ALPR</b><div id="patrol-bolo"><div class="m">—</div></div></div>
+      </div>
+      <div class="card"><h2>👮 Units</h2><div id="units"><div class="m">—</div></div></div>
+    </div>
+  </div>
+
+<script>
+const guild = new URLSearchParams(location.search).get('guild');
+const $ = (id) => document.getElementById(id);
+const TEAM = { Police:'#3b82f6', Sheriff:'#92400e', Fire:'#ef4444', 'Fire/EMS':'#ef4444', EMS:'#22c55e', Medical:'#22c55e', DOT:'#f59e0b', Civilian:'#9ca3af' };
+const STATUSES = ['Available','En Route','On Scene','Busy','10-7'];
+let state = { units: [], cadCalls: [], gameCalls: [], studsPerPixel: 1, season: 'fall' };
+let zonePts = [], drawMode = false;
+const map = new Image(); let mapLoaded = false;
+
+function esc(s){ return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+async function api(path, body){ const r = await fetch(`/api/cad/${guild}${path}`, body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{}); return r.json(); }
+
+async function tick(){
+  const s = await api('/state');
+  if(!s.ok){ $('err').textContent = s.error || 'Could not load'; $('livedot').classList.remove('on'); return; }
+  $('err').textContent=''; $('livedot').classList.add('on');
+  state = s; $('server').textContent = s.name || ''; $('pcount').textContent = `${s.players||0}/${s.maxPlayers||0}`;
+  if(s.season && map.dataset?.season !== s.season) loadMap(s.season);
+  renderCalls(); renderUnits(); renderBanner(); renderZones(); draw();
+  window.CADPatrol && CADPatrol.update(state);
+}
+function renderZones(){ $('zoneList').innerHTML = (state.jurisdictions||[]).map(z=>`<span style="color:${z.color}">■</span> ${esc(z.name)} <a href="#" onclick="delZone(${z.id});return false" style="color:#ef4444;text-decoration:none">✕</a>`).join(' &nbsp; '); }
+function renderBanner(){
+  const b=$('banner'); const msgs=[];
+  if(state.signal100) msgs.push('🚨 SIGNAL 100 ACTIVE — EMERGENCY TRAFFIC ONLY');
+  for(const p of (state.panics||[])) msgs.push(`🆘 PANIC: ${esc(p.unit)} needs assistance${(p.street||p.postal)?` @ ${esc(p.street||p.postal)}`:''}!`);
+  if(msgs.length){ b.className='on'; b.innerHTML=msgs.join(' &nbsp;·&nbsp; '); $('btn-sig').textContent = state.signal100?'CLEAR 100':'SIGNAL 100'; }
+  else { b.className=''; $('btn-sig').textContent='SIGNAL 100'; }
+}
+$('btn-panic').onclick = async ()=>{ const u=prompt('Panic for which unit? (callsign / name)'); if(u){ await api('/panic',{unit:u}); tick(); } };
+$('btn-sig').onclick = async ()=>{ await api('/signal100',{on: !state.signal100}); tick(); };
+// jurisdiction drawing
+const resetZone = ()=>{ zonePts=[]; drawMode=false; $('z-save').style.display='none'; $('z-cancel').style.display='none'; $('z-hint').textContent=''; $('z-toggle').style.background='#16283d'; $('z-toggle').style.color='#9fc0e0'; };
+$('map').addEventListener('click', (e)=>{ if(!drawMode) return; const r=$('map').getBoundingClientRect(); zonePts.push([+((e.clientX-r.left)/r.width).toFixed(4), +((e.clientY-r.top)/r.height).toFixed(4)]); draw(); });
+$('z-toggle').onclick = ()=>{ drawMode=!drawMode; zonePts=[]; $('z-save').style.display=drawMode?'inline-block':'none'; $('z-cancel').style.display=drawMode?'inline-block':'none'; $('z-hint').textContent=drawMode?'Click the map to add points (≥3), then Save.':''; $('z-toggle').style.background=drawMode?'#1aa3ff':'#16283d'; $('z-toggle').style.color=drawMode?'#04121f':'#9fc0e0'; draw(); };
+$('z-cancel').onclick = ()=>{ resetZone(); draw(); };
+$('z-save').onclick = async ()=>{ if(zonePts.length<3){ $('z-hint').textContent='Need at least 3 points.'; return; } const name=prompt('Jurisdiction name? (e.g. River City PD)'); if(!name){ return; } await api('/jurisdictions',{name,color:$('z-color').value,points:zonePts}); resetZone(); tick(); };
+window.delZone = async (id)=>{ await api(`/jurisdictions/${id}/delete`,{}); tick(); };
+function loadMap(season){ map.onload=()=>{mapLoaded=true;draw();}; map.dataset = map.dataset||{}; map.dataset.season=season; map.src = `/erlc%20map.png/${season}${'' }_blank.png`.replace('winter_','winter snow_'); }
+
+function draw(){
+  const cv=$('map'), ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,cv.width,cv.height);
+  if(mapLoaded) ctx.drawImage(map,0,0,cv.width,cv.height);
+  // jurisdictions (sector boundaries)
+  for(const z of (state.jurisdictions||[])){ if(!z.points||z.points.length<3) continue; ctx.beginPath(); z.points.forEach(([fx,fy],i)=>{const x=fx*cv.width,y=fy*cv.height; i?ctx.lineTo(x,y):ctx.moveTo(x,y);}); ctx.closePath(); ctx.fillStyle=(z.color||'#3b82f6')+'33'; ctx.fill(); ctx.strokeStyle=z.color||'#3b82f6'; ctx.lineWidth=2; ctx.stroke(); const cx=z.points.reduce((a,p)=>a+p[0],0)/z.points.length*cv.width, cy=z.points.reduce((a,p)=>a+p[1],0)/z.points.length*cv.height; ctx.fillStyle='#fff'; ctx.font='bold 15px sans-serif'; ctx.textAlign='center'; ctx.fillText(z.name||'',cx,cy); ctx.textAlign='left'; }
+  // in-progress zone being drawn
+  if(zonePts.length){ ctx.beginPath(); zonePts.forEach(([fx,fy],i)=>{const x=fx*cv.width,y=fy*cv.height; i?ctx.lineTo(x,y):ctx.moveTo(x,y);}); ctx.strokeStyle='#37d0a0'; ctx.lineWidth=2; ctx.stroke(); zonePts.forEach(([fx,fy])=>{ctx.beginPath();ctx.arc(fx*cv.width,fy*cv.height,4,0,7);ctx.fillStyle='#37d0a0';ctx.fill();}); }
+  const spp = state.studsPerPixel||1, S = cv.width/3121;
+  const toXY = (x,z)=>[ (1560.5 + x/spp)*S, (1560.5 + z/spp)*S ];
+  // active call markers
+  for(const c of state.gameCalls){ if(c.x==null)continue; const [px,py]=toXY(c.x,c.z); ctx.beginPath(); ctx.arc(px,py,7,0,7); ctx.fillStyle='#facc15'; ctx.fill(); }
+  // units
+  for(const u of state.units){ if(u.x==null)continue; const [px,py]=toXY(u.x,u.z); ctx.beginPath(); ctx.arc(px,py,5,0,7); ctx.fillStyle=TEAM[u.team]||'#9ca3af'; ctx.fill(); ctx.strokeStyle='#000'; ctx.lineWidth=1; ctx.stroke(); }
+  // speed violators (Patrol Ops) — flashing red ring + mph label
+  const viol = window.__patrolViolators;
+  if(viol && viol.size){ const on = (Date.now()%800)<400; for(const u of state.units){ if(u.x==null || !viol.has(u.name)) continue; const [px,py]=toXY(u.x,u.z); ctx.beginPath(); ctx.arc(px,py,11,0,7); ctx.strokeStyle = on?'#ff3b3b':'#ffb3b3'; ctx.lineWidth=3; ctx.stroke(); ctx.fillStyle='#ff3b3b'; ctx.font='bold 11px sans-serif'; ctx.fillText(viol.get(u.name).mph+' mph', px+13, py+4); } }
+}
+
+function renderCalls(){
+  const el=$('calls'); const cad=state.cadCalls, game=state.gameCalls;
+  if(!cad.length && !game.length){ el.innerHTML='<div class="m">No active calls.</div>'; return; }
+  el.innerHTML = cad.map(c=>`<div class="call p${c.priority}"><div class="t">#${c.id} ${esc(c.title)} <span class="st">P${c.priority}</span></div><div class="m">${esc(c.type||'')}${c.postal?' · 📍'+esc(c.postal):''}</div>${c.notes?`<div class="m">${esc(c.notes)}</div>`:''}<div class="units">${c.units.length?'🚔 '+c.units.map(esc).join(', '):'unassigned'}</div><button style="background:#ef4444;color:#fff" onclick="closeCall(${c.id})">Close</button></div>`).join('')
+    + game.map(g=>`<div class="call game p3"><div class="t">🎮 911 #${esc(g.number)} <span class="st">game</span></div><div class="m">${esc(g.desc||'(no description)')}${g.postal?' · 📍'+esc(g.postal):''}</div><button class="p" onclick='fromGame(${JSON.stringify(g)})'>→ Create CAD call</button></div>`).join('');
+}
+function renderUnits(){
+  const el=$('units'); if(!state.units.length){ el.innerHTML='<div class="m">No one online.</div>'; return; }
+  const callOpts = state.cadCalls.map(c=>`<option value="${c.id}">#${c.id} ${esc(c.title)}</option>`).join('');
+  el.innerHTML = state.units.map(u=>`<div class="unit"><span class="badge" style="background:${TEAM[u.team]||'#9ca3af'}"></span><span class="nm" title="${esc(u.team)}">${esc(u.name)}</span>
+    <select onchange="setStatus('${esc(u.name)}',this.value)">${STATUSES.map(s=>`<option ${u.status===s?'selected':''}>${s}</option>`).join('')}</select>
+    <select onchange="assign('${esc(u.name)}',this.value)"><option value="">assign…</option>${callOpts}</select></div>`).join('');
+}
+window.closeCall = async (id)=>{ await api(`/call/${id}/close`, {}); tick(); };
+window.setStatus = async (unit,status)=>{ await api('/status',{unit,status}); };
+window.assign = async (unit,callId)=>{ if(callId) await api('/assign',{unit,callId}); tick(); };
+window.fromGame = async (g)=>{ await api('/call',{title:g.desc||('911 #'+g.number),type:'911',priority:2,postal:g.postal,notes:'From in-game emergency call'}); tick(); };
+$('c-add').onclick = async ()=>{ await api('/call',{title:$('c-title').value,type:$('c-type').value,priority:$('c-pri').value,postal:$('c-postal').value,notes:$('c-notes').value}); $('c-title').value=$('c-type').value=$('c-postal').value=$('c-notes').value=''; tick(); };
+
+if(!guild){ document.body.innerHTML='<p style="text-align:center;padding:40px">Add <code>?guild=YOUR_SERVER_ID</code> to the URL.</p>'; }
+else { loadMap('fall'); tick(); setInterval(tick, 4000); }
+</script>
+<script src="/a11y.js" defer></script>
+<script src="/sfx.js" defer></script>
+<script src="/cad-fx.js" defer></script>
+<script src="/cad-patrol.js" defer></script>
+</body>
+</html>
+// eNd of file

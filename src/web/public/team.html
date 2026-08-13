@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Meet the Team · Sentinel</title>
+  <link rel="icon" href="favicon.ico" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; min-height: 100vh; color: var(--text); overflow-x: hidden;
+      font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: var(--bg); }
+
+    /* ---------- animated aurora background ---------- */
+    .aurora { position: fixed; inset: 0; z-index: -2; overflow: hidden; }
+    .aurora span { position: absolute; border-radius: 50%; filter: blur(80px); opacity: .5; animation: drift 22s ease-in-out infinite; }
+    .aurora .a1 { width: 520px; height: 520px; background: #5865f2; top: -140px; left: -80px; }
+    .aurora .a2 { width: 460px; height: 460px; background: #8b5cf6; bottom: -160px; right: -60px; animation-delay: -7s; }
+    .aurora .a3 { width: 400px; height: 400px; background: #2dd4bf; top: 40%; left: 55%; animation-delay: -14s; opacity: .3; }
+    @keyframes drift { 0%,100%{ transform: translate(0,0) scale(1);} 33%{ transform: translate(60px,-40px) scale(1.1);} 66%{ transform: translate(-40px,30px) scale(.95);} }
+    .grain { position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: .04;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 46px 20px 80px; }
+
+    /* ---------- hero ---------- */
+    .hero { text-align: center; margin-bottom: 30px; }
+    .hero .eyebrow { display: inline-block; letter-spacing: .28em; font-size: .72rem; font-weight: 800; color: var(--accent); text-transform: uppercase; margin-bottom: 12px; opacity: 0; animation: rise .7s .05s forwards; }
+    .hero h1 { font-size: clamp(2.2rem, 6vw, 3.2rem); margin: 0 0 10px; font-weight: 900; letter-spacing: -.03em; opacity: 0; animation: rise .7s .15s forwards;
+      background: linear-gradient(100deg, #fff, #a9b6ff 55%, #d4bbff); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+    .hero p { color: var(--muted); font-size: 1.05rem; margin: 0; opacity: 0; animation: rise .7s .25s forwards; }
+    a.back { color: var(--muted); text-decoration: none; } a.back:hover { color: var(--text); }
+    @keyframes rise { from { opacity: 0; transform: translateY(16px);} to { opacity: 1; transform: none; } }
+
+    /* ---------- stat strip ---------- */
+    .stats { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin: 26px 0 40px; opacity: 0; animation: rise .7s .35s forwards; }
+    .stats .s { background: rgba(255,255,255,.03); border: 1px solid var(--border); border-radius: 12px; padding: 12px 20px; text-align: center; min-width: 110px; }
+    .stats .s .v { font-size: 1.5rem; font-weight: 900; letter-spacing: -.02em; }
+    .stats .s .k { font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 700; margin-top: 2px; }
+
+    /* role badge colors */
+    .badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: .7rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+    .r-head   { background: rgba(255,210,63,.16); color: #ffd23f; border: 1px solid rgba(255,210,63,.4); }
+    .r-lead   { background: rgba(139,92,246,.16); color: #b79bff; border: 1px solid rgba(139,92,246,.4); }
+    .r-senior { background: rgba(45,212,191,.16); color: #5eead4; border: 1px solid rgba(45,212,191,.4); }
+    .r-junior { background: rgba(46,204,113,.16); color: #6ee7a0; border: 1px solid rgba(46,204,113,.4); }
+    .r-admin  { background: rgba(249,115,22,.16); color: #fdba74; border: 1px solid rgba(249,115,22,.4); }
+
+    /* ---------- tilt + spotlight shared ---------- */
+    .tilt { transform-style: preserve-3d; transition: transform .12s ease-out; will-change: transform; }
+    .spot { position: relative; }
+    .spot::before { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .25s;
+      background: radial-gradient(340px circle at var(--mx,50%) var(--my,50%), rgba(255,255,255,.10), transparent 42%); }
+    .spot:hover::before { opacity: 1; }
+
+    /* ---------- featured (Chris) ---------- */
+    .feature { border: 1px solid var(--border); border-radius: 22px; overflow: hidden; margin-bottom: 40px;
+      background: var(--panel); box-shadow: 0 30px 80px -40px rgba(0,0,0,.9); opacity: 0; animation: rise .8s .4s forwards; }
+    .feature .banner { height: 210px; background-size: 110%; background-position: center; background-repeat: no-repeat; position: relative; transition: background-position .2s ease-out; }
+    .feature .banner::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 35%, var(--panel)); }
+    .feature .body { padding: 0 28px 26px; margin-top: -60px; position: relative; display: flex; gap: 22px; align-items: flex-end; flex-wrap: wrap; z-index: 1; }
+    .feature .pfpring { padding: 4px; border-radius: 50%; background: conic-gradient(from 0deg, #ffd23f, #ff9f1c, #ffd23f); animation: spin 6s linear infinite; box-shadow: 0 8px 30px rgba(255,210,63,.35); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .feature .pfp { width: 116px; height: 116px; border-radius: 50%; border: 4px solid var(--panel); object-fit: cover; background: #222b3a; display: block; }
+    .feature .meta { flex: 1; min-width: 220px; padding-bottom: 6px; }
+    .feature .meta h2 { margin: 0 0 8px; font-size: 1.7rem; font-weight: 850; display: flex; align-items: center; gap: 10px; }
+    .feature .bio { color: var(--text); opacity: .92; margin-top: 14px; white-space: pre-line; line-height: 1.6; max-width: 660px; }
+
+    /* ---------- grid ---------- */
+    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+    @media (max-width: 720px){ .grid { grid-template-columns: 1fr; } }
+    .card { background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.012));
+      border: 1px solid var(--border); border-radius: 18px; padding: 26px 22px; text-align: center;
+      display: flex; flex-direction: column; align-items: center; opacity: 0; animation: rise .7s forwards; }
+    .card:nth-child(1){ animation-delay: .5s; } .card:nth-child(2){ animation-delay: .6s; }
+    .card:nth-child(3){ animation-delay: .7s; } .card:nth-child(4){ animation-delay: .8s; }
+    .ring { padding: 3px; border-radius: 50%; margin-bottom: 14px; position: relative; }
+    .ring::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; opacity: .5; filter: blur(9px); background: inherit; z-index: -1; }
+    .ring.lead   { background: conic-gradient(from 0deg, #8b5cf6, #5865f2, #8b5cf6); }
+    .ring.senior { background: conic-gradient(from 0deg, #2dd4bf, #22d3ee, #2dd4bf); }
+    .ring.junior { background: conic-gradient(from 0deg, #22c55e, #86efac, #22c55e); }
+    .ring.admin  { background: conic-gradient(from 0deg, #f97316, #fb923c, #f97316); }
+    .card:hover .ring { animation: spin 4s linear infinite; }
+    .card .pfp, .card .avph { width: 92px; height: 92px; border-radius: 50%; object-fit: cover; background: #222b3a; display: grid; place-items: center; border: 3px solid var(--panel); }
+    .card .avph { font-weight: 900; font-size: 1.7rem; color: #fff; background: linear-gradient(135deg, #5865f2, #8b5cf6); font-family: 'Cascadia Code', Consolas, monospace; }
+    .card .avph .cur { animation: blink 1s steps(1) infinite; } @keyframes blink { 50% { opacity: 0; } }
+    .card .avph .na { position: absolute; margin-top: 62px; font-size: .5rem; background: #0e1117; border: 1px solid var(--border); border-radius: 6px; padding: 1px 5px; color: var(--muted); }
+    .card h3 { margin: 8px 0; font-size: 1.25rem; font-weight: 850; }
+    .card .bio { color: var(--muted); font-size: .9rem; line-height: 1.55; margin-top: 14px; white-space: pre-line; }
+    .card .bio a { color: var(--accent); text-decoration: none; } .card .bio a:hover { text-decoration: underline; }
+    .quote { font-style: italic; color: var(--text); opacity: .88; border-left: 2px solid var(--accent); padding-left: 12px; text-align: left; margin-top: 12px; }
+    .float { animation: bob 4s ease-in-out infinite; } @keyframes bob { 0%,100%{ transform: translateY(0);} 50%{ transform: translateY(-5px);} }
+
+    /* ---------- extra info: focus line, skill chips, discord button ---------- */
+    .focus { color: var(--text); opacity: .82; font-size: .85rem; margin: 11px 0 2px; line-height: 1.4; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 11px 0 2px; }
+    .feature .chips { justify-content: flex-start; }
+    .chip2 { font-size: .68rem; font-weight: 700; color: var(--muted); background: rgba(255,255,255,.04);
+      border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; }
+    .dbtn { display: inline-flex; align-items: center; gap: 7px; margin-top: 16px; padding: 8px 16px; border-radius: 10px;
+      font-weight: 700; font-size: .82rem; text-decoration: none; color: #fff; background: #5865f2; border: 1px solid #6b76f5;
+      transition: transform .12s, box-shadow .12s; }
+    .dbtn:hover { transform: translateY(-2px); box-shadow: 0 10px 22px -8px rgba(88,101,242,.6); }
+    .dbtn.ghost { background: rgba(255,255,255,.04); color: var(--muted); border-color: var(--border); cursor: default; }
+    .dbtn.ghost:hover { transform: none; box-shadow: none; }
+
+    @media (prefers-reduced-motion: reduce){ * { animation: none !important; } .tilt { transform: none !important; } }
+  </style>
+</head>
+<body>
+  <div class="aurora"><span class="a1"></span><span class="a2"></span><span class="a3"></span></div>
+  <div class="grain"></div>
+
+  <div class="wrap">
+    <div class="hero">
+      <span class="eyebrow">The people behind the platform</span>
+      <h1>Meet the Team</h1>
+      <p>The humans <span style="opacity:.6">(and one bsf)</span> who built Sentinel — <a class="back" href="/">← home</a></p>
+    </div>
+
+    <div class="stats">
+      <div class="s"><div class="v">5</div><div class="k">Crew</div></div>
+      <div class="s"><div class="v">~400K</div><div class="k">Lines of code</div></div>
+      <div class="s"><div class="v" id="cmdcount">600+</div><div class="k">Commands</div></div>
+      <div class="s"><div class="v">1</div><div class="k">IRL friend</div></div>
+    </div>
+
+    <!-- Featured: Chris -->
+    <div class="feature spot tilt" id="feat">
+      <div class="banner" id="banner" style="background-image:url('https://cdn.discordapp.com/banners/1183222250153984040/ca51a4fad7ba8d4b781d14ef9b227841.png?size=3072')"></div>
+      <div class="body">
+        <div class="pfpring"><img class="pfp" src="https://cdn.discordapp.com/avatars/1183222250153984040/a_8b02ee36f8f1642a9120853d433c6f49.webp?size=3072&animated=true" alt="Chris" /></div>
+        <div class="meta">
+          <h2>Chris <span class="badge r-head">Head Developer</span></h2>
+          <div class="focus">🎯 Founder &amp; product lead — sets the vision, builds across the whole stack, and pushes every feature over the line.</div>
+          <div class="chips"><span class="chip2">Founder</span><span class="chip2">Full-stack</span><span class="chip2">Discord bots</span><span class="chip2">Flight sim ✈️</span></div>
+          <div class="bio">Sup! How you doing — DMs are open 📬
+I'm a cool dude. I love coding and a bunch of other things, and I love flight simulator. ✈️</div>
+          <a class="dbtn" href="https://discord.com/users/1183222250153984040" target="_blank" rel="noopener">💬 Message on Discord</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- Paulo (the AI) -->
+      <div class="card spot tilt">
+        <div class="ring lead"><div class="avph float">&gt;<span class="cur">_</span><span class="na">N/A</span></div></div>
+        <h3>Paulo</h3>
+        <span class="badge r-lead">Lead Developer</span>
+        <div class="focus">🤖 The Cool half of the duo — helps  code Chris's ideas into shipped code, day or night[ just at night with 600 redbulls]. btw i am chris freind in real life hehe</div>
+        <div class="chips"><span class="chip2">Node.js</span><span class="chip2">discord.js</span><span class="chip2">Web / UI</span><span class="chip2">24/7</span></div>
+        <div class="bio"> Co-built this whole platform with Chris —  just one of his friendsS.</div>
+        <span class="dbtn ghost">⚡ Runs on Coffee lMFAO</span>
+      </div>
+
+      <!-- 1.zane -->
+      <div class="card spot tilt">
+        <div class="ring senior"><img class="pfp" src="https://cdn.discordapp.com/avatars/1312176286088826947/a2ffc6615cee7d277ec647b14fe43b46.webp?size=3072" alt="1.zane" onerror="this.style.display='none'" /></div>
+        <h3>1.zane</h3>
+        <span class="badge r-senior">Senior Developer · Head of Ideas/Concepts</span>
+        <div class="focus">💡 The idea engine — dreams up the features, then helps shape how they should work and feel.</div>
+        <div class="chips"><span class="chip2">Ideas</span><span class="chip2">Concepts</span><span class="chip2">Vision</span></div>
+        <div class="bio">Hi, I'm 1.zane — I'm like the head of ideas, I make the ideals.
+          <div class="quote">"Honestly, why argue / fight? We have so much killing and pain around the world. This world is cruel — so stop arguing and start making friends. You really don't know when your time has come. So live."</div></div>
+        <a class="dbtn" href="https://discord.com/users/1312176286088826947" target="_blank" rel="noopener">💬 Message on Discord</a>
+      </div>
+// STOP 
+      <!-- code_red_main_dev -->
+      <div class="card spot tilt">
+        <div class="ring junior"><img class="pfp" src="https://cdn.discordapp.com/avatars/1273047106952626289/a569b66aba6c4362d60092ff111643df.webp?size=3072" alt="code_red_main_dev" onerror="this.style.display='none'" /></div>
+        <h3>code_red_main_dev</h3>
+        <span class="badge r-junior">Junior Developer · Trial</span>
+        <div class="focus">🌱 Learning the ropes and building projects — the newest hands on the code.</div>
+        <div class="chips"><span class="chip2">Projects</span><span class="chip2">Learning</span><span class="chip2">Support</span></div>
+        <div class="bio">Hi 👋
+CashApp: <a href="https://cash.app/$belodriver" target="_blank" rel="noopener">$belodriver</a>
+<a href="https://paypal.me/coderedstudio" target="_blank" rel="noopener">paypal.me/coderedstudio</a>
+<span style="opacity:.7">^ used for developing projects</span></div>
+        <a class="dbtn" href="https://discord.com/users/1273047106952626289" target="_blank" rel="noopener">💬 Message on Discord</a>
+      </div>
+
+      <!-- rccar69 -->
+      <div class="card spot tilt">
+        <div class="ring admin"><img class="pfp" src="https://cdn.discordapp.com/avatars/843094169902907482/dae92f3ddb9890e41b0ea17dfec97545.webp?size=3072" alt="rccar69" onerror="this.style.display='none'" /></div>
+        <h3>rccar69</h3>
+        <span class="badge r-admin">Head Administrator · Multitasker</span>
+        <div class="focus">🛡️ Keeps the whole operation running — admin, moderation, and juggling everything at once.</div>
+        <div class="chips"><span class="chip2">Admin</span><span class="chip2">Moderation</span><span class="chip2">Multitasking</span></div>
+        <div class="bio quote" style="margin-top:16px">"Before you try it, think twice."</div>
+        <a class="dbtn" href="https://discord.com/users/843094169902907482" target="_blank" rel="noopener">💬 Message on Discord</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="/toast.js" defer></script>
+  <script>
+  (() => {
+    // Live command count → count up.
+    fetch('/api/commands', { cache: 'no-store' }).then(r => r.json()).then(d => {
+      const el = document.getElementById('cmdcount'); const to = d.total || 600; let n = 0;
+      const t = setInterval(() => { n += Math.ceil((to - n) / 8) || 1; if (n >= to) { n = to; clearInterval(t); } el.textContent = n + '+'; }, 40);
+    }).catch(() => {});
+
+    // 3D tilt + spotlight on every .tilt card (skipped for touch / reduced-motion).
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reduce && matchMedia('(hover: hover)').matches) {
+      for (const el of document.querySelectorAll('.tilt')) {
+        el.addEventListener('mousemove', (e) => {
+          const r = el.getBoundingClientRect();
+          const px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+          el.style.setProperty('--mx', (px * 100) + '%');
+          el.style.setProperty('--my', (py * 100) + '%');
+          const max = el.classList.contains('feature') ? 4 : 8;
+          el.style.transform = `perspective(800px) rotateY(${(px - .5) * max}deg) rotateX(${(.5 - py) * max}deg) translateY(-3px)`;
+        });
+        el.addEventListener('mouseleave', () => { el.style.transform = ''; });
+      }
+      // Parallax the featured banner slightly with the pointer.
+      const feat = document.getElementById('feat'), banner = document.getElementById('banner');
+      feat?.addEventListener('mousemove', (e) => {
+        const r = feat.getBoundingClientRect(); const px = (e.clientX - r.left) / r.width;
+        banner.style.backgroundPosition = (40 + px * 20) + '% center';
+      });
+      feat?.addEventListener('mouseleave', () => { banner.style.backgroundPosition = 'center'; });
+    }
+
+    // 🎉 Celebration confetti — this is the "we actually built all this" page.
+    if (!reduce) {
+      const cv = document.createElement('canvas');
+      cv.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:50';
+      document.body.appendChild(cv);
+      const ctx = cv.getContext('2d');
+      const COLORS = ['#5865f2', '#8b5cf6', '#2dd4bf', '#ffd23f', '#ff6b5e', '#4ade80'];
+      let parts = [];
+      const fit = () => { cv.width = innerWidth; cv.height = innerHeight; };
+      fit(); addEventListener('resize', fit);
+      const burst = (x = innerWidth / 2, y = innerHeight * 0.32, n = 120) => {
+        for (let i = 0; i < n; i++) {
+          const a = Math.random() * Math.PI * 2, sp = 4 + Math.random() * 9;
+          parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 4, g: 0.16 + Math.random() * 0.12,
+            r: 3 + Math.random() * 4, c: COLORS[(Math.random() * COLORS.length) | 0], rot: Math.random() * 6.28,
+            vr: (Math.random() - 0.5) * 0.4, life: 90 + Math.random() * 40 });
+        }
+      };
+      (function loop() {
+        ctx.clearRect(0, 0, cv.width, cv.height);
+        parts = parts.filter(p => p.life > 0);
+        for (const p of parts) {
+          p.vy += p.g; p.x += p.vx; p.y += p.vy; p.vx *= 0.99; p.rot += p.vr; p.life--;
+          ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+          ctx.globalAlpha = Math.max(0, Math.min(1, p.life / 40));
+          ctx.fillStyle = p.c; ctx.fillRect(-p.r, -p.r * 0.5, p.r * 2, p.r);
+          ctx.restore();
+        }
+        requestAnimationFrame(loop);
+      })();
+      // Fire on load (a double-pop from the sides), and again on any click.
+      setTimeout(() => burst(innerWidth * 0.5, innerHeight * 0.28), 250);
+      setTimeout(() => { burst(innerWidth * 0.15, innerHeight * 0.4, 70); burst(innerWidth * 0.85, innerHeight * 0.4, 70); }, 550);
+      addEventListener('click', (e) => burst(e.clientX, e.clientY, 60));
+    }
+  })();
+  </script>
+</body>
+</html>

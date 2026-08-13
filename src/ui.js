@@ -233,3 +233,4 @@ export function buildSwapPrompt(game, player) {
     );
   return { content: '🔁 **Seven-O:** pick a player to swap hands with:', components: [new ActionRowBuilder().addComponents(menu)], files: [] };
 }
+// end of src/ui.js

@@ -43,8 +43,10 @@ for (const sql of [
 
 const MAX_PER_GUILD = 25;
 const MAX_ACTIONS = 10;
-const TRIGGERS = new Set(['message_contains', 'member_join', 'member_leave']);
-const ACTIONS = new Set(['reply', 'send', 'dm', 'react', 'add_role', 'remove_role', 'wait', 'send_embed', 'timeout', 'set_nickname', 'delete_message', 'pin_message', 'random_reply', 'dice', 'ai_reply', 'weather', 'translate']);
+const TRIGGERS = new Set(['message_contains', 'member_join', 'member_leave',
+  // ER:LC event triggers (fired by the regions engine off the /v2/server poll)
+  'region_entered', 'region_exited', 'emergency_created', 'plate_used']);
+const ACTIONS = new Set(['reply', 'send', 'dm', 'react', 'add_role', 'remove_role', 'wait', 'send_embed', 'timeout', 'set_nickname', 'delete_message', 'pin_message', 'random_reply', 'dice', 'ai_reply', 'weather', 'translate', 'punish']);
 
 const stmt = {
   all: db.prepare('SELECT * FROM flow_automations WHERE guild_id = ? ORDER BY id DESC'),
@@ -152,6 +154,14 @@ function fill(text, ctx) {
     .split('{content}').join(ctx.content || '')
     .split('{args}').join(ctx.args ?? ctx.content ?? '')
     .split('{count}').join(String(ctx.guild?.memberCount ?? ''))
+    // ER:LC automation variables (present only when ctx.erlc is set)
+    .split('{player}').join(ctx.erlc?.player || '')
+    .split('{region}').join(ctx.erlc?.region || '')
+    .split('{vehicle.plate}').join(ctx.erlc?.plate || '')
+    .split('{staff.count}').join(String(ctx.erlc?.staffCount ?? ''))
+    .split('{notindiscord.count}').join(String(ctx.erlc?.notInDiscord ?? ''))
+    .split('{emergency.desc}').join(ctx.erlc?.emergencyDesc || '')
+    .split('{emergency.number}').join(String(ctx.erlc?.emergencyNumber ?? ''))
     .slice(0, 2000);
 }
 
@@ -188,6 +198,13 @@ async function runActions(actions, ctx) {
         if (ch?.isTextBased?.()) await ch.send({ embeds: [e] }).catch(() => {});
       }
       else if (a.type === 'timeout' && ctx.member) await ctx.member.timeout(Math.min(2419200, Math.max(1, Number(a.seconds) || 60)) * 1000).catch(() => {});
+      else if (a.type === 'punish' && ctx.member) {
+        const kind = String(a.kind || a.punishType || 'timeout').toLowerCase();
+        const reason = fill(a.reason || 'Automated punishment', ctx).slice(0, 400);
+        if (kind === 'kick') await ctx.member.kick(reason).catch(() => {});
+        else if (kind === 'ban') await ctx.member.ban({ reason }).catch(() => {});
+        else await ctx.member.timeout(Math.min(2419200, Math.max(60, Number(a.seconds) || 600)) * 1000, reason).catch(() => {});
+      }
       else if (a.type === 'set_nickname' && ctx.member) await ctx.member.setNickname(fill(a.text, ctx).slice(0, 32) || null).catch(() => {});
       else if (a.type === 'delete_message' && ctx.message) await ctx.message.delete().catch(() => {});
       else if (a.type === 'pin_message' && ctx.message) await ctx.message.pin().catch(() => {});
@@ -245,6 +262,27 @@ export async function runMemberJoinAutomations(member) {
   const ctx = { guild: member.guild, client: member.client, member, user: member.user, content: '' };
   for (const rule of rules) {
     if (rule.trigger.type === 'member_join') await runActions(rule.actions, ctx);
+  }
+}
+
+// Fired by the ER:LC regions engine for region/emergency/plate events. `ctx.erlc`
+// carries the event data (region, player, plate, staffCount, etc.) and `ctx.member`
+// is the linked Discord member when the player is verified. Region triggers honour an
+// optional `trigger.region` filter; optional `rule.conditions` (in_region/not_in_region)
+// are evaluated too.
+export async function runErlcTrigger(guild, type, erlc, member) {
+  const rules = enabledFor(guild.id);
+  if (!rules.length) return;
+  const ctx = { guild, client: guild.client, member: member || null, user: member?.user || null, content: '', erlc };
+  const regionNow = String(erlc?.region || '').toLowerCase();
+  for (const rule of rules) {
+    if (rule.trigger.type !== type) continue;
+    if ((type === 'region_entered' || type === 'region_exited') && rule.trigger.region && String(rule.trigger.region).toLowerCase() !== regionNow) continue;
+    if (Array.isArray(rule.conditions) && !rule.conditions.every((c) => (
+      c.type === 'in_region' ? String(c.region || '').toLowerCase() === regionNow
+        : c.type === 'not_in_region' ? String(c.region || '').toLowerCase() !== regionNow
+          : true))) continue;
+    await runActions(rule.actions, ctx);
   }
 }
 

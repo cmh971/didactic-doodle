@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from 'discord.js';
+import { guardRoleAssign } from '../../systems/modGuard.js';
 
 export const data = new SlashCommandBuilder()
   .setName('role')
@@ -21,6 +22,10 @@ export async function execute(interaction) {
   if (!member) {
     return interaction.reply({ content: '❌ That user is not in this server.', flags: MessageFlags.Ephemeral });
   }
+
+  // Block privilege escalation — can't add/remove a role at or above your own.
+  const blocked = guardRoleAssign({ guild: interaction.guild, invokerMember: interaction.member, targetMember: member, role });
+  if (blocked) return interaction.reply({ content: blocked, flags: MessageFlags.Ephemeral });
 
   try {
     if (action === 'add') {

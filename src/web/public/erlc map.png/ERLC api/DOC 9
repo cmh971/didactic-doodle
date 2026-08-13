@@ -1,0 +1,29 @@
+Large Applications
+​
+What’s New?
+Previously, global API keys were limited to large applications. This is no longer the case.
+Global API keys are now split into two distinct categories:
+Public Applications (created via our API Dashboard)
+Large Applications (application required)
+Large Apps are not required to use Authorization Links, and can send POST commands to any servers that share their Server-Key.
+Large Apps may receive early access to new features for testing and preparation purposes.
+​
+Requirements
+In order to submit an application to be designated as a large application, you must meet the following criteria:
+100+ unique ER:LC servers regularly using your app
+Your app must be available 24/7 with minimal downtime, and also be scalable, well-maintained, and consistently stable (few bugs or operational issues)
+Fully use the /v2/ API
+Clients may continue to use v1 APIs that are not available in v2.
+Please note, these are baseline requirements, when approving large app requests, we conduct a holistic review of your app, support team and processes, and general reputation within the Private Server community. Your request may still be denied even if you meet these requirements.
+​
+I meet the requirements? How do I apply?
+Please open a ticket in the PRC Discord through our #support channel.
+You must carefully follow all of the below steps, failing to follow the steps may lead to your ticket being closed without a reply:
+Use the “Open a support ticket” button and enter Large Application API Key Designation Request
+In the second modal, provide all of the following information. The first line MUST read I am requesting a large app designation.
+Then, on the following lines, please provide:
+Your service’s name and website. If you do not have a website, link your Discord server.
+A list of ER:LC-related features provided by your service
+The number of unique ER:LC private servers that use your ER:LC integrations.
+A brief summary of how you currently handle rate limits from the ER:LC API.
+--------------------------------------------------------------------------------------------------------------------------

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Live Dispatch Map · Sentinel</title>
+  <link rel="icon" href="favicon.ico" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: radial-gradient(1000px 600px at 85% -10%, rgba(59,130,246,.14), transparent 60%), var(--bg); }
+    .wrap { max-width: 1400px; margin: 0 auto; padding: 20px 18px 50px; }
+    header.top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+    header.top h1 { font-size: 1.45rem; margin: 0; font-weight: 850; letter-spacing: -.02em; }
+    .live { display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px; border-radius: 999px;
+      background: rgba(59,130,246,.12); border: 1px solid rgba(59,130,246,.4); color: #7fb0ff; font-weight: 800; font-size: .72rem; letter-spacing: .1em; }
+    .live .dot { width: 8px; height: 8px; border-radius: 50%; background: #3b82f6; animation: ping 1.4s ease-out infinite; }
+    @keyframes ping { 0%{ box-shadow:0 0 0 0 rgba(59,130,246,.6);} 70%{ box-shadow:0 0 0 10px rgba(59,130,246,0);} 100%{ box-shadow:0 0 0 0 rgba(59,130,246,0);} }
+    .spacer { margin-left: auto; }
+    select.ctl, button.ctl { background: var(--panel); color: var(--text); border: 1px solid var(--border);
+      border-radius: 10px; padding: 7px 11px; font-size: .84rem; font-weight: 600; cursor: pointer; }
+    select.ctl:hover, button.ctl:hover { border-color: var(--accent); }
+
+    .layout { display: grid; grid-template-columns: 1fr 320px; gap: 16px; }
+    @media (max-width: 980px){ .layout { grid-template-columns: 1fr; } }
+
+    .mapbox { position: relative; width: 100%; aspect-ratio: 1/1; border-radius: 16px; overflow: hidden;
+      border: 1px solid var(--border); background: #0a0e16 center/cover no-repeat; box-shadow: inset 0 0 120px rgba(0,0,0,.6); }
+    .mapbox img.base { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: saturate(1.05) brightness(.92); }
+    .scan { position: absolute; inset: 0; pointer-events: none; background:
+      repeating-linear-gradient(0deg, rgba(88,101,242,.05) 0 2px, transparent 2px 4px); mix-blend-mode: overlay; }
+
+    .unit { position: absolute; width: 16px; height: 16px; transform: translate(-50%,-50%);
+      transition: left .9s linear, top .9s linear; cursor: pointer; z-index: 2; }
+    .unit .glow { position: absolute; inset: -6px; border-radius: 50%; opacity: .35; filter: blur(4px); }
+    .unit .core { position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(255,255,255,.85); }
+    .unit .lbl { position: absolute; left: 50%; top: 130%; transform: translateX(-50%); white-space: nowrap;
+      font-size: 10px; font-weight: 700; color: #fff; text-shadow: 0 1px 3px #000; opacity: 0; transition: opacity .15s; pointer-events: none; }
+    .unit:hover .lbl { opacity: 1; }
+    .unit.staff .core { box-shadow: 0 0 8px 2px rgba(255,255,255,.5); }
+    .call { position: absolute; transform: translate(-50%,-50%); z-index: 3; font-size: 18px; animation: bob 1.2s ease-in-out infinite; filter: drop-shadow(0 0 6px rgba(239,68,68,.9)); }
+    @keyframes bob { 0%,100%{ transform: translate(-50%,-60%);} 50%{ transform: translate(-50%,-40%);} }
+
+    .overlay { position: absolute; inset: 0; display: grid; place-items: center; text-align: center;
+      background: rgba(6,10,18,.78); z-index: 5; padding: 20px; }
+    .overlay .big { font-size: 1.15rem; font-weight: 800; margin-bottom: 6px; }
+    .overlay .sm { color: var(--muted); font-size: .9rem; max-width: 360px; }
+    .hidden { display: none !important; }
+
+    .side { display: grid; gap: 14px; align-content: start; }
+    .panel { background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.008));
+      border: 1px solid var(--border); border-radius: 14px; padding: 14px 15px; }
+    .panel h2 { margin: 0 0 10px; font-size: .95rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+    .panel h2 .cnt { margin-left: auto; color: var(--muted); font-weight: 700; font-size: .82rem; }
+    .team { margin-bottom: 10px; }
+    .team .th { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; font-weight: 800; margin-bottom: 5px; display: flex; align-items: center; gap: 6px; }
+    .team .th .swatch { width: 9px; height: 9px; border-radius: 50%; }
+    .u { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: .85rem; }
+    .u .cs { color: var(--muted); font-weight: 700; font-size: .74rem; min-width: 34px; }
+    .u .nm { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .u .loc { margin-left: auto; color: var(--muted); font-size: .72rem; white-space: nowrap; }
+    .callrow { display: flex; gap: 8px; padding: 7px 0; border-top: 1px solid var(--border); font-size: .82rem; }
+    .callrow:first-child { border-top: 0; }
+    .callrow .no { color: #ff8a7a; font-weight: 800; }
+    .empty { color: var(--muted); font-size: .86rem; padding: 8px 0; }
+    .stat { display: flex; gap: 14px; }
+    .stat .b { flex: 1; text-align: center; background: rgba(255,255,255,.03); border: 1px solid var(--border); border-radius: 10px; padding: 8px; }
+    .stat .b .v { font-size: 1.3rem; font-weight: 850; }
+    .stat .b .k { color: var(--muted); font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; }
+    .legend { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; font-size: .76rem; color: var(--muted); }
+    .legend .sw { width: 10px; height: 10px; border-radius: 50%; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <span class="live"><span class="dot"></span> DISPATCH</span>
+      <h1 id="sname">Live Map</h1>
+      <div class="spacer"></div>
+      <select id="pick" class="ctl" title="Server"></select>
+      <select id="season" class="ctl" title="Map season">
+        <option value="fall">🍂 Fall</option>
+        <option value="winter">❄️ Winter</option>
+      </select>
+    </header>
+
+    <div class="layout">
+      <div class="mapbox" id="mapbox">
+        <img class="base" id="mapimg" src="/maps/fall" alt="Liberty County map" />
+        <div class="scan"></div>
+        <div id="units"></div>
+        <div class="overlay" id="overlay"><div><div class="big">Connecting…</div><div class="sm">Pulling the live server feed.</div></div></div>
+      </div>
+
+      <div class="side">
+        <div class="panel">
+          <div class="stat">
+            <div class="b"><div class="v" id="s-players">0</div><div class="k">On duty +civ</div></div>
+            <div class="b"><div class="v" id="s-calls">0</div><div class="k">911 calls</div></div>
+            <div class="b"><div class="v" id="s-veh">0</div><div class="k">Vehicles</div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>🚓 Units <span class="cnt" id="u-cnt">0</span></h2>
+          <div id="roster"><div class="empty">No one on the map.</div></div>
+        </div>
+        <div class="panel">
+          <h2>🚨 911 Calls <span class="cnt" id="c-cnt">0</span></h2>
+          <div id="calls"><div class="empty">No active calls.</div></div>
+        </div>
+        <div class="panel">
+          <div class="legend" id="legend"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/toast.js" defer></script>
+  <script>
+  (() => {
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    let guildParam = new URLSearchParams(location.search).get('guild') || '';
+
+    // team → color + label
+    const TEAMS = {
+      Police:   { c: '#3b82f6', label: 'Police' },
+      Sheriff:  { c: '#f59e0b', label: 'Sheriff' },
+      Fire:     { c: '#ef4444', label: 'Fire / EMS' },
+      DOT:      { c: '#f97316', label: 'DOT' },
+      Civilian: { c: '#9aa7b4', label: 'Civilian' },
+      Jail:     { c: '#a855f7', label: 'Jail' },
+    };
+    const teamOf = (t) => TEAMS[t] || TEAMS.Civilian;
+
+    // legend
+    $('legend').innerHTML = Object.values(TEAMS).map(t => `<span><span class="sw" style="background:${t.c}"></span>${t.label}</span>`).join('');
+
+    // server switcher
+    (async () => {
+      try {
+        const d = await (await fetch('/api/pulse/servers', { cache: 'no-store' })).json();
+        const sel = $('pick');
+        if (!d.servers || d.servers.length < 2) sel.style.display = 'none';
+        sel.innerHTML = (d.servers || []).map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+        if (!guildParam) guildParam = (d.home && d.servers.some(s => s.id === d.home)) ? d.home : (d.servers[0]?.id || '');
+        sel.value = guildParam;
+        sel.onchange = () => { guildParam = sel.value; poll(); };
+      } catch { $('pick').style.display = 'none'; }
+    })();
+
+    $('season').onchange = (e) => { $('mapimg').src = '/maps/' + e.target.value; };
+
+    const units = $('units');
+    const dots = new Map(); // key -> element
+
+    function placeDots(players) {
+      const seen = new Set();
+      for (const p of players) {
+        if (!p.hasLoc) continue;
+        const key = p.id || p.name;
+        seen.add(key);
+        let el = dots.get(key);
+        if (!el) {
+          el = document.createElement('div');
+          el.className = 'unit';
+          el.innerHTML = '<div class="glow"></div><div class="core"></div><div class="lbl"></div>';
+          units.appendChild(el); dots.set(key, el);
+        }
+        const t = teamOf(p.team);
+        el.classList.toggle('staff', p.permission && p.permission !== 'Normal');
+        el.querySelector('.glow').style.background = t.c;
+        el.querySelector('.core').style.background = t.c;
+        el.querySelector('.lbl').textContent = (p.callsign ? p.callsign + ' · ' : '') + p.name;
+        el.style.left = (p.fx * 100) + '%';
+        el.style.top = (p.fy * 100) + '%';
+        el.title = `${p.name}${p.callsign ? ' ['+p.callsign+']' : ''}\n${t.label}${p.street ? ' · '+p.street : ''}${p.postal ? ' ('+p.postal+')' : ''}`;
+      }
+      for (const [key, el] of dots) if (!seen.has(key)) { el.remove(); dots.delete(key); }
+    }
+
+    function renderRoster(players) {
+      $('u-cnt').textContent = players.length;
+      const byTeam = {};
+      for (const p of players) (byTeam[p.team] ??= []).push(p);
+      const order = ['Police','Sheriff','Fire','DOT','Jail','Civilian'];
+      const teams = Object.keys(byTeam).sort((a,b) => (order.indexOf(a)+99)%100 - (order.indexOf(b)+99)%100);
+      $('roster').innerHTML = teams.length ? teams.map(tm => {
+        const t = teamOf(tm);
+        return `<div class="team"><div class="th"><span class="swatch" style="background:${t.c}"></span>${t.label} · ${byTeam[tm].length}</div>` +
+          byTeam[tm].sort((a,b)=>(a.callsign||'zz').localeCompare(b.callsign||'zz')).map(p => `
+            <div class="u"><span class="cs">${esc(p.callsign||'—')}</span><span class="nm">${esc(p.name)}</span><span class="loc">${esc(p.postal||p.street||'')}</span></div>`).join('') +
+          `</div>`;
+      }).join('') : '<div class="empty">No one on the map.</div>';
+    }
+
+    function placeCalls(calls) {
+      // remove old call markers
+      [...units.querySelectorAll('.call')].forEach(e => e.remove());
+      for (const c of calls) {
+        if (c.fx == null) continue;
+        const el = document.createElement('div');
+        el.className = 'call'; el.textContent = '🚨';
+        el.style.left = (c.fx*100)+'%'; el.style.top = (c.fy*100)+'%';
+        el.title = `#${c.number} ${c.caller}: ${c.desc}`;
+        units.appendChild(el);
+      }
+    }
+
+    function renderCalls(calls) {
+      $('c-cnt').textContent = calls.length;
+      $('calls').innerHTML = calls.length ? calls.map(c => `
+        <div class="callrow"><span class="no">#${esc(c.number)}</span>
+          <div><b>${esc(c.caller||'Unknown')}</b><div style="color:var(--muted)">${esc(c.desc||c.where||'—')}</div></div>
+        </div>`).join('') : '<div class="empty">No active calls.</div>';
+    }
+
+    async function poll() {
+      try {
+        const url = guildParam ? `/api/dispatch?guild=${encodeURIComponent(guildParam)}` : '/api/dispatch';
+        const resp = await fetch(url, { cache: 'no-store' });
+        if (resp.status === 401) {
+          $('overlay').classList.remove('hidden');
+          $('overlay').innerHTML = '<div><div class="big">🔒 Sign in to view live positions</div><div class="sm">Live player locations are dispatcher-only. <a href="/login" style="color:var(--accent)">Sign in with Discord →</a></div></div>';
+          return;
+        }
+        const d = await resp.json();
+        if (!d.ok) {
+          $('overlay').classList.remove('hidden');
+          $('overlay').innerHTML = `<div><div class="big">😴 ${esc(d.guildName || 'Server')} — no live feed</div><div class="sm">${esc(d.reason || 'Server offline or no ER:LC key set for this server.')}</div></div>`;
+          placeDots([]); renderRoster([]); renderCalls([]); placeCalls([]);
+          $('s-players').textContent = 0; $('s-calls').textContent = 0; $('s-veh').textContent = 0;
+          return;
+        }
+        $('overlay').classList.add('hidden');
+        $('sname').textContent = d.server?.name || d.guildName || 'Live Map';
+        $('s-players').textContent = d.server?.players ?? d.players.length;
+        $('s-calls').textContent = d.calls.length;
+        $('s-veh').textContent = d.vehicles || 0;
+        placeDots(d.players); renderRoster(d.players);
+        placeCalls(d.calls); renderCalls(d.calls);
+      } catch {
+        $('overlay').classList.remove('hidden');
+        $('overlay').innerHTML = '<div><div class="big">Connection hiccup</div><div class="sm">Retrying…</div></div>';
+      }
+    }
+
+    poll();
+    setInterval(poll, 3000);
+  })();
+  </script>
+</body>
+</html>

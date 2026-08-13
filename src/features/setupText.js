@@ -7,6 +7,7 @@
 import { PermissionFlagsBits } from 'discord.js';
 import { renderPanel } from '../setup/ui.js';
 import { remoteTargets } from '../setup/interactions.js';
+import { canOpenSetup } from '../setup/access.js';
 
 function isOwner(id) {
   const ids = (process.env.OWNER_IDS || '').split(',').map((s) => s.trim()).filter(Boolean);
@@ -42,7 +43,8 @@ export async function handleSetupText(message) {
 
   // ---- normal local setup ----
   if (!message.guild) { await message.reply('❌ Use `!setup` inside a server (owners can do `!setup <guildId>` to remote-configure one).').catch(() => {}); return true; }
-  if (!owner && !message.member?.permissions?.has(PermissionFlagsBits.ManageGuild)) {
+  const allowlisted = canOpenSetup(message.guild.id, message.author.id);
+  if (!owner && !allowlisted && !message.member?.permissions?.has(PermissionFlagsBits.ManageGuild)) {
     await message.reply('❌ You need the **Manage Server** permission to open `/setup`.').catch(() => {});
     return true;
   }

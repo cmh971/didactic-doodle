@@ -12,6 +12,32 @@
   <link rel="stylesheet" href="style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <script src="pwa.js" defer></script>
+  <style>
+    /* ===== visual glow-up (layered over style.css) ===== */
+    .grad { background: linear-gradient(110deg,#8b93ff,#37d0a0 52%,#8b93ff); background-size: 220% auto; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: gradShift 6s linear infinite; }
+    @keyframes gradShift { to { background-position: 220% center; } }
+    .lp-hero { position: relative; }
+    .lp-hero::before { content:''; position:absolute; left:50%; top:-140px; width:900px; max-width:120vw; height:640px; transform:translateX(-50%); z-index:-1; pointer-events:none;
+      background: radial-gradient(600px 320px at 50% 0, rgba(88,101,242,.30), transparent 70%), radial-gradient(500px 300px at 80% 40%, rgba(55,208,160,.18), transparent 70%); filter: blur(6px); }
+    .lp-title { text-shadow: 0 0 60px rgba(88,101,242,.25); }
+    .btn.primary { position: relative; overflow: hidden; box-shadow: 0 12px 34px rgba(88,101,242,.5); }
+    .btn.primary::after { content:''; position:absolute; top:0; left:-140%; width:55%; height:100%; transform: skewX(-20deg);
+      background: linear-gradient(100deg, transparent, rgba(255,255,255,.4), transparent); animation: sheen 3.6s ease-in-out infinite; }
+    @keyframes sheen { 0%,55% { left:-140%; } 82%,100% { left:150%; } }
+    .lp-band-item b { background: linear-gradient(120deg,#fff,#8b93ff); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+    .lp-feature { transition: transform .22s cubic-bezier(.2,.7,.3,1), box-shadow .22s ease, border-color .22s ease; }
+    .lp-feature:hover { transform: translateY(-7px) scale(1.025); box-shadow: 0 24px 55px rgba(0,0,0,.55); border-color: rgba(88,101,242,.55); }
+    .lp-chip { transition: transform .15s ease, background .15s ease; }
+    .lp-chip:hover { transform: translateY(-3px); background: rgba(88,101,242,.2); }
+    /* ===== launch → dashboard swipe ===== */
+    #launch-swipe { position: fixed; inset: 0; z-index: 999999; transform: translateX(-100%); pointer-events: none;
+      background: linear-gradient(120deg,#5865f2,#37d0a0); display: flex; align-items: center; justify-content: center; }
+    #launch-swipe.go { animation: swipeIn .55s cubic-bezier(.7,0,.25,1) forwards; }
+    @keyframes swipeIn { to { transform: translateX(0); } }
+    #launch-swipe .ls-inner { color: #fff; font-size: 28px; font-weight: 900; letter-spacing: 3px; opacity: 0; transform: scale(.85); }
+    #launch-swipe.go .ls-inner { animation: lsPop .45s .22s ease forwards; }
+    @keyframes lsPop { to { opacity: 1; transform: scale(1); } }
+  </style>
 </head>
 <body class="landing">
   <a href="#features" class="skip-link">Skip to content</a>
@@ -62,8 +88,8 @@
   <!-- ===== HERO ===== -->
   <section class="lp-hero">
     <div class="lp-hero-inner reveal">
-      <span class="lp-eyebrow">⚡ 336 commands · 12-page dashboard · live analytics</span>
-      <h1 class="lp-title">The Discord bot that does <span class="grad">absolutely everything.</span></h1>
+      <span class="lp-eyebrow">⚡ <span id="eyebrow-cmds">600+</span> commands · 12-page dashboard · live analytics</span>
+      <h1 class="lp-title">The Discord bot that does <span class="grad" id="hero-rotate">absolutely everything.</span></h1>
       <p class="lp-sub">Economy, moderation, tickets, leveling, games, AI chat, and a web control center so good it feels illegal. Set it up in minutes — run your whole server from your browser.</p>
       <div class="lp-cta">
         <a href="/dashboard" class="btn primary big">🚀 Open the Dashboard</a>
@@ -92,7 +118,7 @@
   <section class="lp-band" id="stats">
     <div class="lp-band-item reveal"><b id="st-guilds">—</b><span>Servers</span></div>
     <div class="lp-band-item reveal"><b id="st-users">—</b><span>Users reached</span></div>
-    <div class="lp-band-item reveal"><b>336</b><span>Commands</span></div>
+    <div class="lp-band-item reveal"><b id="st-commands">600+</b><span>Commands</span></div>
     <div class="lp-band-item reveal"><b>12</b><span>Dashboard pages</span></div>
   </section>
 
@@ -182,7 +208,95 @@
     </div>
   </footer>
 
+  <!-- launch swipe overlay -->
+  <div id="launch-swipe" aria-hidden="true"><div class="ls-inner">🚀 LAUNCHING…</div></div>
+
+  <script>
+    (function () {
+      // Live command count — real total (slash + ? pack + ! power commands).
+      fetch('/api/commands').then((r) => r.json()).then((d) => {
+        const n = Number(d.total) || 0;
+        const eb = document.getElementById('eyebrow-cmds');
+        const band = document.getElementById('st-commands');
+        if (eb) eb.textContent = (n || 600) + '+';
+        if (band && n > 0) {
+          let c = 0; const step = Math.max(1, Math.round(n / 40));
+          const iv = setInterval(() => { c += step; if (c >= n) { c = n; clearInterval(iv); } band.textContent = c.toLocaleString() + (c >= n ? '+' : ''); }, 25);
+        }
+      }).catch(() => {});
+
+      // Launch → dashboard swipe transition.
+      const sw = document.getElementById('launch-swipe');
+      document.querySelectorAll('a[href="/dashboard"]').forEach((a) => {
+        a.addEventListener('click', (e) => {
+          if (e.metaKey || e.ctrlKey || e.shiftKey) return; // let new-tab clicks through
+          e.preventDefault();
+          sw.classList.add('go');
+          setTimeout(() => { location.href = '/dashboard'; }, 560);
+        });
+      });
+    })();
+  </script>
+  <!-- ===== premium effects layer ===== -->
+  <style>
+    #cursor-glow { position: fixed; top:0; left:0; width:520px; height:520px; margin:-260px 0 0 -260px; border-radius:50%; pointer-events:none; z-index:0; opacity:0; transition:opacity .4s; mix-blend-mode:screen; will-change:transform;
+      background: radial-gradient(circle, rgba(88,101,242,.16), rgba(55,208,160,.06) 40%, transparent 62%); }
+    body.landing::after { content:''; position:fixed; inset:-35%; z-index:-2; pointer-events:none; opacity:.45; filter: blur(70px);
+      background: conic-gradient(from 0deg at 32% 32%, rgba(88,101,242,.12), rgba(55,208,160,.10), rgba(139,147,255,.12), rgba(88,101,242,.12)); animation: auroraSpin 44s linear infinite; }
+    @keyframes auroraSpin { to { transform: rotate(360deg); } }
+    .lp-preview { transition: transform .2s cubic-bezier(.2,.7,.3,1); transform-style: preserve-3d; will-change: transform; }
+    #hero-rotate { display: inline-block; transition: opacity .3s ease, transform .3s ease; }
+    #hero-rotate.swap { opacity: 0; transform: translateY(10px); }
+    .btn.primary.big { transition: transform .18s cubic-bezier(.2,.7,.3,1), box-shadow .18s ease, filter .18s ease; }
+    .btn.primary.big:hover { box-shadow: 0 18px 44px rgba(88,101,242,.6); }
+    @media (prefers-reduced-motion: reduce) { body.landing::after, #hero-rotate { animation: none !important; transition: none !important; } }
+  </style>
+  <script>
+    (function () {
+      const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      // Cursor spotlight (smoothed follow).
+      const glow = document.createElement('div'); glow.id = 'cursor-glow'; document.body.appendChild(glow);
+      let gx = innerWidth / 2, gy = innerHeight / 2, cx = gx, cy = gy, shown = false;
+      addEventListener('mousemove', (e) => { gx = e.clientX; gy = e.clientY; if (!shown) { glow.style.opacity = '1'; shown = true; } });
+      (function loop() { cx += (gx - cx) * 0.16; cy += (gy - cy) * 0.16; glow.style.transform = `translate(${cx}px,${cy}px)`; requestAnimationFrame(loop); })();
+
+      if (!reduce) {
+        // 3D tilt on the hero preview card.
+        const pv = document.querySelector('.lp-preview');
+        if (pv) {
+          pv.addEventListener('mousemove', (e) => {
+            const r = pv.getBoundingClientRect();
+            const px = (e.clientX - r.left) / r.width - 0.5, py = (e.clientY - r.top) / r.height - 0.5;
+            pv.style.transform = `perspective(900px) rotateY(${px * 11}deg) rotateX(${-py * 11}deg) translateY(-6px)`;
+          });
+          pv.addEventListener('mouseleave', () => { pv.style.transform = ''; });
+        }
+
+        // Rotating headline word.
+        const rot = document.getElementById('hero-rotate');
+        if (rot) {
+          const words = ['absolutely everything.', 'your moderation.', 'your economy.', 'an entire CAD.', 'your whole server.', 'absolutely everything.'];
+          let i = 0;
+          setInterval(() => { i = (i + 1) % words.length; rot.classList.add('swap'); setTimeout(() => { rot.textContent = words[i]; rot.classList.remove('swap'); }, 300); }, 2600);
+        }
+
+        // Magnetic primary buttons.
+        document.querySelectorAll('.btn.primary.big').forEach((b) => {
+          b.addEventListener('mousemove', (e) => { const r = b.getBoundingClientRect(); b.style.transform = `translate(${(e.clientX - r.left - r.width / 2) * 0.15}px, ${(e.clientY - r.top - r.height / 2) * 0.22}px)`; });
+          b.addEventListener('mouseleave', () => { b.style.transform = ''; });
+        });
+      }
+    })();
+  </script>
+  <script src="security.js" defer></script>
+  <script src="icons.js" defer></script>
+  <script src="toast.js" defer></script>
+  <script src="shortcuts.js" defer></script>
+  <script src="hero-fx.js" defer></script>
+  <script src="landing-live.js" defer></script>
   <script src="site-effects.js"></script>
   <script src="landing.js"></script>
+  <script src="/a11y.js" defer></script>
 </body>
 </html>

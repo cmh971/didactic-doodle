@@ -1,0 +1,245 @@
+API Reference
+Fetch server information
+Returns server status data. Additional fields can be included by setting query parameters to ‘true’. All query parameters are optional.
+
+GET
+/
+v2
+/
+server
+
+Try it
+Authorizations
+​
+server-key
+stringheaderrequired
+REQUIRED ON ALL REQUESTS. Get your server key at https://erlc.link/sk
+
+Headers
+​
+Authorization
+string
+OPTIONAL. ONLY provide this header if you are creating a public app (used in many unique servers). Register your app at https://apidocs.erlc.gg/creating-public-applications.
+
+Query Parameters
+​
+Players
+boolean
+Include player list in response
+
+Example:
+true
+
+​
+Staff
+boolean
+Include staff list (Admins, Mods, Helpers) in response
+
+Example:
+true
+
+​
+JoinLogs
+boolean
+Include join logs in response
+
+Example:
+true
+
+​
+Queue
+boolean
+Include queue data in response
+
+Example:
+true
+
+​
+KillLogs
+boolean
+Include kill logs in response
+
+Example:
+true
+
+​
+CommandLogs
+boolean
+Include command logs in response
+
+Example:
+true
+
+​
+ModCalls
+boolean
+Include moderator call logs in response
+
+Example:
+true
+
+​
+EmergencyCalls
+boolean
+Include emergency call logs in response
+
+Example:
+true
+
+​
+Vehicles
+boolean
+Include vehicle list in response
+
+Example:
+true
+
+Response
+
+200
+
+application/json
+Requested data. Optional fields only included when query=true.
+
+​
+Name
+stringrequired
+Example:
+"API Test"
+
+​
+OwnerId
+integerrequired
+​
+CoOwnerIds
+integer[]required
+​
+CurrentPlayers
+integerrequired
+​
+MaxPlayers
+integerrequired
+​
+JoinKey
+stringrequired
+Example:
+"APIServer"
+
+​
+AccVerifiedReq
+stringrequired
+Example:
+"Disabled / Email / Phone/ID"
+
+​
+TeamBalance
+booleanrequired
+​
+Players
+object[]
+Only included when Players=true query parameter is provided
+
+Show child attributes
+
+​
+Staff
+object
+Only included when Staff=true query parameter is provided
+
+Show child attributes
+
+​
+JoinLogs
+object[]
+Only included when JoinLogs=true query parameter is provided
+
+Show child attributes
+
+​
+Queue
+integer[]
+Only included when Queue=true query parameter is provided
+
+​
+KillLogs
+object[]
+Only included when KillLogs=true query parameter is provided
+
+Show child attributes
+
+​
+CommandLogs
+object[]
+Only included when CommandLogs=true query parameter is provided
+
+Show child attributes
+
+​
+ModCalls
+object[]
+Only included when ModCalls=true query parameter is provided
+
+Show child attributes
+
+​
+EmergencyCalls
+object[]
+Only included when EmergencyCalls=true query parameter is provided
+
+Show child attributes
+
+Example:
+[
+  {
+    "Team": "Police",
+    "Caller": 168691872,
+    "Players": [],
+    "Position": [-654.6, 666.5],
+    "StartedAt": 1774216563,
+    "CallNumber": 400,
+    "Description": "stg",
+    "PositionDescriptor": "sdfsdfsdf"
+  }
+]
+​
+Vehicles
+object[]
+Only included when Vehicles=true query parameter is provided
+
+Hide child attributes
+
+​
+Vehicles.Name
+string
+Example:
+"Redline Fire Engine"
+
+​
+Vehicles.Owner
+string
+Example:
+"Shawnyg"
+
+​
+Vehicles.Plate
+string
+Example:
+"ABC-123"
+
+​
+Vehicles.Texture
+string | null
+Example:
+"Livery Name"
+
+​
+Vehicles.ColorHex
+string
+Example:
+"#ff4444"
+
+​
+Vehicles.ColorName
+string
+Example:
+"Super Red"

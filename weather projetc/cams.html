@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Traffic Camera Console</title>
+  <!-- Firebase + auth removed — this panel is gated by the weather hub. Keyless. -->
+  <style>
+    :root { --neon: #3b82f6; --border-color: #333; }
+    body { background: #050505; color: #fff; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 15px; height: 100vh; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px; overflow: hidden; }
+    .cam-head { font-size: 14px; font-weight: 700; letter-spacing: 1px; color: var(--neon); font-family: monospace; }
+    .camera-grid { display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); gap: 15px; flex: 1; min-height: 0; }
+    .cam-feed-box { background: #0a0a0a; border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; position: relative; box-shadow: 0 0 15px rgba(59,130,246,0.05); display: flex; align-items: center; justify-content: center; }
+    .cam-feed-box iframe { width: 100%; height: 100%; border: none; background: #111; }
+    .placeholder-box { border: 1px dashed #222; flex-direction: column; background: #030303; }
+    .placeholder-text { color: #444; font-family: monospace; font-size: 13px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; text-align: center; padding: 0 20px; animation: pulse-gray 2s infinite ease-in-out; }
+    @keyframes pulse-gray { 0%,100% { opacity: .3; } 50% { opacity: .7; } }
+    .cam-tag { position: absolute; bottom: 12px; left: 12px; background: rgba(0,0,0,0.85); padding: 6px 12px; border-radius: 4px; font-size: 11px; font-weight: bold; font-family: monospace; border-left: 3px solid var(--neon); letter-spacing: 0.5px; z-index: 5; pointer-events: none; }
+    .cam-note { font-size: 11px; color: #666; font-family: monospace; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="cam-head">📷 TRAFFIC CAMERAS // KANSAS CITY · OVERLAND PARK METRO</div>
+  <div class="camera-grid">
+    <!-- CH 01: live metro radar/traffic map (keyless Windy) -->
+    <div class="cam-feed-box">
+      <iframe src="https://embed.windy.com/embed2.html?lat=38.982&lon=-94.671&zoom=11&overlay=radar&type=map&menu=&location=coordinates&metricWind=mph" allowfullscreen></iframe>
+      <div class="cam-tag">CH 01 // LIVE METRO RADAR MAP</div>
+    </div>
+    <!-- CH 02–04: drop-in slots for real DOT camera image/stream URLs -->
+    <div class="cam-feed-box placeholder-box">
+      <div class="placeholder-text">Paste a DOT camera URL here<br>(e.g. KC Scout / KDOT)</div>
+      <div class="cam-tag">CH 02 // DATA_STREAM_VACANT</div>
+    </div>
+    <div class="cam-feed-box placeholder-box">
+      <div class="placeholder-text">Camera feed slot</div>
+      <div class="cam-tag">CH 03 // DATA_STREAM_VACANT</div>
+    </div>
+    <div class="cam-feed-box placeholder-box">
+      <div class="placeholder-text">more coming soon!!!!!</div>
+      <div class="cam-tag">CH 04 // DATA_STREAM_VACANT</div>
+    </div>
+  </div>
+  <div class="cam-note">Live radar map is active. Give me your public DOT camera URLs (KC Scout / KDOT) and I'll wire the CH 02–04 feeds live.</div>
+</body>
+</html>

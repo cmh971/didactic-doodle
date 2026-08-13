@@ -1,0 +1,9 @@
+// cd "c:/Users/chris/OneDrive/Desktop/New folder (5)/src/web/public/erlc map.png" && node --input-type=module -e '
+// import { readFileSync, readdirSync } from "node:fs";
+// for (const f of readdirSync(".").filter(x=>x.endsWith(".png"))) {
+//   const b = readFileSync(f);
+//   // PNG: width at byte 16-19, height 20-23 (big-endian)
+//   const w = b.readUInt32BE(16), h = b.readUInt32BE(20);
+//   console.log(`${f.padEnd(28)} ${w} x ${h}  (${(b.length/1024).toFixed(0)} KB)`);
+// }
+// '

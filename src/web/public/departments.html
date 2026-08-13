@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sentinel • Departments</title>
+<style>
+  :root { --bg:#0d1117; --panel:#161b22; --card:#21262d; --accent:#5865f2; --muted:#949ba4; --line:#30363d; --good:#3fb950; --bad:#f85149; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,Segoe UI,Arial,sans-serif; background:var(--bg); color:#e6edf3; }
+  header { padding:18px 26px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  header h1 { font-size:19px; margin:0; } header .sub { color:var(--muted); font-size:13px; }
+  select, input[type=text], textarea { background:#0d1117; border:1px solid var(--line); color:#e6edf3; border-radius:8px; padding:8px 10px; font-size:14px; font-family:inherit; }
+  .wrap { max-width:860px; margin:0 auto; padding:22px 26px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px; margin-bottom:16px; }
+  .panel h2 { font-size:13px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin:0 0 12px; }
+  .row { display:flex; justify-content:space-between; align-items:center; padding:9px 0; }
+  .switch{ position:relative; width:42px; height:24px;} .switch input{display:none;}
+  .slider{ position:absolute; inset:0; background:#484f58; border-radius:24px; cursor:pointer; transition:.2s;}
+  .slider::before{ content:''; position:absolute; width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;}
+  input:checked + .slider{ background:var(--accent);} input:checked + .slider::before{ transform:translateX(18px);}
+  button{ background:var(--accent);color:#fff;border:0;border-radius:9px;padding:10px 16px;font-weight:700;font-size:14px;cursor:pointer;}
+  button.ghost{ background:transparent;border:1px solid var(--line);color:#e6edf3; }
+  button.danger{ background:transparent;border:1px solid var(--bad);color:var(--bad);padding:6px 10px;font-size:12px; }
+  .dept { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; }
+  .dept .top { display:flex; gap:10px; align-items:center; margin-bottom:10px; }
+  .dept .top input.emoji { width:52px; text-align:center; font-size:18px; }
+  .dept .top input.name { flex:1; font-weight:700; }
+  .dept .top input.color { width:46px; height:38px; padding:2px; border:1px solid var(--line); border-radius:8px; background:#0d1117; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  @media(max-width:620px){ .grid{ grid-template-columns:1fr; } }
+  .fld > span { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+  .fld select, .fld input, .fld textarea { width:100%; }
+  .chk { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--muted); margin-top:8px; }
+  .msg{font-size:13px;margin-left:12px;} .msg.ok{color:var(--good);} .msg.err{color:var(--bad);}
+  .hint{color:var(--muted);font-size:12px;} .count{ font-size:12px; color:var(--muted); }
+  a{color:var(--accent);}
+</style>
+</head>
+<body>
+<header>
+  <h1>🏢 Departments</h1>
+  <span class="sub">Organise members into units (PD / Fire / EMS …) with roles, callsigns &amp; rosters.</span>
+  <span style="flex:1"></span>
+  <select id="guild"><option>Loading…</option></select>
+</header>
+<div class="wrap">
+  <div class="panel">
+    <div class="row"><b>Enable departments</b><span class="switch"><input type="checkbox" id="enabled"><span class="slider"></span></span></div>
+    <div class="fld" style="margin-top:8px"><span>📋 Activity log channel (optional — join/leave posts here)</span><select id="logChannel"><option value="">— none —</option></select></div>
+  </div>
+
+  <div class="panel">
+    <h2>Departments</h2>
+    <div id="list"></div>
+    <button class="ghost" id="add">➕ Add department</button>
+  </div>
+
+  <div style="display:flex;align-items:center;margin-bottom:30px"><button id="save">💾 Save all</button><span class="msg" id="msg"></span></div>
+
+  <div class="panel hint">
+    Members use: <code>!dept list</code> · <code>!dept join &lt;name&gt;</code> · <code>!dept leave &lt;name&gt;</code> · <code>!dept roster &lt;name&gt;</code> · <code>!dept mine</code><br>
+    Staff use: <code>!dept add @user &lt;name&gt;</code> · <code>!dept remove @user &lt;name&gt;</code> · <code>!dept callsign @user &lt;name&gt; &lt;sign&gt;</code><br>
+    <b>Callsigns</b> auto-generate as <code>PREFIX-1</code>, <code>PREFIX-2</code>… &nbsp;·&nbsp; 🔒 A department role can’t have staff permissions (blocks self-join escalation).
+  </div>
+</div>
+<script>
+const $=(id)=>document.getElementById(id);
+let ROLES=[], CHANNELS=[], COUNTS={};
+
+async function boot(){
+  const gv=await fetch('/api/infraction-embed/guilds');
+  if(gv.status===401){ $('guild').innerHTML='<option>Sign in first</option>'; return; }
+  const gj=await gv.json();
+  $('guild').innerHTML=(gj.guilds||[]).map(g=>`<option value="${g.id}">${g.name}</option>`).join('')||'<option value="">No servers</option>';
+  const pre=new URLSearchParams(location.search).get('g'); if(pre) $('guild').value=pre;
+  load();
+}
+async function load(){
+  const id=$('guild').value; if(!id) return;
+  const r=await fetch('/api/departments/'+id); if(!r.ok){ $('msg').className='msg err'; $('msg').textContent='No access'; return; }
+  const j=await r.json(); ROLES=j.roles||[]; CHANNELS=j.channels||[]; COUNTS=(j.data&&j.data.counts)||{};
+  const c=j.config||{};
+  $('enabled').checked=!!c.enabled;
+  $('logChannel').innerHTML='<option value="">— none —</option>'+CHANNELS.map(ch=>`<option value="${ch.id}" ${ch.id===c.logChannel?'selected':''}>#${ch.name}</option>`).join('');
+  $('list').innerHTML='';
+  (c.list||[]).forEach(addDept);
+  if(!(c.list||[]).length) addDept();
+}
+function roleOptions(sel){ return '<option value="">— no role —</option>'+ROLES.map(r=>`<option value="${r.id}" ${r.id===sel?'selected':''}>${r.name}</option>`).join(''); }
+function addDept(d){
+  d=d||{ name:'', emoji:'🏢', color:0x5865f2, roleId:'', prefix:'', description:'', open:true, id:'' };
+  const hex='#'+Number(d.color||0x5865f2).toString(16).padStart(6,'0');
+  const n=COUNTS[d.id]||0;
+  const el=document.createElement('div'); el.className='dept';
+  el.innerHTML=`
+    <div class="top">
+      <input class="emoji" maxlength="8" value="${d.emoji||'🏢'}" title="Emoji">
+      <input class="name" placeholder="Department name (e.g. Police Department)" value="${(d.name||'').replace(/"/g,'&quot;')}">
+      <input class="color" type="color" value="${hex}" title="Embed colour">
+      <button class="danger" title="Remove">✕</button>
+    </div>
+    <div class="grid">
+      <div class="fld"><span>🎖️ Discord role to assign</span><select class="roleId">${roleOptions(d.roleId)}</select></div>
+      <div class="fld"><span>📻 Callsign prefix (e.g. PD → PD-1, PD-2)</span><input class="prefix" maxlength="8" placeholder="PD" value="${(d.prefix||'').replace(/"/g,'&quot;')}"></div>
+    </div>
+    <div class="fld" style="margin-top:10px"><span>📝 Description</span><textarea class="description" rows="2" placeholder="What this department does…">${(d.description||'').replace(/</g,'&lt;')}</textarea></div>
+    <label class="chk"><input type="checkbox" class="open" ${d.open!==false?'checked':''}> Members can self-join with <code>!dept join</code> (uncheck = staff-assign only) &nbsp;·&nbsp; <span class="count">${n} member${n===1?'':'s'}</span></label>`;
+  el.querySelector('.danger').onclick=()=>el.remove();
+  $('list').appendChild(el);
+}
+$('add').onclick=()=>addDept();
+$('guild').onchange=load;
+$('save').onclick=async()=>{
+  const id=$('guild').value; if(!id) return; $('msg').className='msg'; $('msg').textContent='Saving…';
+  const list=[...document.querySelectorAll('.dept')].map(el=>({
+    name: el.querySelector('.name').value.trim(),
+    emoji: el.querySelector('.emoji').value.trim(),
+    color: parseInt(el.querySelector('.color').value.replace('#',''),16),
+    roleId: el.querySelector('.roleId').value,
+    prefix: el.querySelector('.prefix').value.trim(),
+    description: el.querySelector('.description').value.trim(),
+    open: el.querySelector('.open').checked,
+  })).filter(d=>d.name);
+  const body={ enabled:$('enabled').checked, logChannel:$('logChannel').value, list };
+  const r=await fetch('/api/departments/'+id,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const j=await r.json();
+  if(j.ok){ $('msg').className='msg ok'; $('msg').textContent='✅ Saved!'; setTimeout(load,400); }
+  else { $('msg').className='msg err'; $('msg').textContent='❌ '+(j.error||'Failed'); }
+};
+boot();
+</script>
+</body>
+</html>

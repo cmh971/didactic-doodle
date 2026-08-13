@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CAD · Sentinel</title>
+<style>
+  :root { color-scheme: dark; } * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; font-family: 'Segoe UI', system-ui, sans-serif; background: radial-gradient(circle at 50% -10%, #16324f, #0a1420 55%); color: #e8f0ff; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 40px 18px; }
+  h1 { margin: 0 0 4px; } .sub { color: #7fa8d0; margin-bottom: 22px; }
+  .field { background: #0e1c2c; border: 1px solid #1e3a55; border-radius: 10px; padding: 14px; margin-bottom: 18px; }
+  label { font-size: 12px; color: #9fc0e0; display: block; margin-bottom: 4px; }
+  input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #1e3a55; background: #0b1622; color: #e8f0ff; }
+  .tools { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+  a.tool { text-decoration: none; color: #e8f0ff; background: #0e1c2c; border: 1px solid #1e3a55; border-radius: 12px; padding: 18px; display: block; transition: border-color .15s, transform .1s; }
+  a.tool:hover { border-color: #37d0a0; transform: translateY(-2px); }
+  a.tool .ic { font-size: 30px; } a.tool h2 { margin: 8px 0 4px; font-size: 17px; } a.tool p { margin: 0; color: #7fa8d0; font-size: 13px; }
+  .leo { border-left: 4px solid #3b82f6; } .civ { border-left: 4px solid #22c55e; }
+  .back { color: #37d0a0; text-decoration: none; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/dashboard">← Dashboard</a>
+  <h1 style="margin-top:10px">🚨 CAD / Dispatch</h1>
+  <div class="sub">ER:LC Computer-Aided Dispatch. Pick your server, then open a tool.</div>
+
+  <div class="field">
+    <label>Server ID</label>
+    <input id="guild" placeholder="Your Discord server ID">
+  </div>
+
+  <div class="tools">
+    <a class="tool leo" id="t-cad"><div class="ic">📟</div><h2>Dispatcher Console</h2><p>Live map, calls & unit status. <b>PD/EMS/DOT only.</b></p></a>
+    <a class="tool leo" id="t-mdt"><div class="ic">👮</div><h2>MDT</h2><p>Name/plate lookup, warrants, citations. <b>PD/EMS/DOT only.</b></p></a>
+    <a class="tool leo" id="t-bodycam"><div class="ic">🎥</div><h2>Bodycam</h2><p>Record your gameplay as evidence. <b>PD/EMS/DOT only.</b></p></a>
+    <a class="tool civ" id="t-portal"><div class="ic">🚗</div><h2>Civilian Portal</h2><p>Characters, DMV, licenses & firearms. Open to everyone.</p></a>
+  </div>
+  <p class="sub" style="margin-top:20px">Officers need a department role (an admin sets them with <code>!cadaccess add @role</code>). Link your server first with <code>/erlc link</code>.</p>
+</div>
+<script>
+  const gi = document.getElementById('guild');
+  gi.value = new URLSearchParams(location.search).get('guild') || localStorage.getItem('cadGuild') || '';
+  function upd(){ const g = gi.value.trim(); if (g) localStorage.setItem('cadGuild', g); for (const [id, path] of [['t-cad','/cad'],['t-mdt','/mdt'],['t-bodycam','/bodycam'],['t-portal','/portal']]) document.getElementById(id).href = g ? `${path}?guild=${encodeURIComponent(g)}` : '#'; }
+  gi.addEventListener('input', upd); upd();
+</script>
+<script src="/a11y.js" defer></script>
+</body>
+</html>

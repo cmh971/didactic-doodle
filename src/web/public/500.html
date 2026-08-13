@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>500 · Something broke · Sentinel</title>
+  <link rel="icon" href="favicon.ico" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    :root {
+      --bg: #05070d; --accent: #5865f2; --accent-soft: #8893ff;
+      --danger: #e74c3c; --warn: #f59e0b; --text: #e6edf3; --muted: #9aa7b4;
+      --panel: #111827; --border: #1f2937; --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; overflow: hidden;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--text);
+      background:
+        radial-gradient(circle at 12% -10%, rgba(231,76,60,0.34), transparent 55%),
+        radial-gradient(circle at 88% 110%, rgba(245,158,11,0.30), transparent 55%),
+        linear-gradient(135deg, #1a0606, #05070d);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .bg-orbs { position: fixed; inset: 0; pointer-events: none; z-index: 1; }
+    .orb { position: absolute; border-radius: 50%; filter: blur(42px); opacity: .6; mix-blend-mode: screen; animation: floatOrb 18s infinite ease-in-out; }
+    .orb-1 { width: 280px; height: 280px; top: -50px; left: 8%; background: radial-gradient(circle, rgba(231,76,60,.6), transparent 70%); }
+    .orb-2 { width: 320px; height: 320px; bottom: -80px; right: 6%; background: radial-gradient(circle, rgba(245,158,11,.55), transparent 70%); animation-delay: -5s; }
+    @keyframes floatOrb { 0%{ transform: translate(0,0) scale(1);} 50%{ transform: translate(-30px,-40px) scale(1.15);} 100%{ transform: translate(0,0) scale(1);} }
+
+    .card { position: relative; z-index: 2; max-width: 640px; margin: 40px 16px; padding: 40px 30px 30px;
+      border-radius: var(--radius); text-align: center; background: radial-gradient(circle at top, rgba(231,76,60,.16), transparent 55%), var(--panel);
+      border: 1px solid rgba(231,76,60,.35); box-shadow: 0 24px 80px rgba(15,23,42,.9); }
+
+    .hero-img { display: block; width: 100%; max-width: 300px; height: auto; margin: 0 auto 14px; border-radius: 16px;
+      filter: drop-shadow(0 14px 36px rgba(231,76,60,0.5)); animation: glitch 6s infinite ease-in-out; }
+    @keyframes glitch { 0%,100%{ transform: translate(0,0) rotate(0); } 47%{ transform: translate(0,0);} 48%{ transform: translate(-3px,2px) skewX(-2deg);} 50%{ transform: translate(3px,-1px) skewX(2deg);} 52%{ transform: translate(0,0);} }
+
+    .code { font-size: 4rem; font-weight: 900; letter-spacing: .12em; margin-bottom: 6px;
+      background: linear-gradient(120deg, var(--danger), var(--warn)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 22px rgba(231,76,60,.5); }
+    h1 { margin: 0; font-size: 1.9rem; font-weight: 850; }
+    .muted { margin: 12px 0 24px; color: var(--muted); line-height: 1.7; font-size: .98rem; }
+
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-bottom: 6px; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 24px; border-radius: 999px;
+      border: 1px solid var(--border); font-size: .98rem; font-weight: 700; text-decoration: none; color: var(--text); cursor: pointer;
+      background: transparent; transition: transform .18s, filter .18s; }
+    .btn.primary { background: linear-gradient(135deg, var(--danger), var(--warn)); color: #fff; border-color: transparent; box-shadow: 0 12px 30px rgba(231,76,60,.45); }
+    .btn:hover { transform: translateY(-2px); } .btn.primary:hover { filter: brightness(1.06); }
+    .tip { margin-top: 20px; font-size: .84rem; color: var(--muted); }
+    .tip a { color: var(--accent-soft); text-decoration: none; }
+    @media (prefers-reduced-motion: reduce){ .orb, .hero-img { animation: none; } }
+    @media (max-width: 560px){ .code { font-size: 3rem; } h1 { font-size: 1.5rem; } .actions { flex-direction: column; } .btn { width: 100%; } }
+  </style>
+</head>
+<body>
+  <div class="bg-orbs" aria-hidden="true"><span class="orb orb-1"></span><span class="orb orb-2"></span></div>
+
+  <main class="card">
+    <img class="hero-img" src="/500.png" alt="Server error" />
+    <div class="code">500</div>
+    <h1>Something broke on our end 🛠️</h1>
+    <p class="muted">
+      That's a server error — not your fault. Our gears jammed for a second.<br>
+      Give it a moment and try again; if it keeps happening, let a dev know.
+    </p>
+    <div class="actions">
+      <button class="btn primary" onclick="location.reload()">🔄 Try again</button>
+      <a class="btn" href="/">🏠 Go home</a>
+      <a class="btn" href="/dashboard">Open dashboard</a>
+    </div>
+    <p class="tip">Still stuck? Ping the team on the <a href="/team">Meet the Team</a> page.</p>
+  </main>
+
+  <script>
+    (function () {
+      var t = localStorage.getItem('theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sentinel • Template Builder</title>
+<style>
+  :root { --bg:#0d1117; --panel:#161b22; --card:#2b2d31; --accent:#5865f2; --muted:#949ba4; --line:#30363d; --good:#3fb950; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,Segoe UI,Arial,sans-serif; background:var(--bg); color:#e6edf3; }
+  header { padding:18px 26px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  header h1 { font-size:19px; margin:0; }
+  header .sub { color:var(--muted); font-size:13px; }
+  select, input[type=text] { background:#0d1117; border:1px solid var(--line); color:#e6edf3; border-radius:8px; padding:8px 10px; font-size:14px; }
+  .wrap { display:grid; grid-template-columns:230px 1fr 360px; gap:18px; padding:18px 26px; align-items:start; }
+  @media(max-width:1000px){ .wrap{ grid-template-columns:1fr; } }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px; }
+  .panel h2 { font-size:12px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin:0 0 12px; }
+  .field { display:block; margin:10px 0; } .field span { display:block; font-size:12px; color:var(--muted); margin-bottom:5px; }
+  .field input, .field select { width:100%; }
+  textarea { width:100%; min-height:230px; background:#0d1117; border:1px solid var(--line); color:#e6edf3; border-radius:10px; padding:12px; font:14px/1.5 ui-monospace,Consolas,monospace; resize:vertical; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:9px; padding:10px 16px; font-weight:700; font-size:14px; cursor:pointer; }
+  button.ghost { background:#30363d; } button.danger { background:#da3633; }
+  button:hover { filter:brightness(1.1); } button:disabled { opacity:.5; cursor:default; }
+  .bar { display:flex; gap:10px; align-items:center; margin-top:12px; flex-wrap:wrap; }
+  .msg { font-size:13px; } .msg.ok{ color:var(--good);} .msg.err{ color:#f85149; }
+  /* variable palette */
+  .cat { font-size:11px; text-transform:uppercase; color:var(--muted); margin:12px 0 6px; letter-spacing:.4px; }
+  .var { display:inline-block; background:var(--card); border:1px solid var(--line); border-radius:6px; padding:3px 7px; margin:2px 3px 2px 0; font:12px ui-monospace,monospace; cursor:pointer; }
+  .var:hover { border-color:var(--accent); color:#fff; }
+  .palette { max-height:70vh; overflow:auto; }
+  .saved { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid rgba(255,255,255,.05); font-size:13px; }
+  .saved .t { background:#3b3f45; border-radius:4px; padding:1px 6px; font-size:10px; text-transform:uppercase; }
+  /* discord preview */
+  .discord { background:#313338; border-radius:10px; padding:14px; }
+  .msgline { display:flex; gap:10px; }
+  .msgline img { width:38px; height:38px; border-radius:50%; }
+  .mbody .who { font-weight:600; color:#f2f3f5; font-size:14px; }
+  .mbody .txt { font-size:14px; color:#dbdee1; white-space:pre-wrap; margin-top:2px; }
+  .embed { border-left:4px solid var(--accent); background:var(--card); border-radius:4px; padding:10px 14px; margin-top:8px; max-width:460px; }
+  .embed .et { font-weight:700; color:#fff; margin-bottom:4px; }
+  .embed .ed { font-size:14px; color:#dbdee1; white-space:pre-wrap; }
+  .embed img.ei { width:100%; border-radius:6px; margin-top:8px; }
+  .hint { color:var(--muted); font-size:12px; margin-top:8px; }
+  a { color:var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🧩 Template Builder</h1>
+  <span class="sub">Design & save reusable templates — warnings, session startups, announcements — with 60 live variables.</span>
+  <span style="flex:1"></span>
+  <select id="guild"><option>Loading…</option></select>
+</header>
+
+<div class="wrap">
+  <!-- LEFT: saved templates + variable palette -->
+  <div class="panel">
+    <h2>Saved templates</h2>
+    <div id="saved"><div class="hint">None yet.</div></div>
+    <button class="ghost" id="new" style="width:100%;margin-top:10px">➕ New template</button>
+    <h2 style="margin-top:18px">Variables — click to insert</h2>
+    <div class="palette" id="palette"></div>
+  </div>
+
+  <!-- MIDDLE: editor -->
+  <div class="panel">
+    <h2>Editor</h2>
+    <div class="field"><span>Name</span><input type="text" id="name" placeholder="e.g. Standard Warning"></div>
+    <div style="display:flex;gap:10px">
+      <div class="field" style="flex:1"><span>Type</span><select id="type"></select></div>
+      <div class="field" style="flex:1"><span>Accent colour (embed)</span><input type="text" id="color" placeholder="#5865f2"></div>
+    </div>
+    <div class="field"><span>Embed title (optional — leave blank for a plain message)</span><input type="text" id="title" placeholder="⚠️ You have been warned in {server}"></div>
+    <div class="field"><span>Body — type freely, insert {variables} from the left</span>
+      <textarea id="content" placeholder="Hey {user}, you were given a {action} by {mod}.&#10;Reason: {reason}&#10;This is strike {strikes}. Case {case}."></textarea>
+    </div>
+    <div class="field"><span>Big image URL (optional)</span><input type="text" id="image" placeholder="https://…"></div>
+    <div class="bar">
+      <button id="save" disabled>💾 Save template</button>
+      <button class="danger" id="del" style="display:none">🗑️ Delete</button>
+      <span class="msg" id="msg"></span>
+    </div>
+  </div>
+
+  <!-- RIGHT: live preview -->
+  <div class="panel">
+    <h2>Live preview (real server data)</h2>
+    <div class="discord">
+      <div class="msgline">
+        <img src="https://cdn.discordapp.com/embed/avatars/0.png">
+        <div class="mbody">
+          <div class="who">Sentinel <span style="background:#5865f2;color:#fff;font-size:9px;border-radius:3px;padding:1px 4px">APP</span></div>
+          <div class="txt" id="pvText"></div>
+          <div class="embed" id="pvEmbed" style="display:none"><div class="et" id="pvTitle"></div><div class="ed" id="pvBody"></div><img class="ei" id="pvImg" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+    <div class="hint">Variables fill with your actual server + you as the sample user. Discord timestamps show as raw tags here but render live in Discord.</div>
+  </div>
+</div>
+
+<script>
+const $=(id)=>document.getElementById(id);
+let VARS=[], TYPES=[], curId=null, saved=[];
+
+async function boot() {
+  const gv = await fetch('/api/infraction-embed/guilds');
+  if (gv.status===401){ $('guild').innerHTML='<option>Sign in first</option>'; document.querySelector('.hint').innerHTML='🔒 <a href="/login">Sign in with Discord</a>.'; return; }
+  const gj = await gv.json();
+  $('guild').innerHTML = (gj.guilds||[]).map(g=>`<option value="${g.id}">${g.name}</option>`).join('') || '<option value="">No servers</option>';
+  const cat = await (await fetch('/api/templates/vars')).json();
+  VARS=cat.variables; TYPES=cat.types;
+  $('type').innerHTML = TYPES.map(t=>`<option value="${t}">${t[0].toUpperCase()+t.slice(1)}</option>`).join('');
+  renderPalette();
+  const pre = new URLSearchParams(location.search).get('g');
+  if (pre) $('guild').value = pre;
+  loadSaved();
+}
+function renderPalette() {
+  const groups={}; VARS.forEach(v=>{ (groups[v.cat]??=[]).push(v); });
+  $('palette').innerHTML = Object.entries(groups).map(([c,list])=>
+    `<div class="cat">${c}</div>`+list.map(v=>`<span class="var" title="${v.desc}" data-v="{${v.key}}">{${v.key}}</span>`).join('')
+  ).join('');
+  document.querySelectorAll('.var').forEach(el=>el.onclick=()=>insertAtCursor($('content'), el.dataset.v));
+}
+function insertAtCursor(ta, text) {
+  const s=ta.selectionStart, e=ta.selectionEnd;
+  ta.value = ta.value.slice(0,s)+text+ta.value.slice(e);
+  ta.selectionStart=ta.selectionEnd=s+text.length; ta.focus(); preview();
+}
+async function loadSaved() {
+  const id=$('guild').value; if(!id){ return; }
+  const r=await fetch('/api/templates/'+id); if(!r.ok){ $('saved').innerHTML='<div class="hint">No access.</div>'; return; }
+  saved=(await r.json()).templates||[];
+  $('saved').innerHTML = saved.length? saved.map(t=>
+    `<div class="saved"><span><b>${t.name}</b> <span class="t">${t.type}</span></span><button class="ghost" data-id="${t.id}" style="padding:4px 9px">Edit</button></div>`
+  ).join('') : '<div class="hint">None yet.</div>';
+  document.querySelectorAll('#saved button').forEach(b=>b.onclick=()=>editTemplate(b.dataset.id));
+  $('save').disabled=false;
+}
+function editTemplate(id) {
+  const t=saved.find(x=>x.id===id); if(!t) return;
+  curId=t.id; $('name').value=t.name; $('type').value=t.type; $('title').value=t.title||''; $('content').value=t.content||''; $('color').value=t.color||''; $('image').value=t.image||'';
+  $('del').style.display='inline-block'; preview();
+}
+function newTemplate(){ curId=null; ['name','title','content','color','image'].forEach(i=>$(i).value=''); $('del').style.display='none'; $('msg').textContent=''; preview(); }
+
+let pvTimer;
+async function preview() {
+  clearTimeout(pvTimer);
+  pvTimer=setTimeout(async()=>{
+    const id=$('guild').value; if(!id) return;
+    const combined = ($('title').value?('__'+$('title').value+'__\n'):'')+$('content').value;
+    const r=await fetch('/api/templates/'+id+'/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:combined})});
+    const j=await r.json(); const out=j.rendered||'';
+    // split title back out for the embed look
+    const hasEmbed = $('title').value || $('color').value || $('image').value;
+    if (hasEmbed) {
+      $('pvText').textContent = renderPlainField($('content').value.split('\n')[0]? '' : '');
+      $('pvEmbed').style.display='block';
+      $('pvEmbed').style.borderLeftColor = /^#?[0-9a-f]{6}$/i.test($('color').value)?($('color').value[0]==='#'?$('color').value:'#'+$('color').value):'#5865f2';
+      // re-render title + body separately with same substitution
+      const tRes=await subst($('title').value); const bRes=await subst($('content').value);
+      $('pvTitle').textContent=tRes; $('pvBody').textContent=bRes; $('pvText').textContent='';
+      if($('image').value){ $('pvImg').src=$('image').value; $('pvImg').style.display='block'; } else $('pvImg').style.display='none';
+    } else {
+      $('pvEmbed').style.display='none';
+      $('pvText').textContent = await subst($('content').value);
+    }
+  },250);
+}
+async function subst(text){ const id=$('guild').value; const r=await fetch('/api/templates/'+id+'/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:text})}); return (await r.json()).rendered||''; }
+function renderPlainField(x){ return x; }
+
+async function save() {
+  const id=$('guild').value; if(!id) return;
+  $('save').disabled=true; $('msg').className='msg'; $('msg').textContent='Saving…';
+  const body={ id:curId, name:$('name').value||'Untitled', type:$('type').value, title:$('title').value, content:$('content').value, color:$('color').value, image:$('image').value };
+  const r=await fetch('/api/templates/'+id,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const j=await r.json();
+  if(j.ok){ curId=j.template.id; $('msg').className='msg ok'; $('msg').textContent='✅ Saved!'; loadSaved(); $('del').style.display='inline-block'; }
+  else { $('msg').className='msg err'; $('msg').textContent='❌ '+(j.error||'Failed'); }
+  $('save').disabled=false;
+}
+async function del() {
+  const id=$('guild').value; if(!id||!curId) return;
+  if(!confirm('Delete this template?')) return;
+  await fetch('/api/templates/'+id+'/'+curId,{method:'DELETE'});
+  newTemplate(); loadSaved();
+}
+
+$('guild').addEventListener('change', loadSaved);
+['title','content','color','image'].forEach(i=>$(i).addEventListener('input',preview));
+$('save').addEventListener('click',save); $('del').addEventListener('click',del); $('new').addEventListener('click',newTemplate);
+boot();
+</script>
+</body>
+</html>

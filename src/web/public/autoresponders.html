@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sentinel • Autoresponders</title>
+<style>
+  :root { --bg:#0d1117; --panel:#161b22; --card:#2b2d31; --accent:#5865f2; --muted:#949ba4; --line:#30363d; --good:#3fb950; --bad:#f85149; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,Segoe UI,Arial,sans-serif; background:var(--bg); color:#e6edf3; }
+  header { padding:18px 26px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  header h1 { font-size:19px; margin:0; } header .sub { color:var(--muted); font-size:13px; }
+  select, input[type=text] { background:#0d1117; border:1px solid var(--line); color:#e6edf3; border-radius:8px; padding:8px 10px; font-size:14px; }
+  .wrap { max-width:900px; margin:0 auto; padding:22px 26px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px; margin-bottom:16px; }
+  .ar { border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; background:#12161d; }
+  .ar .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .ar .row > * { flex:1; min-width:120px; }
+  .ar textarea { width:100%; min-height:70px; background:#0d1117; border:1px solid var(--line); color:#e6edf3; border-radius:8px; padding:10px; font:14px/1.5 system-ui; margin-top:8px; resize:vertical; }
+  .ar .foot { display:flex; gap:14px; align-items:center; margin-top:8px; flex-wrap:wrap; font-size:13px; color:var(--muted); }
+  label.chk { display:flex; align-items:center; gap:6px; cursor:pointer; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:9px; padding:10px 16px; font-weight:700; font-size:14px; cursor:pointer; }
+  button.ghost { background:#30363d; } button.danger { background:#da3633; padding:7px 12px; }
+  button:hover { filter:brightness(1.1); } button:disabled { opacity:.5; }
+  .bar { display:flex; gap:12px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+  .msg { font-size:13px; } .msg.ok{ color:var(--good);} .msg.err{ color:var(--bad);}
+  .vars { font-size:12px; color:var(--muted); margin-top:6px; }
+  .vars code { background:var(--card); padding:1px 5px; border-radius:4px; cursor:pointer; }
+  .hint { color:var(--muted); font-size:12px; }
+  a { color:var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>💬 Autoresponders</h1>
+  <span class="sub">When someone says a trigger, Sentinel auto-replies. Responses support all template variables.</span>
+  <span style="flex:1"></span>
+  <select id="guild"><option>Loading…</option></select>
+</header>
+<div class="wrap">
+  <div class="panel">
+    <div id="list"></div>
+    <button class="ghost" id="add">➕ Add autoresponder</button>
+    <div class="vars" id="vars"></div>
+  </div>
+  <div class="bar">
+    <button id="save" disabled>💾 Save all</button>
+    <span class="msg" id="msg"></span>
+    <span class="hint">Changes apply instantly after saving — no restart.</span>
+  </div>
+</div>
+
+<script>
+const $=(id)=>document.getElementById(id);
+let MATCH=[], VARS=[], data=[];
+
+async function boot(){
+  const gv=await fetch('/api/infraction-embed/guilds');
+  if(gv.status===401){ $('guild').innerHTML='<option>Sign in first</option>'; document.querySelector('.hint').innerHTML='🔒 <a href="/login">Sign in with Discord</a>.'; return; }
+  const gj=await gv.json();
+  $('guild').innerHTML=(gj.guilds||[]).map(g=>`<option value="${g.id}">${g.name}</option>`).join('')||'<option value="">No servers</option>';
+  const meta=await (await fetch('/api/autoresponders/meta')).json(); MATCH=meta.matchTypes; VARS=meta.variables;
+  $('vars').innerHTML='Variables: '+VARS.slice(0,14).map(v=>`<code data-v="{${v.key}}">{${v.key}}</code>`).join(' ')+' …';
+  const pre=new URLSearchParams(location.search).get('g'); if(pre) $('guild').value=pre;
+  load();
+}
+async function load(){
+  const id=$('guild').value; if(!id) return;
+  const r=await fetch('/api/autoresponders/'+id); if(!r.ok){ $('list').innerHTML='<div class="hint">No access.</div>'; return; }
+  data=(await r.json()).autoresponders||[]; render(); $('save').disabled=false;
+}
+function matchOpts(sel){ return MATCH.map(m=>`<option value="${m}" ${m===sel?'selected':''}>${m}</option>`).join(''); }
+function render(){
+  $('list').innerHTML = data.length ? data.map((r,i)=>`
+    <div class="ar" data-i="${i}">
+      <div class="row">
+        <input type="text" class="f-trigger" placeholder="Trigger word/phrase" value="${(r.trigger||'').replace(/"/g,'&quot;')}">
+        <select class="f-match">${matchOpts(r.match)}</select>
+        <input type="text" class="f-color" placeholder="#hex (embed color)" value="${r.color||''}" style="max-width:150px">
+      </div>
+      <textarea class="f-response" placeholder="Reply text — use {user}, {server}, …">${r.response||''}</textarea>
+      <div class="foot">
+        <label class="chk"><input type="checkbox" class="f-enabled" ${r.enabled!==false?'checked':''}> Enabled</label>
+        <label class="chk"><input type="checkbox" class="f-embed" ${r.embed?'checked':''}> Send as embed</label>
+        <label class="chk"><input type="checkbox" class="f-del" ${r.deleteTrigger?'checked':''}> Delete trigger msg</label>
+        <span style="flex:1"></span>
+        <button class="danger" data-del="${i}">Delete</button>
+      </div>
+    </div>`).join('') : '<div class="hint">No autoresponders yet — add one below.</div>';
+  document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{ collect(); data.splice(+b.dataset.del,1); render(); });
+}
+function collect(){
+  data = [...document.querySelectorAll('.ar')].map(el=>({
+    trigger: el.querySelector('.f-trigger').value,
+    match: el.querySelector('.f-match').value,
+    color: el.querySelector('.f-color').value,
+    response: el.querySelector('.f-response').value,
+    enabled: el.querySelector('.f-enabled').checked,
+    embed: el.querySelector('.f-embed').checked,
+    deleteTrigger: el.querySelector('.f-del').checked,
+  }));
+}
+$('add').onclick=()=>{ collect(); data.push({ trigger:'', match:'contains', response:'', enabled:true }); render(); };
+$('guild').onchange=load;
+$('vars').onclick=(e)=>{ if(e.target.dataset.v){ navigator.clipboard?.writeText(e.target.dataset.v); e.target.style.color='#3fb950'; setTimeout(()=>e.target.style.color='',600);} };
+$('save').onclick=async()=>{
+  collect(); const id=$('guild').value; if(!id) return;
+  $('save').disabled=true; $('msg').className='msg'; $('msg').textContent='Saving…';
+  const r=await fetch('/api/autoresponders/'+id,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({autoresponders:data})});
+  const j=await r.json();
+  if(j.ok){ data=j.autoresponders; render(); $('msg').className='msg ok'; $('msg').textContent='✅ Saved '+data.length+' autoresponder(s)!'; }
+  else { $('msg').className='msg err'; $('msg').textContent='❌ '+(j.error||'Failed'); }
+  $('save').disabled=false;
+};
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Leaderboards · Sentinel</title>
+  <link rel="icon" href="favicon.ico" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background:
+        radial-gradient(1000px 600px at 85% -10%, rgba(255,210,63,.14), transparent 60%),
+        radial-gradient(900px 500px at 0% 110%, rgba(88,101,242,.14), transparent 55%),
+        var(--bg);
+    }
+    .wrap { max-width: 900px; margin: 0 auto; padding: 28px 20px 70px; }
+    header.top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 4px; }
+    header.top h1 { font-size: 1.7rem; margin: 0; font-weight: 850; letter-spacing: -.02em; }
+    .pick { margin-left: auto; background: var(--panel); color: var(--text); border: 1px solid var(--border);
+      border-radius: 10px; padding: 7px 10px; font-size: .85rem; font-weight: 600; cursor: pointer; max-width: 220px; }
+    .pick:hover { border-color: var(--accent); }
+    .sub { color: var(--muted); font-size: .9rem; margin: 2px 0 20px; }
+    a.back { color: var(--muted); text-decoration: none; }
+    a.back:hover { color: var(--text); }
+
+    .tabs { display: flex; gap: 8px; margin-bottom: 22px; flex-wrap: wrap; }
+    .tab {
+      display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px;
+      background: var(--panel); border: 1px solid var(--border); color: var(--muted);
+      font-weight: 700; font-size: .9rem; cursor: pointer; transition: all .15s;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: #fff; border-color: transparent; background: linear-gradient(90deg, var(--accent), #8b5cf6); box-shadow: 0 6px 20px -8px var(--accent-glow); }
+
+    /* podium */
+    .podium { display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 12px; align-items: end; margin-bottom: 22px; }
+    .pod { text-align: center; background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.01));
+      border: 1px solid var(--border); border-radius: 16px; padding: 16px 10px; position: relative; }
+    .pod .medal { font-size: 1.5rem; }
+    .pod .av { width: 56px; height: 56px; border-radius: 50%; margin: 6px auto; background: #222b3a; object-fit: cover; display: block; border: 2px solid var(--border); }
+    .pod .nm { font-weight: 800; font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pod .vl { color: var(--gold); font-weight: 800; font-size: 1.05rem; margin-top: 2px; }
+    .pod.p1 { padding-bottom: 34px; border-color: rgba(255,210,63,.5); box-shadow: 0 10px 40px -14px rgba(255,210,63,.4); }
+    .pod.p1 .av { width: 68px; height: 68px; border-color: var(--gold); }
+    .pod.p2 { border-color: rgba(180,190,210,.4); }
+    .pod.p3 { border-color: rgba(205,127,50,.4); }
+
+    .list { display: grid; gap: 9px; }
+    .row {
+      display: grid; grid-template-columns: 34px 40px 1fr auto; align-items: center; gap: 12px;
+      background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.008));
+      border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px;
+    }
+    .row .rk { text-align: center; font-weight: 800; color: var(--muted); }
+    .row .av { width: 40px; height: 40px; border-radius: 50%; background: #222b3a; object-fit: cover; }
+    .row .who .nm { font-weight: 700; }
+    .row .who .meta { color: var(--muted); font-size: .78rem; }
+    .row .vl { font-weight: 850; }
+    .row .vl small { color: var(--muted); font-weight: 600; font-size: .72rem; }
+    .empty { text-align: center; color: var(--muted); padding: 30px 0; }
+    .ph { display: grid; place-items: center; font-size: 1rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <h1>🏆 Leaderboards</h1>
+      <select id="pick" class="pick" title="Switch server" aria-label="Switch server"></select>
+    </header>
+    <p class="sub"><span id="gname">Server</span> · ranked live — <a class="back" href="/pulse">see the live pulse →</a></p>
+
+    <div class="tabs" id="tabs">
+      <div class="tab active" data-b="coins">💰 Coins</div>
+      <div class="tab" data-b="xp">⭐ XP</div>
+      <div class="tab" data-b="officers">🚓 Top Officers</div>
+    </div>
+
+    <div class="podium" id="podium"></div>
+    <div class="list" id="list"><div class="empty">Loading…</div></div>
+  </div>
+
+  <script src="/toast.js" defer></script>
+  <script>
+  (() => {
+    const $ = (id) => document.getElementById(id);
+    let board = 'coins', data = { coins: [], xp: [], officers: [] }, gname = 'Server';
+    let guildParam = new URLSearchParams(location.search).get('guild') || '';
+    const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const fmt = (n) => Number(n || 0).toLocaleString();
+    const UNIT = { coins: '🪙', xp: 'XP', officers: 'citations' };
+
+    async function loadServers() {
+      try {
+        const d = await (await fetch('/api/pulse/servers', { cache: 'no-store' })).json();
+        const sel = $('pick');
+        if (!d.servers || d.servers.length < 2) sel.style.display = 'none';
+        sel.innerHTML = (d.servers || []).map(s => `<option value="${s.id}">${esc(s.name)} · ${s.members}</option>`).join('');
+        if (!guildParam) guildParam = (d.home && d.servers.some(s => s.id === d.home)) ? d.home : (d.servers[0]?.id || '');
+        sel.value = guildParam;
+        sel.onchange = () => { guildParam = sel.value; load(); };
+      } catch { $('pick').style.display = 'none'; }
+    }
+
+    async function load() {
+      try {
+        const url = guildParam ? `/api/leaderboards?guild=${encodeURIComponent(guildParam)}` : '/api/leaderboards';
+        data = await (await fetch(url, { cache: 'no-store' })).json();
+        gname = data.guildName || 'Server'; $('gname').textContent = gname;
+        render();
+      } catch { $('list').innerHTML = '<div class="empty">Could not load. 😕</div>'; }
+    }
+
+    function avatar(e, cls) {
+      if (e.avatar) return `<img class="${cls}" src="${e.avatar}" alt="">`;
+      if (board === 'officers') return `<div class="${cls} ph">🚓</div>`;
+      return `<div class="${cls} ph">👤</div>`;
+    }
+
+    function render() {
+      const rows = data[board] || [];
+      const podEl = $('podium'), listEl = $('list');
+      if (!rows.length) {
+        podEl.innerHTML = '';
+        listEl.innerHTML = `<div class="empty">No ${board === 'officers' ? 'citations' : board} yet in <b>${esc(gname)}</b>.</div>`;
+        return;
+      }
+      // podium: order 2nd, 1st, 3rd
+      const podOrder = [rows[1], rows[0], rows[2]].map((e, i) => ({ e, place: [2, 1, 3][i] }));
+      podEl.innerHTML = podOrder.filter(p => p.e).map(({ e, place }) => `
+        <div class="pod p${place}">
+          <div class="medal">${['🥇','🥈','🥉'][place-1]}</div>
+          ${avatar(e, 'av')}
+          <div class="nm">${esc(e.name)}</div>
+          <div class="vl">${fmt(e.value)} <small style="color:var(--muted)">${board==='xp'?'XP':board==='coins'?'🪙':''}</small></div>
+          ${board==='xp' && e.level ? `<div class="meta" style="color:var(--muted);font-size:.75rem">Lv ${e.level}</div>`:''}
+        </div>`).join('');
+
+      // list: 4th onward
+      const rest = rows.slice(3);
+      listEl.innerHTML = rest.length ? rest.map((e, i) => `
+        <div class="row">
+          <div class="rk">${i + 4}</div>
+          ${avatar(e, 'av')}
+          <div class="who">
+            <div class="nm">${esc(e.name)}</div>
+            <div class="meta">${board==='xp' && e.level ? `Level ${e.level}` : board==='officers' ? `$${fmt(e.fines)} in fines` : ''}</div>
+          </div>
+          <div class="vl">${fmt(e.value)} <small>${UNIT[board]}</small></div>
+        </div>`).join('') : '<div class="empty">That\'s the whole leaderboard. 🏁</div>';
+    }
+
+    $('tabs').addEventListener('click', (ev) => {
+      const t = ev.target.closest('.tab'); if (!t) return;
+      board = t.dataset.b;
+      [...document.querySelectorAll('.tab')].forEach(x => x.classList.toggle('active', x === t));
+      render();
+    });
+
+    loadServers().then(load);
+    setInterval(load, 15000);
+  })();
+  </script>
+</body>
+</html>

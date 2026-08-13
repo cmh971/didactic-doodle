@@ -52,9 +52,15 @@ export async function handleInfractionText(message) {
     return false; // not one of our commands
   }
 
-  // Permission gate (mirrors the slash command's default perms).
-  if (!message.member?.permissions?.has(PermissionFlagsBits.ModerateMembers)) {
-    await reply(message, '❌ You need the **Moderate Members** permission to do that.');
+  // Permission gate — PER ACTION, so "Timeout Members" can't ban/kick. Ban needs
+  // Ban Members, kick needs Kick Members. (This was the privilege-escalation bug.)
+  const PERM = { warn: PermissionFlagsBits.ModerateMembers, mute: PermissionFlagsBits.ModerateMembers, kick: PermissionFlagsBits.KickMembers, ban: PermissionFlagsBits.BanMembers };
+  const PERM_NAME = { warn: 'Moderate Members', mute: 'Moderate Members', kick: 'Kick Members', ban: 'Ban Members' };
+  const isViewRemove = sub === 'view' || sub === 'remove';
+  const needPerm = isViewRemove ? PermissionFlagsBits.ModerateMembers : (PERM[action] || PermissionFlagsBits.Administrator);
+  const needName = isViewRemove ? 'Moderate Members' : (PERM_NAME[action] || 'Administrator');
+  if (!message.member?.permissions?.has(needPerm)) {
+    await reply(message, `❌ You need the **${needName}** permission to do that.`);
     return true;
   }
 
@@ -96,6 +102,24 @@ export async function handleInfractionText(message) {
     return true;
   }
 
+  // ---- TARGET PROTECTION ----
+  // The bot executes the punishment, so Discord's role hierarchy does NOT protect
+  // the target automatically. Enforce it ourselves: nobody can ban/kick/mute the
+  // server owner, the bot, themselves, or anyone with an equal/higher role.
+  if (action === 'kick' || action === 'ban' || action === 'mute') {
+    if (targetId === message.guild.ownerId) { await reply(message, '🛡️ You can’t moderate the **server owner**.'); return true; }
+    if (targetId === message.author.id) { await reply(message, '🙃 You can’t moderate yourself.'); return true; }
+    if (targetId === message.client.user.id) { await reply(message, '🤖 You can’t moderate me.'); return true; }
+    const invokerIsOwner = message.author.id === message.guild.ownerId;
+    if (!invokerIsOwner) {
+      const targetMember = await message.guild.members.fetch(targetId).catch(() => null);
+      if (targetMember && targetMember.roles.highest.position >= message.member.roles.highest.position) {
+        await reply(message, '🛡️ You can’t moderate someone with an equal or higher role than you.');
+        return true;
+      }
+    }
+  }
+
   // Everything after the action keyword, minus the mention/ID token(s).
   const rest = args.filter((t) => !/^<@!?\d+>$/.test(t) && t.replace(/\D/g, '') !== targetId);
   let durationMs = null;
@@ -118,7 +142,16 @@ export async function handleInfractionText(message) {
     notes,
   });
   if (!res.ok) { await reply(message, `❌ ${res.error}`); return true; }
-  await message.reply({ content: `✅ ${res.label} — **Case #${res.caseId}** for **${res.targetTag}**.\n**Reason:** ${reason}`, allowedMentions: { parse: [] } }).catch(() => {});
+  // Post the one big, dashboard-configurable embed (unless it's been disabled).
+  if (res.embed && res.embedEnabled !== false) {
+    await message.reply({
+      content: res.pingOffender ? `<@${res.targetId}>` : undefined,
+      embeds: [res.embed],
+      allowedMentions: res.pingOffender ? { users: [res.targetId] } : { parse: [] },
+    }).catch(() => {});
+  } else {
+    await message.reply({ content: `✅ ${res.label} — **Case #${res.caseId}** for **${res.targetTag}**.`, allowedMentions: { parse: [] } }).catch(() => {});
+  }
   return true;
 }
 

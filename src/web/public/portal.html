@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Civilian Portal · Sentinel CAD</title>
+<style>
+  :root { color-scheme: dark; } * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0f16; color: #e8f0ff; }
+  header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: #0e1c2c; border-bottom: 1px solid #1e3a55; }
+  header h1 { font-size: 17px; margin: 0; }
+  .tabs { display: flex; gap: 6px; padding: 10px 16px 0; }
+  .tabs button { background: #0b1622; color: #e8f0ff; border: 1px solid #1e3a55; border-radius: 8px 8px 0 0; padding: 8px 14px; cursor: pointer; font-weight: 700; }
+  .tabs button.on { background: #1aa3ff; color: #04121f; }
+  .wrap { padding: 12px 16px; max-width: 860px; }
+  .card { background: #0e1c2c; border: 1px solid #1e3a55; border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+  .card h2 { font-size: 13px; margin: 0 0 8px; color: #9fc0e0; text-transform: uppercase; letter-spacing: .5px; }
+  label { font-size: 11px; color: #9fc0e0; display: block; margin: 8px 0 3px; }
+  input, select, textarea, button { background: #0b1622; color: #e8f0ff; border: 1px solid #1e3a55; border-radius: 7px; padding: 8px; font-size: 13px; width: 100%; }
+  button.p { background: #22c55e; color: #04121f; border: none; font-weight: 700; cursor: pointer; }
+  button.x { background: none; border: none; color: #ef4444; cursor: pointer; width: auto; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; } .row > * { flex: 1; min-width: 110px; }
+  .hide { display: none; }
+  .lic { display: flex; gap: 10px; flex-wrap: wrap; margin: 6px 0; }
+  .lic label { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #e8f0ff; margin: 0; }
+  .lic input { width: auto; }
+  .rec { border-left: 3px solid #37d0a0; background: #0b1622; border-radius: 7px; padding: 8px 10px; margin: 6px 0; display: flex; justify-content: space-between; align-items: center; }
+  .badge { display: inline-block; background: #14283d; border-radius: 5px; padding: 1px 7px; font-size: 11px; margin: 1px; }
+  .muted { color: #6d90b3; font-size: 12px; }
+</style>
+</head>
+<body>
+  <header><h1>🚗 Civilian Portal</h1><span class="muted" id="who"></span></header>
+  <div class="tabs">
+    <button class="on" data-t="chars">🧍 Characters</button>
+    <button data-t="veh">🚗 My Vehicles (DMV)</button>
+    <button data-t="gun">🔫 Firearms</button>
+  </div>
+  <div class="wrap">
+    <section id="t-chars">
+      <div class="card"><h2>New character</h2>
+        <div class="row"><input id="c-name" placeholder="Full name"><input id="c-dob" placeholder="DOB"><input id="c-gender" placeholder="Gender"></div>
+        <label>Address</label><input id="c-addr" placeholder="123 Postal St">
+        <label>Phone number</label><input id="c-phone" placeholder="(555) 123-4567">
+        <label>Licenses to apply for</label>
+        <div class="lic" id="c-lic">
+          <label><input type="checkbox" value="Driver">Driver</label>
+          <label><input type="checkbox" value="CDL">CDL</label>
+          <label><input type="checkbox" value="Boating">Boating</label>
+          <label><input type="checkbox" value="Aviation">Aviation</label>
+          <label><input type="checkbox" value="Weapon">Weapon Carry</label>
+        </div>
+        <label>Backstory</label><textarea id="c-back" rows="2"></textarea>
+        <button class="p" style="margin-top:8px" onclick="addChar()">Create character</button>
+      </div>
+      <div id="charList"></div>
+    </section>
+    <section id="t-veh" class="hide">
+      <div class="card"><h2>Register a vehicle</h2>
+        <div class="row"><input id="v-plate" placeholder="Custom plate"><input id="v-owner" placeholder="Registered to (character)"></div>
+        <div class="row"><input id="v-model" placeholder="Model"><input id="v-color" placeholder="Color"><select id="v-ins"><option>Valid</option><option>Expired</option><option>None</option></select></div>
+        <button class="p" style="margin-top:8px" onclick="addVeh()">Register</button>
+      </div>
+      <div id="vehList"></div>
+    </section>
+    <section id="t-gun" class="hide">
+      <div class="card"><h2>Register a firearm</h2>
+        <div class="row"><input id="g-owner" placeholder="Registered to (character)"><input id="g-serial" placeholder="Serial #"></div>
+        <div class="row"><input id="g-type" placeholder="Type (Pistol, Rifle…)"><select id="g-permit"><option>None</option><option>Concealed Carry</option><option>Open Carry</option></select></div>
+        <button class="p" style="margin-top:8px" onclick="addGun()">Register</button>
+      </div>
+      <div id="gunList"></div>
+    </section>
+  </div>
+<script>
+const guild = new URLSearchParams(location.search).get('guild');
+const $ = (id) => document.getElementById(id);
+function esc(s){ return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+async function api(path, body){ const r = await fetch(`/api/portal/${guild}${path}`, body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{}); return r.json(); }
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{ document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); document.querySelectorAll('section').forEach(s=>s.classList.add('hide')); $('t-'+b.dataset.t).classList.remove('hide'); });
+
+async function refresh(){
+  const d = await api('/me');
+  $('charList').innerHTML = (d.characters||[]).map(c=>`<div class="card"><div class="rec"><div><b>${esc(c.name)}</b> <span class="muted">${esc(c.dob||'')} ${esc(c.gender||'')}</span><br>${Object.keys(c.licenses||{}).map(k=>`<span class="badge">${esc(k)}: ${esc(c.licenses[k])}</span>`).join('')||'<span class="muted">no licenses</span>'}</div><button class="x" onclick="delChar(${c.id})">Delete</button></div></div>`).join('') || '<div class="muted">No characters yet — create one above.</div>';
+  $('vehList').innerHTML = (d.vehicles||[]).map(v=>`<div class="rec">🚗 <b>${esc(v.plate)}</b> — ${esc(v.model||'?')} ${esc(v.color||'')} · ${esc(v.owner||'')} <span class="muted">(${esc(v.insurance)})</span> <button class="x" onclick="delVeh(${v.id})">✕</button></div>`).join('') || '<div class="muted">No vehicles registered.</div>';
+  $('gunList').innerHTML = (d.firearms||[]).map(g=>`<div class="rec">🔫 <b>${esc(g.serial||'?')}</b> — ${esc(g.type||'')} · ${esc(g.owner_name||'')} <span class="muted">(${esc(g.permit)})</span> <button class="x" onclick="delGun(${g.id})">✕</button></div>`).join('') || '<div class="muted">No firearms registered.</div>';
+}
+window.addChar = async ()=>{ const lic={}; document.querySelectorAll('#c-lic input:checked').forEach(i=>lic[i.value]='Valid'); await api('/character',{name:$('c-name').value,dob:$('c-dob').value,gender:$('c-gender').value,address:$('c-addr').value,phone:$('c-phone').value,licenses:lic,backstory:$('c-back').value}); $('c-name').value=$('c-dob').value=$('c-gender').value=$('c-addr').value=$('c-phone').value=$('c-back').value=''; refresh(); };
+window.delChar = async (id)=>{ await api(`/character/${id}/delete`,{}); refresh(); };
+window.addVeh = async ()=>{ await api('/vehicle',{plate:$('v-plate').value,owner:$('v-owner').value,model:$('v-model').value,color:$('v-color').value,insurance:$('v-ins').value}); $('v-plate').value=$('v-owner').value=$('v-model').value=$('v-color').value=''; refresh(); };
+window.delVeh = async (id)=>{ await api(`/vehicle/${id}/delete`,{}); refresh(); };
+window.addGun = async ()=>{ await api('/firearm',{owner:$('g-owner').value,serial:$('g-serial').value,type:$('g-type').value,permit:$('g-permit').value}); $('g-owner').value=$('g-serial').value=$('g-type').value=''; refresh(); };
+window.delGun = async (id)=>{ await api(`/firearm/${id}/delete`,{}); refresh(); };
+
+if(!guild){ document.body.innerHTML='<p style="text-align:center;padding:40px">Add <code>?guild=YOUR_SERVER_ID</code> to the URL.</p>'; } else refresh();
+</script>
+<script src="/a11y.js" defer></script>
+</body>
+</html>

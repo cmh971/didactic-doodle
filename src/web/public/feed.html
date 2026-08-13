@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Live Server Feed · Sentinel</title>
+  <link rel="icon" href="favicon.ico" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: radial-gradient(1000px 600px at 85% -10%, rgba(46,204,113,.12), transparent 60%), var(--bg); }
+    .wrap { max-width: 780px; margin: 0 auto; padding: 26px 18px 60px; }
+    header.top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+    header.top h1 { font-size: 1.5rem; margin: 0; font-weight: 850; letter-spacing: -.02em; }
+    .live { display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px; border-radius: 999px;
+      background: rgba(46,204,113,.12); border: 1px solid rgba(46,204,113,.4); color: #4ade80; font-weight: 800; font-size: .72rem; letter-spacing: .1em; }
+    .live .dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; animation: ping 1.4s ease-out infinite; }
+    @keyframes ping { 0%{ box-shadow:0 0 0 0 rgba(34,197,94,.6);} 70%{ box-shadow:0 0 0 10px rgba(34,197,94,0);} 100%{ box-shadow:0 0 0 0 rgba(34,197,94,0);} }
+    .spacer { margin-left: auto; }
+    select.ctl { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 7px 11px; font-size: .84rem; font-weight: 600; cursor: pointer; }
+    .sub { color: var(--muted); font-size: .9rem; margin: 2px 0 18px; }
+    a.link { color: var(--accent); text-decoration: none; }
+
+    .bar { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+    .chip { background: rgba(255,255,255,.03); border: 1px solid var(--border); border-radius: 10px; padding: 7px 12px; font-size: .82rem; }
+    .chip b { font-weight: 850; }
+    .filters { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+    .f { padding: 5px 11px; border-radius: 999px; border: 1px solid var(--border); background: var(--panel); color: var(--muted); font-size: .78rem; font-weight: 700; cursor: pointer; }
+    .f.on { color: #fff; border-color: transparent; background: var(--accent); }
+
+    .feed { display: grid; gap: 8px; }
+    .ev { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 12px;
+      background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.008));
+      border: 1px solid var(--border); border-left-width: 3px; border-radius: 11px; padding: 10px 14px; animation: slidein .35s ease; }
+    @keyframes slidein { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+    .ev .ic { font-size: 1.05rem; text-align: center; }
+    .ev .tx { font-size: .9rem; }
+    .ev .tx b { font-weight: 800; }
+    .ev .tm { color: var(--muted); font-size: .74rem; white-space: nowrap; }
+    .ev.join   { border-left-color: #22c55e; }
+    .ev.leave  { border-left-color: #94a3b8; }
+    .ev.kill   { border-left-color: #ef4444; }
+    .ev.modcall{ border-left-color: #f59e0b; }
+    .ev.command{ border-left-color: #8b5cf6; }
+    .ev.command .tx code { background: rgba(139,92,246,.15); padding: 1px 6px; border-radius: 6px; font-size: .82rem; }
+    .empty { text-align: center; color: var(--muted); padding: 40px 0; }
+    .overlay { text-align: center; color: var(--muted); padding: 40px 20px; }
+    .overlay .big { color: var(--text); font-weight: 800; font-size: 1.1rem; margin-bottom: 6px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <span class="live"><span class="dot"></span> LIVE FEED</span>
+      <h1 id="sname">Server Feed</h1>
+      <div class="spacer"></div>
+      <select id="pick" class="ctl" title="Server"></select>
+    </header>
+    <p class="sub">Live join / kill / mod-call / command activity — <a class="link" href="/dispatch">open the map →</a></p>
+
+    <div class="bar">
+      <div class="chip">👥 <b id="c-players">–</b> playing</div>
+      <div class="chip">⏳ <b id="c-queue">0</b> in queue</div>
+      <div class="chip">📡 <b id="c-events">0</b> events</div>
+    </div>
+
+    <div class="filters" id="filters">
+      <div class="f on" data-f="all">All</div>
+      <div class="f" data-f="join">🟢 Joins</div>
+      <div class="f" data-f="leave">⚪ Leaves</div>
+      <div class="f" data-f="kill">🔴 Kills</div>
+      <div class="f" data-f="modcall">🟠 Mod calls</div>
+      <div class="f" data-f="command">🟣 Commands</div>
+    </div>
+
+    <div class="feed" id="feed"><div class="overlay"><div class="big">Connecting…</div>Pulling the live feed.</div></div>
+  </div>
+
+  <script src="/toast.js" defer></script>
+  <script>
+  (() => {
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    let guildParam = new URLSearchParams(location.search).get('guild') || '';
+    let filter = 'all', events = [];
+
+    const ago = (t) => { if (!t) return ''; const s = Math.max(0, Math.floor(Date.now()/1000 - t));
+      if (s < 60) return s + 's ago'; if (s < 3600) return Math.floor(s/60) + 'm ago'; return Math.floor(s/3600) + 'h ago'; };
+    const ICON = { join: '🟢', leave: '⚪', kill: '💀', modcall: '🚨', command: '⌨️' };
+
+    (async () => {
+      try {
+        const d = await (await fetch('/api/pulse/servers', { cache: 'no-store' })).json();
+        const sel = $('pick');
+        if (!d.servers || d.servers.length < 2) sel.style.display = 'none';
+        sel.innerHTML = (d.servers || []).map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+        if (!guildParam) guildParam = (d.home && d.servers.some(s => s.id === d.home)) ? d.home : (d.servers[0]?.id || '');
+        sel.value = guildParam;
+        sel.onchange = () => { guildParam = sel.value; poll(); };
+      } catch { $('pick').style.display = 'none'; }
+    })();
+
+    $('filters').addEventListener('click', (e) => {
+      const f = e.target.closest('.f'); if (!f) return;
+      filter = f.dataset.f;
+      [...document.querySelectorAll('.f')].forEach(x => x.classList.toggle('on', x === f));
+      render();
+    });
+
+    function line(ev) {
+      switch (ev.type) {
+        case 'join': return `<b>${esc(ev.who)}</b> joined the server`;
+        case 'leave': return `<b>${esc(ev.who)}</b> left the server`;
+        case 'kill': return `<b>${esc(ev.who)}</b> eliminated <b>${esc(ev.target)}</b>`;
+        case 'modcall': return `<b>${esc(ev.who)}</b> called a mod${ev.mod ? ` → answered by <b>${esc(ev.mod)}</b>` : ' (unanswered)'}`;
+        case 'command': return `<b>${esc(ev.who)}</b> ran <code>${esc(ev.text)}</code>`;
+        default: return esc(ev.type);
+      }
+    }
+
+    function render() {
+      const list = filter === 'all' ? events : events.filter(e => e.type === filter);
+      if (!list.length) { $('feed').innerHTML = '<div class="empty">Nothing here yet. 🍃</div>'; return; }
+      $('feed').innerHTML = list.map(ev => `
+        <div class="ev ${ev.type}">
+          <div class="ic">${ICON[ev.type] || '•'}</div>
+          <div class="tx">${line(ev)}</div>
+          <div class="tm">${ago(ev.t)}</div>
+        </div>`).join('');
+    }
+
+    async function poll() {
+      try {
+        const url = guildParam ? `/api/feed?guild=${encodeURIComponent(guildParam)}` : '/api/feed';
+        const resp = await fetch(url, { cache: 'no-store' });
+        if (resp.status === 401) { $('feed').innerHTML = '<div class="overlay"><div class="big">🔒 Sign in to view the feed</div><a class="link" href="/login">Sign in with Discord →</a></div>'; return; }
+        const d = await resp.json();
+        if (!d.ok) { $('feed').innerHTML = `<div class="overlay"><div class="big">😴 No live feed</div>${esc(d.reason || 'Server offline or no key set.')}</div>`;
+          $('c-players').textContent = '–'; $('c-queue').textContent = 0; $('c-events').textContent = 0; return; }
+        $('sname').textContent = d.server?.name || d.guildName || 'Server Feed';
+        $('c-players').textContent = d.server?.players != null ? `${d.server.players}${d.server.max ? '/'+d.server.max : ''}` : '–';
+        $('c-queue').textContent = d.queue || 0;
+        $('c-events').textContent = (d.events || []).length;
+        events = d.events || [];
+        render();
+      } catch { /* keep last frame */ }
+    }
+
+    poll();
+    setInterval(poll, 6000);
+  })();
+  </script>
+</body>
+</html>

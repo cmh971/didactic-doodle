@@ -16,6 +16,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <script src="pwa.js" defer></script>
+  <style>
+    /* Entrance reveal — pairs with the landing's launch swipe. Opacity-only = safe. */
+    @keyframes dashReveal { from { opacity: 0; } to { opacity: 1; } }
+    body { animation: dashReveal .5s ease both; }
+  </style>
 </head>
 <body>
   <!-- Accessibility: skip links -->
@@ -85,6 +90,7 @@
       <li class="auth-nav" hidden><button class="nav-link" data-view="tickets"><span class="nav-ic" aria-hidden="true">🎫</span><span>Tickets</span></button></li>
       <li class="auth-nav" hidden><button class="nav-link" data-view="announce"><span class="nav-ic" aria-hidden="true">📢</span><span>Announce</span></button></li>
       <li class="auth-nav" hidden><button class="nav-link" data-view="automations"><span class="nav-ic" aria-hidden="true">🧩</span><span>Automations</span></button></li>
+      <li><a class="nav-link" href="/cad-hub"><span class="nav-ic" aria-hidden="true">🚨</span><span>CAD</span></a></li>
       <li class="auth-nav" hidden><button class="nav-link" data-view="community"><span class="nav-ic" aria-hidden="true">🌐</span><span>My Page</span></button></li>
       <li class="auth-nav" hidden><button class="nav-link" data-view="analytics"><span class="nav-ic" aria-hidden="true">📈</span><span>Analytics</span></button></li>
       <li class="auth-nav" hidden><button class="nav-link" data-view="members"><span class="nav-ic" aria-hidden="true">👮</span><span>Warnings</span></button></li>
@@ -1023,5 +1029,45 @@
   <script src="automation-presets.js"></script>
   <script src="app.js"></script>
   <script src="automations-canvas.js"></script>
+  <style>
+    /* Draggable, single-row top nav (no more giant wrapped bar) */
+    .nav-list { flex-wrap: nowrap !important; overflow-x: auto; overflow-y: hidden; cursor: grab; scroll-behavior: smooth; -ms-overflow-style: none; }
+    .nav-list.dragging { cursor: grabbing; scroll-behavior: auto; }
+    .nav-list li { flex: 0 0 auto; }
+    .nav-list::-webkit-scrollbar { height: 6px; }
+    .nav-list::-webkit-scrollbar-thumb { background: #2a4763; border-radius: 3px; }
+  </style>
+  <script>
+    // Click-and-drag + mouse-wheel to scroll the top nav sideways.
+    (function () {
+      const nl = document.querySelector('.nav-list'); if (!nl) return;
+      let down = false, moved = false, sx = 0, sl = 0;
+      nl.addEventListener('mousedown', (e) => { down = true; moved = false; sx = e.pageX; sl = nl.scrollLeft; });
+      window.addEventListener('mouseup', () => { down = false; nl.classList.remove('dragging'); });
+      window.addEventListener('mousemove', (e) => {
+        if (!down) return;
+        const dx = e.pageX - sx;
+        if (Math.abs(dx) > 4) { moved = true; nl.classList.add('dragging'); }
+        if (moved) { e.preventDefault(); nl.scrollLeft = sl - dx; }
+      });
+      // block the click if it was actually a drag (so you don't switch tabs by accident)
+      nl.addEventListener('click', (e) => { if (moved) { e.preventDefault(); e.stopPropagation(); } }, true);
+      nl.addEventListener('wheel', (e) => { if (e.deltaY) { nl.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });
+    })();
+  </script>
+  <!-- glow-up: aurora background + toasts + shortcuts + icons -->
+  <style>
+    body::before { content:''; position:fixed; inset:-30%; z-index:-1; pointer-events:none; opacity:.35; filter:blur(80px);
+      background: conic-gradient(from 0deg at 30% 30%, rgba(88,101,242,.12), rgba(55,208,160,.10), rgba(139,147,255,.12), rgba(88,101,242,.12));
+      animation: dashAurora 50s linear infinite; }
+    @keyframes dashAurora { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { body::before { animation: none; } }
+  </style>
+  <script src="/security.js" defer></script>
+  <script src="/icons.js" defer></script>
+  <script src="/toast.js" defer></script>
+  <script src="/shortcuts.js" defer></script>
+  <script src="/a11y.js" defer></script>
+  <script src="/music.js" defer></script>
 </body>
 </html>

@@ -4,15 +4,57 @@ import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelec
 import { listForHelp as listPrefixForHelp, QCAT_META } from '../prefix/index.js';
 
 const ACCENT = 0x5865f2;
-const CAT_ORDER = ['core', 'economy', 'gamification', 'moderation', 'utility', 'qtext', 'qmath', 'qfun', 'qutil'];
+const CAT_ORDER = ['core', 'economy', 'gamification', 'moderation', 'utility', 'bang',
+  'qtext', 'qtext2', 'qstyle', 'qstyle2', 'qmath', 'qmath2', 'qmath3', 'qmath4', 'qconv',
+  'qcipher', 'qcipher2', 'qstr', 'qstr2', 'qtime', 'qtime2', 'qfun', 'qgen', 'qgen2', 'qgen3',
+  'qgame', 'qcasino', 'qapi', 'qai', 'qutil'];
 const CAT_META = {
   core: { emoji: '🛠️', label: 'Core' },
   economy: { emoji: '🪙', label: 'Economy' },
   gamification: { emoji: '🎮', label: 'Fun & Games' },
   moderation: { emoji: '🛡️', label: 'Moderation' },
   utility: { emoji: '🧰', label: 'Utility' },
+  bang: { emoji: '🔧', label: 'Power Tools (!)' },
   ...QCAT_META,
 };
+
+// The "!" power commands — these aren't slash or "?" commands, so they'd never
+// show in help unless we list them here. Kept brief with a little flair.
+const BANG_COMMANDS = [
+  { name: 'update', desc: '📖 Drag-through 23-page changelog of everything new' },
+  { name: 'coinwatch', desc: '🪙 Memecoin analyzer — alerts when a coin clears your filters' },
+  { name: 'tts', desc: '🔊 Text-to-speech — sends your text back as an MP3 (`!tts es …` for other langs)' },
+  { name: 'path', desc: '🗺️ A* pathfinding engine — routes around obstacles on an image' },
+  { name: 'nav', desc: '🧭 Step-by-step navigation helper' },
+  { name: 'search', desc: '🔎 Web search (also `!google`, `!ddg`, `!web`)' },
+  { name: '3d', desc: '🧊 3D model helper (also `!model`)' },
+  { name: 'render', desc: '🎨 Render engine helper' },
+  { name: 'media', desc: '🎞️ Media tools' },
+  { name: 'source', desc: '📄 Fetch a file’s source (also `!code`)' },
+  { name: 'putfile', desc: '📥 Save text/uploads into a file (also `!writefile`)' },
+  { name: 'claude', desc: '🖼️ Send Claude (the dev) an image/file — attach it with `!claude [note]` (owner)' },
+  { name: 'specs', desc: '🖥️ Get a PC Spec Card — `?specs` opens a link, the site reads your specs, bot posts the card' },
+  { name: 'asteroid', desc: '☄️ 3D near-Earth asteroid approach map (also `!spacehazard`)' },
+  { name: 'servers', desc: '🛡️ Network flex — how many servers + members reached' },
+  { name: 'backup', desc: '💾 Full server backup & restore (also `!restore`, `!backups`)' },
+  { name: 'apikey', desc: '🔌 Manage developer API keys' },
+  { name: 'embed', desc: '📊 Rich embed builder' },
+  { name: 'form', desc: '📝 Form builder → Google Forms' },
+  { name: 'cadaccess', desc: '🚨 Set which roles can use the CAD/MDT' },
+  { name: 'cad', desc: '🚨 Log-in + Open-CAD buttons (dispatch console)' },
+  { name: 'mdt', desc: '🖥️ Log-in + Open-MDT buttons (records terminal)' },
+  { name: 'bodycam', desc: '🎥 Log-in + Open-Bodycam buttons (screen recorder)' },
+  { name: 'portal', desc: '👤 Log-in + Open-Portal buttons (civilian self-serve)' },
+  { name: 'erlc link', desc: '🔗 Log-in + CAD + MDT + Dashboard buttons' },
+  { name: 'locks', desc: '🛡️ Manage rate-limit lockouts (also `!unlock`)' },
+  { name: 'session', desc: '🚓 ER:LC session/startup tools (also `!ssu`, `!vote`, `!full`)' },
+  { name: 'server', desc: '🖥️ Server admin tools' },
+  { name: 'setup', desc: '⚙️ Open the setup wizard' },
+  { name: 'verify', desc: '✅ Roblox verification' },
+  { name: 'py', desc: '🐍 Run a Python snippet (also `!python`)' },
+  { name: 'lua', desc: '🌙 Run a Lua snippet' },
+  { name: 'fight', desc: '🥊 Fight minigame' },
+];
 const PER_PAGE = 18;
 
 function groupByCategory(client) {
@@ -24,6 +66,10 @@ function groupByCategory(client) {
   // Fold in the "?" prefix command pack so it shows in help too.
   for (const c of listPrefixForHelp()) {
     (groups[c.category] ??= []).push({ name: c.name, desc: c.description || '', prefix: c.prefix });
+  }
+  // Fold in the "!" power commands (not slash, not "?", so listed statically).
+  for (const c of BANG_COMMANDS) {
+    (groups.bang ??= []).push({ name: c.name, desc: c.desc, prefix: '!' });
   }
   for (const list of Object.values(groups)) list.sort((a, b) => a.name.localeCompare(b.name));
   return groups;
@@ -62,7 +108,8 @@ export function renderHelp(client, page = 0) {
       .setDescription(
         `I have **${p.total}** commands! Browse with the ◀️ ▶️ arrows or jump with the menu below.\n\n` +
           p.cats.map((c) => `${CAT_META[c]?.emoji || '•'} **${CAT_META[c]?.label || c}** — ${p.groups[c].length} commands`).join('\n') +
-          `\n\n💡 Extras live under hub commands like \`/fun\`, \`/tool\`, \`/eco\`. Categories marked **(?)** are quick **?** commands — type \`?help\` for the full list.`,
+          `\n\n🆕 **\`!update\`** — see everything new in a 23-page drag-through changelog! 🔥` +
+          `\n💡 Extras live under hub commands like \`/fun\`, \`/tool\`, \`/eco\`. Categories marked **(?)** are quick **?** commands — type \`?help\` for the full list.`,
       )
       .setFooter({ text: `Page 1 of ${N}` });
   } else {
@@ -87,8 +134,10 @@ export function renderHelp(client, page = 0) {
     .setCustomId('help:jump')
     .setPlaceholder('Jump to a category…')
     .addOptions(
-      Object.entries(catStart).map(([cat, start]) => ({
-        label: CAT_META[cat]?.label || cat,
+      // Discord caps select menus at 25 options — we have more categories than that,
+      // so show the first 25 here (the ◀️ ▶️ arrows still reach every page).
+      Object.entries(catStart).slice(0, 25).map(([cat, start]) => ({
+        label: (CAT_META[cat]?.label || cat).slice(0, 100),
         value: String(start),
         emoji: CAT_META[cat]?.emoji,
       })),

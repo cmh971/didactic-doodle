@@ -1,0 +1,19 @@
+Location & Maps Info
+Interpreting API Location Data
+When using our /v2/server endpoint, with the Players parameter set to true, you’ll receive location data:
+{
+  "Player": "PlayerName:123456789",
+  "Location": {
+    "LocationX": -420,
+    "LocationZ": 275,
+    "PostalCode": "403",
+    "StreetName": "Independence Parkway",
+    "BuildingNumber": ""
+  }
+}
+These values use the centre of the ER:LC map as their origin:
+- 0, 0 is the centre of the map.
+- LocationX is the horizontal position. Positive values move right and negative values move left.
+- LocationZ is the vertical position. Positive values move down and negative values move up.
+Our official map images are 3121 by 3121 pixels.
+----------------------------------------------------------------------------------------------------------------------

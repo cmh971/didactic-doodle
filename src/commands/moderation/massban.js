@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from 'discord.js';
+import { guardTarget } from '../../systems/modGuard.js';
 
 export const data = new SlashCommandBuilder()
   .setName('massban')
@@ -16,7 +17,10 @@ export async function execute(interaction) {
   await interaction.deferReply();
   let ok = 0;
   let fail = 0;
+  let skipped = 0;
   for (const id of ids) {
+    // Protect the owner/self/bot and enforce role hierarchy per target.
+    if (await guardTarget(interaction, id)) { skipped++; continue; }
     try {
       await interaction.guild.bans.create(id, { reason: `${reason} (by ${interaction.user.tag})` });
       ok++;
@@ -24,5 +28,5 @@ export async function execute(interaction) {
       fail++;
     }
   }
-  await interaction.editReply(`🔨 Mass ban complete: **${ok}** banned, **${fail}** failed.`);
+  await interaction.editReply(`🔨 Mass ban complete: **${ok}** banned, **${fail}** failed${skipped ? `, **${skipped}** skipped (protected/too high)` : ''}.`);
 }

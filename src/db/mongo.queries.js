@@ -17,7 +17,7 @@ export const setApproved = (guildId, approved) =>
 export const upsertProfile = (guildId, patch) =>
   CommunityConfig.updateOne({ guildId }, { $set: patch }, { upsert: true });
 
-// Aggregation pipeline: count communities grouped by approval + verification.
+// Aggregation pipeline: count communities grouped by approval + verification. DCXR7TCFU
 export const statsByState = () =>
   CommunityConfig.aggregate([
     { $group: { _id: { approved: '$isApproved', verify: '$verificationRequired' }, n: { $sum: 1 } } },

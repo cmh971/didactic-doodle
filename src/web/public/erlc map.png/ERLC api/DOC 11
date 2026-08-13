@@ -1,0 +1,23 @@
+Policies
+Large Application Specific Policies
+If your application is considered a Large App, the following guidelines apply in addition to the standard API Use Guidelines. These requirements exist to protect platform integrity and the broader ER:LC community.
+1. Monitoring and alerting
+You must have internal monitoring and alerting in place for API errors, rate limits, and latency. If you detect recurring issues or API degradation, proactively notify PRC Support before the problem escalates.
+2. Rate limit compliance
+Large apps must actively monitor their rate usage and stay well within their allocated limits, as provided in response headers.
+3. Caching and optimization
+Use caching where appropriate to reduce unnecessary API calls. Do not make requests for data you already have or that has not changed since your last fetch.
+4. Responsible support use
+Only developers with knowledge of your system’s internals should contact us for API support.
+Do not direct your end users to ER:LC for help — have a developer on your team contact ER:LC with full issue details.
+5. User misattribution
+Do not imply that your application is an official ER:LC product. Clearly indicate to your users that your app is a third-party integration and provide your own support channels.
+6. Issue communication
+If your app becomes non-functional for end users due to a known issue, post a public status update or in-app message where possible. You must promptly notify us if any of the following occur:
+A data breach affecting users of the API
+Unauthorized access to your API key or credentials
+Abuse of your integration to bypass rate limits or exploit platform behaviour
+Any security vulnerability that could affect ER:LC systems or users
+7. Data usage and compliance
+You must not store or process user data beyond what is strictly necessary for your application’s functionality.
+---------------------------------------------------------------------------------------------------------

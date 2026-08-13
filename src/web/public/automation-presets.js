@@ -139,5 +139,86 @@
   add('🔌 Integrations', 'Translate to French', msg('translate fr'), [{ type: 'translate', to: 'French' }]);
   add('🔌 Integrations', 'Translate to Japanese', msg('translate jp'), [{ type: 'translate', to: 'Japanese' }]);
 
+  // ============================ +85 MORE BLOCKS ============================
+  // ---- 😀 Reactions (batch 3) — 16 ----
+  [
+    ['gg', '🎮'], ['pizza', '🍕'], ['coffee', '☕'], ['fire', '🔥'], ['money', '💰'],
+    ['sad', '😢'], ['happy', '😄'], ['love', '❤️'], ['rocket', '🚀'], ['star', '⭐'],
+    ['skull', '💀'], ['clown', '🤡'], ['cake', '🎂'], ['music', '🎵'], ['ghost', '👻'], ['snow', '❄️'],
+  ].forEach(([k, e]) => add('😀 Reactions', `React ${e} to "${k}"`, msg(k), react(e)));
+
+  // ---- 🎲 Fun — 12 ----
+  add('🎲 Fun', 'Coin flip ("flipcoin")', msg('flipcoin'), rand(['🪙 Heads!', '🪙 Tails!']));
+  add('🎲 Fun', '8-ball ("8ball")', msg('8ball'), rand(['🎱 Yes.', '🎱 No.', '🎱 Maybe.', '🎱 Ask later.', '🎱 Definitely.']));
+  add('🎲 Fun', 'Prediction ("predict")', msg('predict'), rand(['🔮 Big things are coming.', '🔮 Stay patient.', '🔮 Luck is on your side.']));
+  add('🎲 Fun', 'Roll d3 ("d3")', msg('d3', 'exact'), [{ type: 'dice', sides: 3 }]);
+  add('🎲 Fun', 'Roll d50 ("d50")', msg('d50', 'exact'), [{ type: 'dice', sides: 50 }]);
+  add('🎲 Fun', 'Lucky number ("lucky")', msg('lucky'), [{ type: 'dice', sides: 100 }]);
+  add('🎲 Fun', 'Vibe check ("vibecheck")', msg('vibecheck'), [{ type: 'dice', sides: 100 }]);
+  add('🎲 Fun', 'Rate my day ("rateday")', msg('rateday'), [{ type: 'dice', sides: 10 }]);
+  add('🎲 Fun', 'Mood ("mood")', msg('mood'), rand(['😎 Unbothered.', '🔥 Locked in.', '😴 Sleepy.', '🤡 Chaotic.']));
+  add('🎲 Fun', 'Hype me ("hypeme")', msg('hypeme'), rand(['You’re a legend! 💪', 'Absolute icon. ✨', 'Certified GOAT. 🐐']));
+  add('🎲 Fun', 'Joke ("joke")', msg('joke'), rand(['Why did the dev go broke? He used up all his cache. 💸', 'I’d tell a UDP joke but you might not get it. 📡']));
+  add('🎲 Fun', 'Fortune ("fortune")', msg('fortune'), rand(['🥠 A surprise awaits you.', '🥠 Good news is coming.', '🥠 Your patience pays off.']));
+
+  // ---- 🛡 Moderation — 16 ----
+  [
+    ['discord.gg/', '🚫 No invite links, {user}.'], ['free robux', '🚫 Scam blocked, {user}.'],
+    ['free vbucks', '🚫 Scam blocked, {user}.'], ['click here to win', '🚫 That’s a scam, {user}.'],
+    ['nitro giveaway', '🚫 Fake Nitro, {user}. Deleted.'], ['steamcommunity.com/gift', '🚫 Steam scam blocked.'],
+    ['crypto pump', '🚫 No crypto shilling, {user}.'], ['dm me for', '⚠️ No DM advertising, {user}.'],
+  ].forEach(([k, m]) => add('🛡 Moderation', `Block "${k}"`, msg(k), [{ type: 'delete_message' }, { type: 'reply', text: m }]));
+  add('🛡 Moderation', 'Mute on "kys"', msg('kys'), [{ type: 'delete_message' }, { type: 'timeout', seconds: 900 }, { type: 'reply', text: '🚫 That language gets you muted, {user}.' }]);
+  add('🛡 Moderation', 'Block "token grabber"', msg('token grabber'), [{ type: 'delete_message' }, { type: 'reply', text: '🛡️ Malicious link removed.' }]);
+  add('🛡 Moderation', 'Anti "@everyone free"', msg('@everyone free'), [{ type: 'delete_message' }, { type: 'timeout', seconds: 300 }]);
+  add('🛡 Moderation', 'Delete "gore"', msg('gore'), [{ type: 'delete_message' }, { type: 'reply', text: '🚫 Keep it clean, {user}.' }]);
+  add('🛡 Moderation', 'Pin "important:" notes', msg('important:'), [{ type: 'pin_message' }, { type: 'react', emoji: '📌' }]);
+  add('🛡 Moderation', 'Slow triple-spam', msg('spam spam spam'), [{ type: 'timeout', seconds: 120 }]);
+  add('🛡 Moderation', 'Block "ip logger"', msg('ip logger'), [{ type: 'delete_message' }, { type: 'reply', text: '🛡️ No IP-logger links, {user}.' }]);
+  add('🛡 Moderation', 'Block "cheat download"', msg('cheat download'), [{ type: 'delete_message' }, { type: 'reply', text: '🚫 No cheats, {user}.' }]);
+
+  // ---- 👋 Welcome — 6 ----
+  add('👋 Welcome', 'Welcome wave', { type: 'member_join' }, [{ type: 'dm', text: '👋 Welcome to {server}, {user}!' }]);
+  add('👋 Welcome', 'Welcome + rules nudge', { type: 'member_join' }, [{ type: 'dm', text: '📜 Welcome {user}! Please read the rules to get started in {server}.' }]);
+  add('👋 Welcome', 'Welcome + role hint', { type: 'member_join' }, [{ type: 'dm', text: '🎭 Hey {user}, grab your roles in {server} to customize your vibe!' }]);
+  add('👋 Welcome', 'Welcome + intro prompt', { type: 'member_join' }, [{ type: 'dm', text: '👋 {user}, introduce yourself in {server} — we’d love to meet you!' }]);
+  add('👋 Welcome', 'Welcome + support hint', { type: 'member_join' }, [{ type: 'dm', text: '🎫 Welcome {user}! Need help in {server}? Open a ticket anytime.' }]);
+  add('👋 Welcome', 'Welcome hype', { type: 'member_join' }, [{ type: 'dm', text: '🔥 A wild {user} appeared in {server}! Welcome, legend.' }]);
+
+  // ---- 🤖 AI — 9 ----
+  add('🤖 AI', 'AI summarize ("summarize")', msg('summarize'), [{ type: 'ai_reply', prompt: 'Summarize this briefly: {content}' }]);
+  add('🤖 AI', 'AI define ("define")', msg('define'), [{ type: 'ai_reply', prompt: 'Define this term concisely: {content}' }]);
+  add('🤖 AI', 'AI fix grammar ("fixgrammar")', msg('fixgrammar'), [{ type: 'ai_reply', prompt: 'Fix the grammar and return only the corrected text: {content}' }]);
+  add('🤖 AI', 'AI idea ("giveidea")', msg('giveidea'), [{ type: 'ai_reply', prompt: 'Give one creative idea about: {content}' }]);
+  add('🤖 AI', 'AI motivate ("motivate")', msg('motivate'), [{ type: 'ai_reply', prompt: 'Give a short motivational line for someone who said: {content}' }]);
+  add('🤖 AI', 'AI explain ("whatdoesitmean")', msg('whatdoesitmean'), [{ type: 'ai_reply', prompt: 'Explain what this means simply: {content}' }]);
+  add('🤖 AI', 'AI pros/cons ("proscons")', msg('proscons'), [{ type: 'ai_reply', prompt: 'List quick pros and cons of: {content}' }]);
+  add('🤖 AI', 'AI name generator ("namegen")', msg('namegen'), [{ type: 'ai_reply', prompt: 'Suggest 3 cool names for: {content}' }]);
+  add('🤖 AI', 'AI rhymes ("rhyme")', msg('rhyme'), [{ type: 'ai_reply', prompt: 'Give words that rhyme with: {content}' }]);
+
+  // ---- 🔌 Integrations — 8 more languages ----
+  [['de', 'German'], ['it', 'Italian'], ['pt', 'Portuguese'], ['ru', 'Russian'], ['ko', 'Korean'], ['zh', 'Chinese'], ['ar', 'Arabic'], ['hi', 'Hindi']]
+    .forEach(([code, lang]) => add('🔌 Integrations', `Translate to ${lang}`, msg('translate ' + code), [{ type: 'translate', to: lang }]));
+
+  // ---- 💬 Auto-Reply / FAQ — 18 ----
+  add('💬 Auto-Reply', 'How to verify', msg('how do i verify'), reply('🔐 Run `/verify` and link your Roblox account to unlock the server!'));
+  add('💬 Auto-Reply', 'Where are the rules', msg('where are the rules'), reply('📜 Check the #rules channel at the top of the server.'));
+  add('💬 Auto-Reply', 'How to get roles', msg('how do i get roles'), reply('🎭 Head to the reaction-roles channel and pick your roles!'));
+  add('💬 Auto-Reply', 'How to open a ticket', msg('how do i get help'), reply('🎫 Open a support ticket and staff will assist you shortly.'));
+  add('💬 Auto-Reply', 'Bot commands', msg('what commands'), reply('🧩 Type `/help` to see everything I can do!'));
+  add('💬 Auto-Reply', 'How to level up', msg('how do i level up'), reply('⭐ Just chat! You earn XP for every message (60s cooldown).'));
+  add('💬 Auto-Reply', 'How to earn coins', msg('how do i get coins'), reply('💰 Chat, spin `?wheel` daily, or pull off a `?heist` to earn coins!'));
+  add('💬 Auto-Reply', 'Is there a website', msg('is there a website'), reply('🌐 Yes! Visit sentinelbothq.com for the dashboard and more.'));
+  add('💬 Auto-Reply', 'How to report', msg('how do i report'), reply('🚨 Ping a mod or open a ticket to report an issue.'));
+  add('💬 Auto-Reply', 'Good morning', msg('good morning'), rand(['☀️ Good morning, {user}!', '🌅 Morning, {user}! Have a great day.']));
+  add('💬 Auto-Reply', 'Good night', msg('good night'), rand(['🌙 Good night, {user}!', '😴 Sleep well, {user}!']));
+  add('💬 Auto-Reply', 'Thanks response', msg('thank you'), rand(['You’re welcome, {user}! 🙌', 'Anytime, {user}! 😊']));
+  add('💬 Auto-Reply', 'Happy birthday react', msg('happy birthday'), react('🎂'));
+  add('💬 Auto-Reply', 'F in chat', msg('f', 'exact'), react('🇫'));
+  add('💬 Auto-Reply', 'Suggestion hint', msg('i have a suggestion'), reply('💡 Post it in the suggestions channel so everyone can vote!'));
+  add('💬 Auto-Reply', 'When is the event', msg('when is the event'), reply('📅 Watch the announcements channel for event times!'));
+  add('💬 Auto-Reply', 'Ping → Pong', msg('ping', 'exact'), reply('🏓 Pong!'));
+  add('💬 Auto-Reply', 'Welcome back', msg('im back'), rand(['🎉 Welcome back, {user}!', '👋 Missed you, {user}!']));
+
   window.AUTOMATION_PRESETS = P;
 })();

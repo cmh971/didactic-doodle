@@ -1,0 +1,13 @@
+Global API Keys
+Authorization Links
+If your application needs to send Remote Server Management commands, users may need to authorize your app through Authorization Links so it can execute remote commands on their behalf.
+​
+Creating an Authorization Link
+Before creating an authorization link, you’ll need to obtain the unique Server-Key from your user’s private server, click here to learn more.
+Once you’ve obtained the Server-Key, you’ll need to extract the Internal Server ID from the key. Learn more here.
+​
+Creating your Authorization Link
+Every authorization link requires two pieces of information, the Internal Server ID and your application’s client ID, shown on the API dashboard.
+https://api.erlc.gg/server-owners/server/[INTERNAL_SERVER_ID]/authorize/[YOUR_APPS_ID]
+It’s recommended you generate these links for your users as part of your app’s onboarding process.
+-----------------------------------------------------------------------------------------------------------------------------------------

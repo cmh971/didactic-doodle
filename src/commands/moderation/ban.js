@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from 'discord.js';
+import { guardTarget } from '../../systems/modGuard.js';
 
 export const data = new SlashCommandBuilder()
   .setName('ban')
@@ -14,6 +15,9 @@ export async function execute(interaction) {
   const user = interaction.options.getUser('user');
   const reason = interaction.options.getString('reason') ?? 'No reason provided';
   const days = interaction.options.getInteger('delete_days') ?? 0;
+
+  const blocked = await guardTarget(interaction, user.id);
+  if (blocked) { await interaction.reply({ content: blocked, flags: MessageFlags.Ephemeral }); return; }
 
   try {
     await interaction.guild.members.ban(user.id, {

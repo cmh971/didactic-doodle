@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Controls & Keybinds · Sentinel</title>
+  <link rel="icon" href="favicon.ico" />
+  <style>
+    :root { --bg:#05070d; --panel:#0e1424; --border:#24304d; --text:#e8eefc; --muted:#93a1c0; --indigo:#5865f2; --teal:#37d0a0; }
+    * { box-sizing: border-box; }
+    body { margin:0; color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+      background: radial-gradient(1000px 700px at 85% -10%, rgba(88,101,242,.18), transparent 55%), radial-gradient(900px 640px at -10% 110%, rgba(55,208,160,.14), transparent 55%), linear-gradient(160deg,#020617,#05070d); }
+    .top { position:sticky; top:0; z-index:20; display:flex; align-items:center; gap:14px; padding:14px 22px; background:rgba(5,7,13,.85); backdrop-filter:blur(10px); border-bottom:1px solid var(--border); }
+    .top .brand { font-weight:900; font-size:18px; background:linear-gradient(120deg,#fff,var(--indigo),var(--teal)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+    .top .sp { flex:1; } .top a { color:var(--teal); text-decoration:none; }
+    .wrap { max-width:840px; margin:0 auto; padding:36px 20px 100px; }
+    h1 { font-size:clamp(2rem,5vw,2.6rem); margin:0 0 6px; }
+    .sub { color:var(--muted); margin:0 0 26px; }
+    .toolbar { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:22px; }
+    .switch { display:inline-flex; align-items:center; gap:8px; color:var(--muted); font-weight:600; }
+    .switch input { width:40px; height:22px; -webkit-appearance:none; appearance:none; background:#24304d; border-radius:999px; position:relative; cursor:pointer; transition:background .2s; }
+    .switch input:checked { background:var(--teal); }
+    .switch input::after { content:''; position:absolute; top:2px; left:2px; width:18px; height:18px; background:#fff; border-radius:50%; transition:transform .2s; }
+    .switch input:checked::after { transform:translateX(18px); }
+    .btn { background:#16233d; color:#cfe0ff; border:1px solid var(--border); border-radius:10px; padding:9px 16px; font-weight:700; cursor:pointer; }
+    .btn.primary { background:linear-gradient(135deg,var(--indigo),#8893ff); color:#fff; border:none; box-shadow:0 8px 22px rgba(88,101,242,.4); }
+    .card { background:linear-gradient(180deg, rgba(20,28,48,.92), rgba(11,16,32,.92)); border:1px solid var(--border); border-radius:16px; padding:18px 20px; margin-bottom:20px; }
+    .card h2 { margin:0 0 4px; font-size:1.2rem; } .card .hint { color:var(--muted); font-size:13px; margin:0 0 14px; }
+    .row { display:flex; align-items:center; gap:12px; padding:10px 0; border-top:1px solid #1a2540; }
+    .row:first-of-type { border-top:none; }
+    .row .lbl { flex:1; font-weight:600; }
+    .keycap { min-width:52px; text-align:center; background:#0b1220; border:1px solid var(--border); border-bottom-width:3px; border-radius:8px; padding:6px 10px; font-family:monospace; font-weight:700; }
+    .keycap.empty { color:#4a5878; font-family:system-ui; font-weight:500; }
+    .mini { background:none; border:1px solid var(--border); color:var(--muted); border-radius:8px; padding:6px 10px; font-size:12px; font-weight:700; cursor:pointer; }
+    .mini:hover { color:#fff; border-color:var(--teal); }
+    .mini.arming { color:#04121f; background:var(--teal); border-color:var(--teal); animation:pulse 1s infinite; }
+    @keyframes pulse { 50% { opacity:.6; } }
+    /* gamepad live */
+    #pad-status { color:var(--muted); font-size:14px; }
+    .gp { background:#0b1220; border:1px solid var(--border); border-radius:12px; padding:14px; margin-top:12px; }
+    .gp .name { font-weight:700; color:var(--teal); margin-bottom:10px; }
+    .axes { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px; margin-bottom:10px; }
+    .axis { font-size:11px; color:var(--muted); } .axis .bar { height:8px; background:#1a2540; border-radius:4px; overflow:hidden; margin-top:3px; position:relative; }
+    .axis .fill { position:absolute; top:0; bottom:0; left:50%; background:var(--indigo); }
+    .buttons { display:flex; flex-wrap:wrap; gap:5px; }
+    .gbtn { width:26px; height:26px; border-radius:6px; background:#1a2540; display:flex; align-items:center; justify-content:center; font-size:10px; color:#5b6a8a; }
+    .gbtn.on { background:var(--teal); color:#04121f; font-weight:800; }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <span class="brand">🎮 Controls</span><span class="sp"></span>
+    <a href="/">Home</a><a href="/dashboard">Dashboard →</a>
+  </div>
+
+  <div class="wrap">
+    <h1>Controls &amp; Keybinds</h1>
+    <p class="sub">Rebind any action to a key — or map it to a <b>gamepad, controller, or flight yoke</b>. Everything saves instantly to this device.</p>
+
+    <div class="toolbar">
+      <label class="switch"><input type="checkbox" id="enabled"> Keyboard &amp; controller shortcuts enabled</label>
+      <span class="sp" style="flex:1"></span>
+      <button class="btn" id="reset">Reset to defaults</button>
+    </div>
+
+    <div class="card">
+      <h2>⌨️ Keyboard</h2>
+      <p class="hint">Click <b>Rebind</b>, then press the key you want. (Ignored while typing in a field.)</p>
+      <div id="key-rows"></div>
+    </div>
+
+    <div class="card">
+      <h2>🎮 Gamepad / Yoke</h2>
+      <p class="hint" id="pad-status">Connect a controller or yoke and press a button — it'll appear here.</p>
+      <div id="pad-live"></div>
+      <div id="pad-rows" style="margin-top:14px"></div>
+    </div>
+  </div>
+
+  <script src="shortcuts.js"></script>
+  <script src="toast.js"></script>
+  <script>
+    const S = window.Shortcuts;
+    const binds = S.get();
+    const keyRows = document.getElementById('key-rows');
+    const padRows = document.getElementById('pad-rows');
+    let armKey = null;   // action id currently capturing a key
+    let armPad = null;   // action id currently capturing a pad input
+
+    document.getElementById('enabled').checked = binds.enabled !== false;
+    document.getElementById('enabled').onchange = (e) => { binds.enabled = e.target.checked; S.save(); toast(e.target.checked ? 'Shortcuts enabled' : 'Shortcuts disabled', { icon: e.target.checked ? '✅' : '🚫' }); };
+    document.getElementById('reset').onclick = () => { S.reset(); location.reload(); };
+
+    function label(id) { return (S.ACTIONS.find((a) => a.id === id) || {}).label || id; }
+    function padDesc(m) { if (!m) return null; return m.type === 'button' ? 'Button ' + m.index : 'Axis ' + m.index + (m.dir > 0 ? ' +' : ' −'); }
+
+    function renderKeys() {
+      keyRows.innerHTML = '';
+      for (const a of S.ACTIONS) {
+        const cur = binds.keys[a.id];
+        const row = document.createElement('div'); row.className = 'row';
+        row.innerHTML = `<span class="lbl">${a.label}</span>
+          <span class="keycap ${cur ? '' : 'empty'}">${cur ? cur.toUpperCase() : '—'}</span>
+          <button class="mini ${armKey === a.id ? 'arming' : ''}" data-k="${a.id}">${armKey === a.id ? 'Press a key…' : 'Rebind'}</button>
+          <button class="mini" data-clr="${a.id}">Clear</button>`;
+        keyRows.appendChild(row);
+      }
+      keyRows.querySelectorAll('[data-k]').forEach((b) => b.onclick = () => { armKey = b.dataset.k; armPad = null; renderKeys(); });
+      keyRows.querySelectorAll('[data-clr]').forEach((b) => b.onclick = () => { delete binds.keys[b.dataset.clr]; S.save(); renderKeys(); toast('Cleared', { icon: '🧹' }); });
+    }
+    addEventListener('keydown', (e) => {
+      if (!armKey) return;
+      if (e.key === 'Escape') { armKey = null; return renderKeys(); }
+      e.preventDefault();
+      binds.keys[armKey] = e.key; S.save();
+      toast(label(armKey) + ' → ' + e.key.toUpperCase(), { icon: '⌨️' });
+      armKey = null; renderKeys();
+    }, true);
+
+    function renderPadRows() {
+      padRows.innerHTML = '';
+      for (const a of S.ACTIONS) {
+        const m = binds.pad[a.id];
+        const row = document.createElement('div'); row.className = 'row';
+        row.innerHTML = `<span class="lbl">${a.label}</span>
+          <span class="keycap ${m ? '' : 'empty'}">${m ? padDesc(m) : '—'}</span>
+          <button class="mini ${armPad === a.id ? 'arming' : ''}" data-p="${a.id}">${armPad === a.id ? 'Press input…' : 'Map'}</button>
+          <button class="mini" data-pclr="${a.id}">Clear</button>`;
+        padRows.appendChild(row);
+      }
+      padRows.querySelectorAll('[data-p]').forEach((b) => b.onclick = () => { armPad = b.dataset.p; armKey = null; renderPadRows(); toast('Now press a button or move an axis on your controller', { icon: '🎮', duration: 2500 }); });
+      padRows.querySelectorAll('[data-pclr]').forEach((b) => b.onclick = () => { delete binds.pad[b.dataset.pclr]; S.save(); renderPadRows(); });
+    }
+
+    // Live gamepad display + capture loop
+    const padLive = document.getElementById('pad-live');
+    const status = document.getElementById('pad-status');
+    let baseAxes = null;
+    function padUI() {
+      const pads = (navigator.getGamepads ? navigator.getGamepads() : []).filter(Boolean);
+      if (!pads.length) { padLive.innerHTML = ''; status.textContent = 'No controller detected — plug one in / press a button to wake it.'; requestAnimationFrame(padUI); return; }
+      status.textContent = pads.length + ' controller(s) connected:';
+      padLive.innerHTML = pads.map((gp) => {
+        const axes = gp.axes.map((v, i) => `<div class="axis">Axis ${i} <div class="bar"><div class="fill" style="${v >= 0 ? 'left:50%;width:' + (v * 50) + '%' : 'left:' + (50 + v * 50) + '%;width:' + (-v * 50) + '%'}"></div></div></div>`).join('');
+        const btns = gp.buttons.map((b, i) => `<div class="gbtn ${b.pressed ? 'on' : ''}">${i}</div>`).join('');
+        return `<div class="gp"><div class="name">🕹️ ${gp.id.slice(0, 60)}</div><div class="axes">${axes}</div><div class="buttons">${btns}</div></div>`;
+      }).join('');
+
+      // capture for armPad
+      if (armPad) {
+        for (const gp of pads) {
+          const bi = gp.buttons.findIndex((b) => b.pressed);
+          if (bi >= 0) { binds.pad[armPad] = { type: 'button', index: bi }; S.save(); toast(label(armPad) + ' → Button ' + bi, { icon: '🎮' }); armPad = null; renderPadRows(); break; }
+          if (!baseAxes) baseAxes = gp.axes.slice();
+          const ai = gp.axes.findIndex((v, i) => Math.abs(v - (baseAxes[i] || 0)) > 0.6);
+          if (ai >= 0) { binds.pad[armPad] = { type: 'axis', index: ai, dir: gp.axes[ai] > 0 ? 1 : -1 }; S.save(); toast(label(armPad) + ' → Axis ' + ai, { icon: '🕹️' }); armPad = null; baseAxes = null; renderPadRows(); break; }
+        }
+      } else { baseAxes = null; }
+      requestAnimationFrame(padUI);
+    }
+    addEventListener('gamepadconnected', () => toast('Controller connected 🎮'));
+
+    renderKeys(); renderPadRows(); padUI();
+  </script>
+</body>
+</html>

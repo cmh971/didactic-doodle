@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Apply · Sentinel</title>
+  <link rel="icon" href="favicon.ico" />
+  <script src="icons.js" defer></script>
+  <style>
+    :root { --bg:#05070d; --panel:#0e1424; --border:#24304d; --text:#e8eefc; --muted:#93a1c0; --indigo:#5865f2; --teal:#37d0a0; }
+    * { box-sizing: border-box; }
+    body { margin:0; color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+      background: radial-gradient(1000px 700px at 85% -10%, rgba(88,101,242,.18), transparent 55%), radial-gradient(900px 640px at -10% 110%, rgba(55,208,160,.14), transparent 55%), linear-gradient(160deg,#020617,#05070d); min-height:100vh; }
+    .top { position:sticky; top:0; z-index:20; display:flex; align-items:center; gap:14px; padding:14px 22px; background:rgba(5,7,13,.85); backdrop-filter:blur(10px); border-bottom:1px solid var(--border); }
+    .top .brand { font-weight:900; font-size:18px; display:flex; align-items:center; gap:8px; }
+    .top .brand .bi { color:var(--teal); display:inline-flex; }
+    .top .sp { flex:1; } .top a { color:var(--teal); text-decoration:none; }
+    .wrap { max-width:620px; margin:0 auto; padding:40px 20px 100px; }
+    h1 { font-size:clamp(1.9rem,5vw,2.5rem); margin:0 0 6px; display:flex; align-items:center; gap:12px; }
+    h1 .hi { color:var(--teal); display:inline-flex; font-size:30px; }
+    .sub { color:var(--muted); margin:0 0 26px; line-height:1.6; }
+    .card { background:linear-gradient(180deg, rgba(20,28,48,.92), rgba(11,16,32,.92)); border:1px solid var(--border); border-radius:16px; padding:22px; }
+    label { display:block; font-weight:700; margin:16px 0 6px; font-size:14px; }
+    label .opt { color:var(--muted); font-weight:500; font-size:12px; }
+    input, select, textarea { width:100%; background:#0b1220; border:1px solid var(--border); color:var(--text); border-radius:10px; padding:12px; font-size:14px; outline:none; transition:border .2s; font-family:inherit; }
+    input:focus, select:focus, textarea:focus { border-color:var(--teal); }
+    .hint { color:var(--muted); font-size:12px; margin-top:5px; }
+    .submit { margin-top:22px; width:100%; background:linear-gradient(135deg,var(--indigo),#8893ff); color:#fff; border:none; border-radius:12px; padding:14px; font-weight:800; font-size:15px; cursor:pointer; box-shadow:0 12px 30px rgba(88,101,242,.45); }
+    .submit:hover { filter:brightness(1.06); }
+    .done { text-align:center; padding:40px 20px; display:none; }
+    .done .big { font-size:60px; }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <span class="brand"><span class="bi" data-ic="badge"></span> Staff &amp; Dev Applications</span>
+    <span class="sp"></span><a href="/">Home</a><a href="/docs">Docs</a>
+  </div>
+
+  <div class="wrap">
+    <h1><span class="hi" data-ic="rocket"></span>Join the team</h1>
+    <p class="sub">Want to help build or moderate? Fill this out. It goes straight to the owner <b>and</b> the lead dev — you'll hear back after review.</p>
+
+    <div class="card" id="form">
+      <label>Name / handle</label>
+      <input id="f-name" placeholder="What should we call you?" maxlength="80">
+
+      <label>Discord username</label>
+      <input id="f-discord" placeholder="e.g. yourname or yourname#0001" maxlength="80">
+
+      <label>Applying as</label>
+      <select id="f-role">
+        <option>Developer</option>
+        <option>Moderator</option>
+        <option>Support / Helper</option>
+        <option>Designer</option>
+        <option>Other</option>
+      </select>
+
+      <label>Experience</label>
+      <textarea id="f-exp" rows="4" placeholder="Tell us what you've built or done — languages, projects, past roles…" maxlength="2000"></textarea>
+
+      <label>GitHub <span class="opt">(optional)</span></label>
+      <input id="f-github" placeholder="https://github.com/you  or  https://github.com/you/repo" maxlength="200">
+      <div class="hint">🔗 Optional. If you share a repo, the team can review your actual code. Totally fine to leave blank.</div>
+
+      <label>Other links <span class="opt">(optional)</span></label>
+      <input id="f-links" placeholder="Portfolio, a demo, another server you help with…" maxlength="300">
+
+      <label>Why do you want to join?</label>
+      <textarea id="f-why" rows="3" placeholder="What draws you to this project?" maxlength="2000"></textarea>
+
+      <button class="submit" id="f-submit">Submit application →</button>
+      <p class="hint" id="f-msg" style="text-align:center;margin-top:12px"></p>
+    </div>
+
+    <div class="done" id="done">
+      <div class="big">✅</div>
+      <h1 style="justify-content:center">Application sent!</h1>
+      <p class="sub" style="text-align:center">Thanks — the owner and lead dev both got it. Sit tight and you'll hear back after review. 🙌</p>
+      <a href="/" style="color:var(--teal)">← Back home</a>
+    </div>
+  </div>
+
+  <script src="toast.js" defer></script>
+  <script src="security.js" defer></script>
+  <script>
+    document.getElementById('f-submit').onclick = async () => {
+      const g = (id) => document.getElementById(id).value.trim();
+      const body = { name: g('f-name'), discord: g('f-discord'), role: g('f-role'), experience: g('f-exp'), github: g('f-github'), links: g('f-links'), why: g('f-why') };
+      const msg = document.getElementById('f-msg');
+      if (!body.name || !body.discord) { msg.style.color = '#f59e0b'; msg.textContent = 'Please fill in at least your name and Discord.'; return; }
+      msg.style.color = '#93a1c0'; msg.textContent = 'Sending…';
+      try {
+        const r = await fetch('/api/apply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((x) => x.json());
+        if (r.ok) { document.getElementById('form').style.display = 'none'; document.getElementById('done').style.display = 'block'; window.toast && toast('Application submitted!'); }
+        else { msg.style.color = '#ef4444'; msg.textContent = r.error || 'Something went wrong.'; }
+      } catch { msg.style.color = '#ef4444'; msg.textContent = 'Network error — try again.'; }
+    };
+  </script>
+</body>
+</html>

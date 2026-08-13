@@ -12,6 +12,7 @@ import {
 } from 'discord.js';
 import { renderPanel } from './ui.js';
 import { setGuildAvatar } from '../features/botProfile.js';
+import { canOpenSetup } from './access.js';
 
 // Only these Discord user IDs may change the bot's GLOBAL identity (username/avatar).
 // Falls back to the known owner ID if OWNER_IDS isn't set in the env.
@@ -79,7 +80,8 @@ export const METADATA = {
   
   // Ticketing System Matrix
   'tickets.maxOpen': { label: 'Max Open Tickets Concurrent Per User', max: 2, style: TextInputStyle.Short, required: true, numeric: true },
-  'tickets.welcomeMessage': { label: 'Ticket Initialization Message', max: 500, style: TextInputStyle.Paragraph, required: true }
+  'tickets.welcomeMessage': { label: 'Ticket Initialization Message', max: 500, style: TextInputStyle.Paragraph, required: true },
+  'erlcRegions.studsPerPixel': { label: 'Map Scale (studs per pixel)', max: 6, style: TextInputStyle.Short, required: true, numeric: true }
 };
 
 // --- CORE UTILITIES ---
@@ -219,7 +221,7 @@ export async function handleSetup(interaction) {
       await interaction.reply(eph('❌ Interface execution rejected. Panels must be built inside a Server Environment.')).catch(() => {});
       return true;
     }
-    if (!owner && !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+    if (!owner && !canOpenSetup(interaction.guildId, interaction.user.id) && !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
       await interaction.reply(eph('❌ Access Denied. Execution requires: `MANAGE_GUILD` permission.')).catch(() => {});
       return true;
     }
@@ -373,6 +375,15 @@ export async function handleSetup(interaction) {
       const current = getCfg(guildId).settings.community || {};
       setNested(guildId, 'community', segments[2], !current[segments[2]]);
       await interaction.update(renderPanel(client, guildId, Number(segments[3])));
+      return true;
+    }
+    // Generic nested toggle: setup:ntog:<obj>:<key>:<page> → flips settings.<obj>.<key>.
+    // Powers the newer config pages (verify, casino, badges, recap, counting, …).
+    case 'ntog': {
+      const obj = segments[2], key = segments[3], page = Number(segments[4]);
+      const current = getCfg(guildId).settings[obj] || {};
+      setNested(guildId, obj, key, !current[key]);
+      await interaction.update(renderPanel(client, guildId, page));
       return true;
     }
     case 'identity': {

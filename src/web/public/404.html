@@ -47,6 +47,23 @@
       text-align: center;
     }
 
+    .err-img {
+      display: block;
+      width: 100%;
+      max-width: 300px;
+      height: auto;
+      margin: 0 auto 18px;
+      border-radius: 16px;
+      filter: drop-shadow(0 12px 34px rgba(88,101,242,0.5));
+      animation: floatImg 6s infinite ease-in-out;
+    }
+
+    @keyframes floatImg {
+      0% { transform: translateY(0) rotate(-0.5deg); }
+      50% { transform: translateY(-10px) rotate(0.5deg); }
+      100% { transform: translateY(0) rotate(-0.5deg); }
+    }
+
     .err-code {
       font-size: 4.5rem;
       font-weight: 900;
@@ -219,7 +236,7 @@
 
     /* Respect users who ask their device to minimize motion. */
     @media (prefers-reduced-motion: reduce) {
-      .err-code, .orb { animation: none; }
+      .err-code, .orb, .err-img { animation: none; }
     }
   </style>
 </head>
@@ -231,21 +248,22 @@
   </div>
 
   <main class="err-page">
+    <img class="err-img" src="/404.png" alt="Lost in space" />
     <div class="err-code">404</div>
-    <h1>This page wandered off. 🧭</h1>
+    <h1>This page wandered off — so now you're in outer space 🌑 🌒 🌓 🌔 🌕 🌖 🌗 🌘 🧭</h1>
     <p class="muted">
-      The page you're looking for doesn't exist, moved, or never did.<br>
-      Let's get you back on track.
+      The page you're looking for doesn't exist, moved, or never did exist.<br>
+      Let's get you back on track....and back down to Earth.
     </p>
     <div class="err-actions">
       <a href="/" class="btn primary big">🏠 Go home</a>
       <a href="/dashboard" class="btn big ghost">Open dashboard</a>
     </div>
     <div class="err-links">
-      <a href="/commands">Commands</a> ·
-      <a href="/docs">Docs</a> ·
-      <a href="/status">Status</a> ·
-      <a href="/changelog">Changelog</a>
+      <a href="/dashboard">Dashboard</a> ·
+      <a href="/cad-hub">CAD</a> ·
+      <a href="/developers">Developers</a> ·
+      <a href="/signin">Sign in</a>
     </div>
   </main>
 

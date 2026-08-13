@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from 'discord.js';
+import { guardTarget } from '../../systems/modGuard.js';
 
 export const data = new SlashCommandBuilder()
   .setName('kick')
@@ -14,6 +15,9 @@ export async function execute(interaction) {
   if (!member) {
     return interaction.reply({ content: '❌ That user is not in this server.', flags: MessageFlags.Ephemeral });
   }
+
+  const blocked = await guardTarget(interaction, member.id);
+  if (blocked) { await interaction.reply({ content: blocked, flags: MessageFlags.Ephemeral }); return; }
 
   try {
     await member.kick(`${reason} (by ${interaction.user.tag})`);

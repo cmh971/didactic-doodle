@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Explore · Sentinel</title>
+  <link rel="icon" href="favicon.ico" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; color:var(--text);
+      font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      background: radial-gradient(1000px 600px at 85% -10%, rgba(88,101,242,.16), transparent 60%),
+        radial-gradient(900px 500px at 0% 110%, rgba(46,204,113,.10), transparent 55%), var(--bg); }
+    .wrap { max-width: 1000px; margin: 0 auto; padding: 44px 20px 70px; }
+    .hero { text-align:center; margin-bottom: 34px; }
+    .hero h1 { font-size: clamp(2rem,5vw,2.8rem); margin:0 0 8px; font-weight:900; letter-spacing:-.03em;
+      background:linear-gradient(100deg,#fff,#a9b6ff); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+    .hero p { color:var(--muted); margin:0; font-size:1.02rem; }
+    .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+    @media (max-width:800px){ .grid{ grid-template-columns:repeat(2,1fr);} }
+    @media (max-width:520px){ .grid{ grid-template-columns:1fr;} }
+    a.card { text-decoration:none; color:var(--text); background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.012));
+      border:1px solid var(--border); border-radius:16px; padding:20px; display:flex; flex-direction:column; gap:6px;
+      transition:transform .16s, border-color .16s, box-shadow .16s; }
+    a.card:hover { transform:translateY(-4px); border-color:var(--accent); box-shadow:0 14px 34px -18px var(--accent-glow); }
+    .card .ic { font-size:1.9rem; }
+    .card .t { font-weight:800; font-size:1.05rem; }
+    .card .d { color:var(--muted); font-size:.86rem; line-height:1.45; }
+    .card .u { color:var(--accent); font-size:.76rem; font-family:'Cascadia Code',Consolas,monospace; margin-top:2px; }
+    .sect { margin:30px 0 12px; color:var(--muted); font-size:.78rem; text-transform:uppercase; letter-spacing:.12em; font-weight:800; }
+    .foot { text-align:center; color:var(--muted); margin-top:40px; font-size:.85rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <h1>🧭 Explore Sentinel</h1>
+      <p>Everything the platform can do — one tap away.</p>
+    </div>
+
+    <div class="sect">📊 Live &amp; Stats</div>
+    <div class="grid">
+      <a class="card" href="/pulse"><span class="ic">💓</span><span class="t">Live Pulse</span><span class="d">Real-time server heartbeat — messages/min, top talkers.</span><span class="u">/pulse</span></a>
+      <a class="card" href="/leaderboard"><span class="ic">🏆</span><span class="t">Leaderboards</span><span class="d">Top members by coins, XP, and citations.</span><span class="u">/leaderboard</span></a>
+      <a class="card" href="/dashboard"><span class="ic">🎛️</span><span class="t">Dashboard</span><span class="d">Manage modules, economy, guild settings.</span><span class="u">/dashboard</span></a>
+    </div>
+
+    <div class="sect">🚔 ER:LC</div>
+    <div class="grid">
+      <a class="card" href="/dispatch"><span class="ic">🗺️</span><span class="t">Dispatch Map</span><span class="d">Live map with real moving units + 911 calls.</span><span class="u">/dispatch</span></a>
+      <a class="card" href="/feed"><span class="ic">📡</span><span class="t">Server Feed</span><span class="d">Live joins, kills, mod calls &amp; commands.</span><span class="u">/feed</span></a>
+      <a class="card" href="/cad-hub"><span class="ic">🚓</span><span class="t">CAD / MDT</span><span class="d">The dispatch &amp; mobile data terminal suite.</span><span class="u">/cad-hub</span></a>
+    </div>
+
+    <div class="sect">🔌 Developers</div>
+    <div class="grid">
+      <a class="card" href="/playground"><span class="ic">🧪</span><span class="t">API Playground</span><span class="d">Try all 26 API endpoints live in your browser.</span><span class="u">/playground</span></a>
+      <a class="card" href="/developers"><span class="ic">📚</span><span class="t">API Docs</span><span class="d">Full reference for the Sentinel developer API.</span><span class="u">/developers</span></a>
+      <a class="card" href="/keybinds"><span class="ic">🎮</span><span class="t">Keybinds</span><span class="d">Rebind keys + map a gamepad / yoke.</span><span class="u">/keybinds</span></a>
+    </div>
+
+    <div class="sect">🌐 More</div>
+    <div class="grid">
+      <a class="card" href="/team"><span class="ic">👥</span><span class="t">Meet the Team</span><span class="d">The humans (and one AI) behind Sentinel.</span><span class="u">/team</span></a>
+      <a class="card" href="/wx"><span class="ic">🌦️</span><span class="t">Weather Hub</span><span class="d">Radar, cams, forecast &amp; tornado tracking.</span><span class="u">/wx</span></a>
+      <a class="card" href="/signin"><span class="ic">🔑</span><span class="t">Sign In</span><span class="d">Log in with Discord or Google.</span><span class="u">/signin</span></a>
+    </div>
+
+    <p class="foot">Built by Chris &amp; Paulo. 🎸 One caffeinated night at a time.</p>
+  </div>
+</body>
+</html>

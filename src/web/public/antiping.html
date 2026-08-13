@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sentinel • Anti-Ping</title>
+<style>
+  :root { --bg:#0d1117; --panel:#161b22; --card:#2b2d31; --accent:#5865f2; --muted:#949ba4; --line:#30363d; --good:#3fb950; --bad:#f85149; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,Segoe UI,Arial,sans-serif; background:var(--bg); color:#e6edf3; }
+  header { padding:18px 26px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  header h1 { font-size:19px; margin:0; } header .sub { color:var(--muted); font-size:13px; }
+  select, input[type=text], input[type=number] { background:#0d1117; border:1px solid var(--line); color:#e6edf3; border-radius:8px; padding:8px 10px; font-size:14px; }
+  .wrap { max-width:760px; margin:0 auto; padding:22px 26px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px; margin-bottom:16px; }
+  .field { margin:14px 0; } .field > span { display:block; font-size:13px; color:var(--muted); margin-bottom:6px; }
+  .field input[type=text] { width:100%; }
+  .roles { display:flex; flex-wrap:wrap; gap:6px; max-height:180px; overflow:auto; padding:8px; border:1px solid var(--line); border-radius:8px; }
+  .role { font-size:12px; padding:4px 9px; border:1px solid var(--line); border-radius:20px; cursor:pointer; user-select:none; }
+  .role.on { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .row { display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:1px solid rgba(255,255,255,.05); }
+  .switch { position:relative; width:42px; height:24px; } .switch input{display:none;}
+  .slider{ position:absolute; inset:0; background:#484f58; border-radius:24px; cursor:pointer; transition:.2s;}
+  .slider::before{ content:''; position:absolute; width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;}
+  input:checked + .slider{ background:var(--accent);} input:checked + .slider::before{ transform:translateX(18px);}
+  button { background:var(--accent); color:#fff; border:0; border-radius:9px; padding:11px 18px; font-weight:700; font-size:14px; cursor:pointer; }
+  button:disabled{ opacity:.5; } .bar{ display:flex; gap:12px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+  .msg{ font-size:13px;} .msg.ok{color:var(--good);} .msg.err{color:var(--bad);} .hint{color:var(--muted);font-size:12px;}
+  a{color:var(--accent);}
+</style>
+</head>
+<body>
+<header>
+  <h1>🔕 Anti-Ping</h1>
+  <span class="sub">Stop people from pinging your high-ranking staff.</span>
+  <span style="flex:1"></span>
+  <select id="guild"><option>Loading…</option></select>
+</header>
+<div class="wrap">
+  <div class="panel">
+    <div class="row"><b>Enable Anti-Ping</b><span class="switch"><input type="checkbox" id="enabled"><span class="slider"></span></span></div>
+    <div class="field"><span>🛡️ Protected roles — pinging anyone with these roles triggers it</span><div class="roles" id="protectedRoles"></div></div>
+    <div class="field"><span>🆔 Protected user IDs (comma-separated, optional)</span><input type="text" id="users" placeholder="123..., 456..."></div>
+    <div class="field"><span>✅ Exempt roles — these roles are ALLOWED to ping (staff can ping staff)</span><div class="roles" id="exemptRoles"></div></div>
+    <div class="field"><span>⚙️ Action when someone pings protected staff</span>
+      <select id="action"><option value="warn">Warn only</option><option value="delete">Delete message</option><option value="both">Delete + warn</option></select>
+    </div>
+    <div class="field"><span>⏳ Timeout the pinger for N minutes (0 = off)</span><input type="number" id="timeout" min="0" max="1440" value="0" style="width:120px"></div>
+    <div class="field"><span>💬 Warning message (use {user} and {staff})</span><input type="text" id="message" placeholder="🔕 {user}, please don't ping {staff}."></div>
+  </div>
+  <div class="bar"><button id="save" disabled>💾 Save</button><span class="msg" id="msg"></span><span class="hint">Applies instantly. Anyone with Manage Messages is auto-exempt.</span></div>
+</div>
+<script>
+const $=(id)=>document.getElementById(id);
+let ROLES=[], sel={protectedRoles:new Set(), exemptRoles:new Set()};
+async function boot(){
+  const gv=await fetch('/api/infraction-embed/guilds');
+  if(gv.status===401){ $('guild').innerHTML='<option>Sign in first</option>'; document.querySelector('.hint').innerHTML='🔒 <a href="/login">Sign in</a>.'; return; }
+  const gj=await gv.json();
+  $('guild').innerHTML=(gj.guilds||[]).map(g=>`<option value="${g.id}">${g.name}</option>`).join('')||'<option value="">No servers</option>';
+  const pre=new URLSearchParams(location.search).get('g'); if(pre) $('guild').value=pre;
+  load();
+}
+function renderRoles(which, chosen){
+  sel[which]=new Set(chosen||[]);
+  $(which).innerHTML=ROLES.map(r=>`<span class="role ${sel[which].has(r.id)?'on':''}" data-id="${r.id}">${r.name}</span>`).join('')||'<span class="hint">no roles</span>';
+  $(which).querySelectorAll('.role').forEach(el=>el.onclick=()=>{ const id=el.dataset.id; if(sel[which].has(id)){sel[which].delete(id);el.classList.remove('on');}else{sel[which].add(id);el.classList.add('on');} });
+}
+async function load(){
+  const id=$('guild').value; if(!id) return;
+  const r=await fetch('/api/antiping/'+id); if(!r.ok){ document.querySelector('.hint').textContent='No access.'; return; }
+  const j=await r.json(); ROLES=j.roles||[]; const c=j.config||{};
+  $('enabled').checked=!!c.enabled; $('action').value=c.action||'warn'; $('timeout').value=c.timeout||0;
+  $('message').value=c.message||''; $('users').value=(c.users||[]).join(', ');
+  renderRoles('protectedRoles', c.roles); renderRoles('exemptRoles', c.exemptRoles);
+  $('save').disabled=false;
+}
+$('guild').onchange=load;
+$('save').onclick=async()=>{
+  const id=$('guild').value; if(!id) return;
+  $('save').disabled=true; $('msg').className='msg'; $('msg').textContent='Saving…';
+  const body={ enabled:$('enabled').checked, roles:[...sel.protectedRoles], exemptRoles:[...sel.exemptRoles],
+    users:$('users').value.split(',').map(s=>s.trim().replace(/[^0-9]/g,'')).filter(Boolean),
+    action:$('action').value, timeout:+$('timeout').value, message:$('message').value };
+  const r=await fetch('/api/antiping/'+id,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const j=await r.json();
+  if(j.ok){ $('msg').className='msg ok'; $('msg').textContent='✅ Saved!'; } else { $('msg').className='msg err'; $('msg').textContent='❌ '+(j.error||'Failed'); }
+  $('save').disabled=false;
+};
+boot();
+</script>
+</body>
+</html>

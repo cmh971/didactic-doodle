@@ -1,5 +1,7 @@
-import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, MessageFlags } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, MessageFlags, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
 import { erlc, runCommand } from '../../features/erlc.js';
+import { setSetting } from '../../setup/store.js';
+import { encryptSecret } from '../../systems/secureStore.js';
 
 const eph = (c) => ({ content: c, flags: MessageFlags.Ephemeral });
 const lines = (arr, fn, max = 12) => (Array.isArray(arr) && arr.length ? arr.slice(0, max).map(fn).join('\n') : '_none_');
@@ -20,12 +22,36 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((s) => s.setName('vehicles').setDescription('Spawned vehicles'))
   .addSubcommand((s) => s.setName('execute').setDescription('Run an in-game command').addStringOption((o) => o.setName('command').setDescription('e.g. :h Hello').setRequired(true)))
   .addSubcommand((s) => s.setName('tempban').setDescription('Ban a player in-game').addStringOption((o) => o.setName('user').setDescription('Roblox username/id').setRequired(true)))
-  .addSubcommand((s) => s.setName('untempban').setDescription('Unban a player in-game').addStringOption((o) => o.setName('user').setDescription('Roblox username/id').setRequired(true)));
+  .addSubcommand((s) => s.setName('untempban').setDescription('Unban a player in-game').addStringOption((o) => o.setName('user').setDescription('Roblox username/id').setRequired(true)))
+  .addSubcommand((s) => s.setName('link').setDescription('Link your ER:LC private server (paste key securely)'))
+  .addSubcommand((s) => s.setName('setup').setDescription('How to link your server + set up Command Logs'));
 
 export async function execute(interaction) {
   const sub = interaction.options.getSubcommand();
   const g = interaction.guildId;
+
+  // Link: show a modal so the key is NEVER posted in a channel. (No defer — modals
+  // must be the initial interaction response.)
+  if (sub === 'link') {
+    const modal = new ModalBuilder().setCustomId('erlc:linkmodal').setTitle('Link ER:LC Private Server');
+    modal.addComponents(new ActionRowBuilder().addComponents(
+      new TextInputBuilder().setCustomId('key').setLabel('Private Server API Key').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('Paste your ER:LC server key'),
+    ));
+    return interaction.showModal(modal);
+  }
+
   await interaction.deferReply();
+
+  if (sub === 'setup') {
+    const embed = new EmbedBuilder().setColor(0x2ecc71).setTitle('🚓 ER:LC Setup')
+      .setDescription('Connect your Liberty County private server to the bot.')
+      .addFields(
+        { name: '1️⃣ Link your ER:LC Private Server', value: 'So the bot can read your server and reply to in-game commands via in-game PMs, run **`/erlc link`** and paste your **private-server key**. It’s stored **encrypted** (AES-256-GCM), never shown in chat. Test with `/erlc server`.' },
+        { name: '2️⃣ ER:LC Command Logs (optional)', value: 'To mirror every in-game command into a Discord channel:\n• Create a channel → **Edit ▸ Integrations ▸ New Webhook** → **Copy URL** (name/avatar don’t matter).\n• In your **ER:LC private server settings**, search **Command Logs Webhook** → **Edit** → paste the URL.\n\nThe bot can also pull them anytime with **`/erlc logs`**.' },
+      )
+      .setFooter({ text: 'Manage Server permission required' });
+    return interaction.editReply({ embeds: [embed] });
+  }
 
   // Action subcommands
   if (sub === 'execute' || sub === 'tempban' || sub === 'untempban') {
@@ -82,4 +108,25 @@ export async function execute(interaction) {
       embed.setDescription('```json\n' + JSON.stringify(d, null, 2).slice(0, 1800) + '\n```');
   }
   return interaction.editReply({ embeds: [embed] });
+}
+
+// Open the secure key modal from a button (customId erlc:setkey) — lets the
+// `!erlc key` prefix command set the key without needing the slash command.
+export async function showErlcKeyModal(interaction) {
+  if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) { await interaction.reply(eph('🔒 Needs **Manage Server**.')).catch(() => {}); return; }
+  const modal = new ModalBuilder().setCustomId('erlc:linkmodal').setTitle('Link ER:LC Private Server');
+  modal.addComponents(new ActionRowBuilder().addComponents(
+    new TextInputBuilder().setCustomId('key').setLabel('Private Server API Key').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('Paste your ER:LC server key'),
+  ));
+  await interaction.showModal(modal).catch(() => {});
+}
+
+// Secure key intake from the /erlc link modal (routed from index.js: customId erlc:linkmodal).
+export async function handleErlcModal(interaction) {
+  if (interaction.customId !== 'erlc:linkmodal') return false;
+  const key = (interaction.fields.getTextInputValue('key') || '').trim();
+  if (!key) { await interaction.reply(eph('❌ No key provided.')).catch(() => {}); return true; }
+  setSetting(interaction.guildId, 'erlcKeyEnc', encryptSecret(key));
+  await interaction.reply(eph('✅ ER:LC private server linked — key stored **encrypted**. Test it with `/erlc server`.')).catch(() => {});
+  return true;
 }

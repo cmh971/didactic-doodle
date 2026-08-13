@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bodycam · Sentinel CAD</title>
+<style>
+  :root { color-scheme: dark; } * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0f16; color: #e8f0ff; }
+  header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: #0e1c2c; border-bottom: 1px solid #1e3a55; }
+  header h1 { font-size: 17px; margin: 0; }
+  .rec-dot { width: 12px; height: 12px; border-radius: 50%; background: #6b7280; display: inline-block; }
+  .rec-dot.on { background: #ef4444; animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 16px; }
+  .card { background: #0e1c2c; border: 1px solid #1e3a55; border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+  .stage { position: relative; background: #000; border-radius: 10px; overflow: hidden; }
+  video { width: 100%; display: block; max-height: 60vh; }
+  #cropbox { position: absolute; border: 2px dashed #37d0a0; background: rgba(55,208,160,.12); display: none; pointer-events: none; }
+  .btns { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+  button { padding: 12px 18px; border-radius: 10px; border: none; font-weight: 800; font-size: 14px; cursor: pointer; }
+  .start { background: #22c55e; color: #04121f; } .stop { background: #ef4444; color: #fff; } .ghost { background: #16283d; color: #9fc0e0; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  label.opt { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #9fc0e0; margin-right: 16px; }
+  .muted { color: #6d90b3; font-size: 13px; } .tip { color: #f5b642; font-size: 13px; }
+  a.dl { color: #37d0a0; font-weight: 700; }
+  .timer { font-variant-numeric: tabular-nums; font-weight: 800; }
+</style>
+</head>
+<body>
+  <header><h1>🎥 Bodycam</h1><span class="rec-dot" id="dot"></span><span class="timer" id="timer">00:00</span><span class="muted" id="gid" style="margin-left:auto"></span></header>
+  <div class="wrap">
+    <div id="gate" class="card" style="display:none"><b>🔒 Requires a PD/EMS/DOT department role.</b></div>
+    <div class="card" id="ctrl">
+      <div class="muted">Click <b>Start</b>, then in the browser dialog <b>choose your ER:LC game window</b> — that records only the gameplay (no desktop, no browser). Stop to save the clip.</div>
+      <div style="margin-top:10px">
+        <label class="opt"><input type="checkbox" id="opt-audio" checked> Record audio</label>
+        <label class="opt"><input type="checkbox" id="opt-crop"> Let me draw a crop box (if capturing a full screen)</label>
+        <label class="opt"><input type="checkbox" id="opt-drive"> ☁ Auto-backup to my Google Drive</label>
+      </div>
+      <div class="btns">
+        <button class="start" id="start">🔴 Start Bodycam</button>
+        <button class="stop" id="stop" disabled>⏹ Stop &amp; Save</button>
+      </div>
+      <div class="tip" id="tip" style="margin-top:8px"></div>
+    </div>
+    <div class="card">
+      <div class="stage" id="stage"><video id="preview" autoplay muted playsinline></video><div id="cropbox"></div></div>
+      <div id="result" style="margin-top:10px"></div>
+    </div>
+  </div>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+const guild = new URLSearchParams(location.search).get('guild');
+const $ = (id) => document.getElementById(id);
+$('gid').textContent = guild ? 'server ' + guild : '';
+let stream=null, rec=null, chunks=[], t0=0, timerInt=null, cropStream=null, rafId=0;
+let crop=null, drag=null, lastBlob=null, lastName='', googleClientId=null;
+fetch('/api/me').then(r=>r.json()).then(m=>{ googleClientId=m.googleClientId; }).catch(()=>{});
+
+async function checkAccess(){ if(!guild) return true; try{ const r=await fetch(`/api/cad/${guild}/access`).then(r=>r.json()); if(!r.access){ $('gate').style.display='block'; $('ctrl').style.display='none'; return false; } }catch{} return true; }
+
+function fmt(ms){ const s=Math.floor(ms/1000); return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); }
+function tickTimer(){ $('timer').textContent = fmt(Date.now()-t0); }
+
+$('start').onclick = async ()=>{
+  $('tip').textContent='';
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({ video:{ frameRate:30 }, audio: $('opt-audio').checked });
+  } catch(e){ $('tip').textContent='❌ '+(e.message||'Screen share was cancelled.'); return; }
+  const v=$('preview'); v.srcObject=stream; await v.play().catch(()=>{});
+  stream.getVideoTracks()[0].addEventListener('ended', ()=>{ if(rec&&rec.state!=='inactive') $('stop').click(); });
+
+  let recordStream = stream;
+  if($('opt-crop').checked){ setupCrop(); if(crop) recordStream = buildCropStream(); }
+
+  chunks=[];
+  const mime = ['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'].find(m=>MediaRecorder.isTypeSupported(m))||'';
+  rec = new MediaRecorder(recordStream, mime?{mimeType:mime}:undefined);
+  rec.ondataavailable = e=>{ if(e.data.size) chunks.push(e.data); };
+  rec.onstop = save;
+  rec.start(1000);
+  t0=Date.now(); timerInt=setInterval(tickTimer,500); $('dot').classList.add('on');
+  $('start').disabled=true; $('stop').disabled=false;
+  $('tip').textContent='🔴 Recording… gameplay only if you picked the game window.';
+};
+
+$('stop').onclick = ()=>{ if(rec&&rec.state!=='inactive') rec.stop(); };
+
+function save(){
+  clearInterval(timerInt); $('dot').classList.remove('on'); cancelAnimationFrame(rafId);
+  if(stream) stream.getTracks().forEach(t=>t.stop());
+  $('start').disabled=false; $('stop').disabled=true; $('cropbox').style.display='none';
+  const blob = new Blob(chunks, {type:'video/webm'});
+  const url = URL.createObjectURL(blob);
+  const stamp = new Date().toISOString().replace(/[:.]/g,'-');
+  lastBlob = blob; lastName = `bodycam-${stamp}.webm`;
+  $('result').innerHTML = `<b>✅ Clip saved.</b><br><video src="${url}" controls style="width:100%;margin-top:8px;border-radius:8px"></video><br><a class="dl" href="${url}" download="${lastName}">⬇ Download</a> &nbsp;·&nbsp; <a class="dl" href="#" id="drivebtn">☁ Back up to Google Drive</a> <span id="driveMsg" class="muted"></span>`;
+  $('drivebtn').onclick=(e)=>{ e.preventDefault(); driveBackup(); };
+  $('tip').textContent='';
+  if($('opt-drive').checked) driveBackup();
+}
+
+// ---- Google Drive backup (goes straight from browser → your Drive) ----
+function driveBackup(){
+  const msg = $('driveMsg');
+  if(!lastBlob){ return; }
+  if(!googleClientId){ if(msg) msg.textContent=' — Google Drive isn’t configured on this bot.'; return; }
+  if(!window.google?.accounts?.oauth2){ if(msg) msg.textContent=' — Google library still loading, try again.'; return; }
+  if(msg) msg.textContent=' — authorizing…';
+  const tc = google.accounts.oauth2.initTokenClient({ client_id: googleClientId, scope:'https://www.googleapis.com/auth/drive.file',
+    callback: async (resp)=>{ if(!resp.access_token){ if(msg) msg.textContent=' — authorization failed.'; return; } if(msg) msg.textContent=' — uploading…'; const ok=await uploadToDrive(lastBlob, lastName, resp.access_token); if(msg) msg.textContent = ok?' — ✅ saved to your Drive!':' — ❌ upload failed.'; } });
+  tc.requestAccessToken();
+}
+async function uploadToDrive(blob, name, token){
+  try {
+    const boundary='bcam'+Date.now();
+    const body = new Blob([`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`, JSON.stringify({ name, mimeType:'video/webm' }), `\r\n--${boundary}\r\nContent-Type: video/webm\r\n\r\n`, blob, `\r\n--${boundary}--`]);
+    const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', { method:'POST', headers:{ Authorization:'Bearer '+token, 'Content-Type':'multipart/related; boundary='+boundary }, body });
+    return r.ok;
+  } catch { return false; }
+}
+
+// ---- optional crop box (drag on the preview) ----
+function setupCrop(){
+  const stage=$('stage'), box=$('cropbox'), v=$('preview');
+  $('tip').textContent='✏️ Drag a box on the video to crop to just the gameplay, then it records that region.';
+  const down=(e)=>{ const r=stage.getBoundingClientRect(); drag={x:e.clientX-r.left,y:e.clientY-r.top}; box.style.display='block'; box.style.left=drag.x+'px'; box.style.top=drag.y+'px'; box.style.width='0'; box.style.height='0'; };
+  const move=(e)=>{ if(!drag)return; const r=stage.getBoundingClientRect(); const x=e.clientX-r.left,y=e.clientY-r.top; box.style.left=Math.min(drag.x,x)+'px'; box.style.top=Math.min(drag.y,y)+'px'; box.style.width=Math.abs(x-drag.x)+'px'; box.style.height=Math.abs(y-drag.y)+'px'; };
+  const up=()=>{ if(!drag)return; drag=null; const r=stage.getBoundingClientRect(); const b=box.getBoundingClientRect(); const sx=v.videoWidth/r.width, sy=v.videoHeight/r.height; crop={ x:(b.left-r.left)*sx, y:(b.top-r.top)*sy, w:b.width*sx, h:b.height*sy }; };
+  stage.onmousedown=down; window.onmousemove=move; window.onmouseup=up;
+}
+function buildCropStream(){
+  const v=$('preview'); const c=document.createElement('canvas'); c.width=Math.max(2,Math.round(crop.w)); c.height=Math.max(2,Math.round(crop.h)); const ctx=c.getContext('2d');
+  const paint=()=>{ ctx.drawImage(v, crop.x, crop.y, crop.w, crop.h, 0,0,c.width,c.height); rafId=requestAnimationFrame(paint); }; paint();
+  cropStream = c.captureStream(30);
+  const a=stream.getAudioTracks(); if(a[0]) cropStream.addTrack(a[0]);
+  return cropStream;
+}
+
+if(!navigator.mediaDevices?.getDisplayMedia){ $('ctrl').innerHTML='<b>Your browser can’t screen-record.</b> Use desktop Chrome/Edge/Firefox.'; }
+checkAccess();
+</script>
+<script src="/a11y.js" defer></script>
+<script src="/sfx.js" defer></script>
+<script>
+// Real bodycam "beep-boop" on power on/off (like the real thing).
+window.addEventListener('DOMContentLoaded', () => {
+  const s = document.getElementById('start'), t = document.getElementById('stop');
+  s && s.addEventListener('click', () => window.SFX && SFX.bodycamOn());
+  t && t.addEventListener('click', () => window.SFX && SFX.bodycamOff());
+});
+</script>
+</body>
+</html>
