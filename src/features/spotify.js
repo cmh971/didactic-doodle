@@ -6,6 +6,23 @@
 // Always available — there's nothing to configure.
 export function spotifyEnabled() { return true; }
 
+// Search MANY tracks (for the merged !spotify results). Normalised list.
+export async function searchMany(query, limit = 8) {
+  const url = `https://itunes.apple.com/search?media=music&entity=song&limit=${Math.min(Math.max(limit, 1), 25)}&term=${encodeURIComponent(query)}`;
+  const res = await fetch(url, { headers: { 'User-Agent': 'SentinelBot/1.0' } });
+  if (!res.ok) throw new Error(`music search failed (${res.status})`);
+  const j = await res.json();
+  return (j.results || []).map((it) => ({
+    name: it.trackName,
+    artists: it.artistName,
+    album: it.collectionName || null,
+    art: it.artworkUrl100 ? it.artworkUrl100.replace('100x100bb', '600x600bb') : null,
+    preview: it.previewUrl || null,
+    url: it.trackViewUrl || null,
+    durationMs: it.trackTimeMillis || 0,
+  })).filter((x) => x.name);
+}
+
 // Search a track; returns a tidy object or null if nothing matched.
 export async function searchTrack(query) {
   const url = `https://itunes.apple.com/search?media=music&entity=song&limit=1&term=${encodeURIComponent(query)}`;

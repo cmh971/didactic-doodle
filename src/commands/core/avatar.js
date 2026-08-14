@@ -15,3 +15,4 @@ export async function execute(interaction) {
     .setDescription(`[Open full size](${url})`);
   await interaction.reply({ embeds: [embed] });
 }
+// end of file

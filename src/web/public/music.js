@@ -27,6 +27,8 @@
   #smx-row{display:flex;align-items:center;gap:10px;margin-top:10px}
   #smx-play{flex:0 0 auto;width:44px;height:44px;border:none;border-radius:10px;background:#22c55e;color:#04121f;font-size:18px;cursor:pointer;font-weight:800}
   #smx-play.on{background:#ef4444;color:#fff}
+  #smx-loop{flex:0 0 auto;width:40px;height:44px;border:none;border-radius:10px;background:#16283d;color:#6d90b3;font-size:16px;cursor:pointer}
+  #smx-loop.on{background:#5865f2;color:#fff}
   #smx-vol{flex:1}
   #smx-now{margin-top:8px;font-size:12px;color:#6d90b3;min-height:16px}
   #smx-panel a{color:#37d0a0;font-size:11px;text-decoration:none}`;
@@ -50,6 +52,7 @@
     '<h4>🎵 Sentinel Radio</h4>' +
     '<select id="smx-sel"></select>' +
     '<div id="smx-row"><button id="smx-play" aria-label="Play or pause">▶</button>' +
+    '<button id="smx-loop" aria-label="Toggle loop" title="Loop — keep playing / auto-reconnect">🔁</button>' +
     '<input id="smx-vol" type="range" min="0" max="1" step="0.05" aria-label="Volume"></div>' +
     '<div id="smx-now">Paused</div>' +
     '<a href="https://somafm.com" target="_blank" rel="noopener">Streams by SomaFM — commercial-free radio</a>';
@@ -61,6 +64,10 @@
   const play = panel.querySelector('#smx-play');
   const vol = panel.querySelector('#smx-vol');
   const now = panel.querySelector('#smx-now');
+  const loop = panel.querySelector('#smx-loop');
+  let wantPlaying = false;
+  let looping = localStorage.getItem('smx-loop') === '1';
+  if (looping) loop.classList.add('on');
   STATIONS.forEach((s, i) => {
     const o = document.createElement('option');
     o.value = i;
@@ -72,13 +79,18 @@
 
   function label() { return STATIONS[+sel.value]?.name || ''; }
   function start() {
+    wantPlaying = true;
     audio.src = STATIONS[+sel.value].url;
     audio.play().then(() => {
       play.textContent = '⏸'; play.classList.add('on'); btn.classList.add('playing');
-      now.textContent = '▶ ' + label();
-    }).catch(() => { now.textContent = '⚠️ Could not start stream.'; });
+      now.textContent = '▶ ' + label() + (looping ? '  🔁' : '');
+    }).catch(() => {
+      now.textContent = looping ? '🔁 Reconnecting…' : '⚠️ Could not start stream.';
+      if (looping && wantPlaying) setTimeout(() => { if (looping && wantPlaying) start(); }, 3000);
+    });
   }
   function stop() {
+    wantPlaying = false;
     audio.pause(); play.textContent = '▶'; play.classList.remove('on'); btn.classList.remove('playing');
     now.textContent = 'Paused';
   }
@@ -87,5 +99,17 @@
   play.onclick = () => (audio.paused ? start() : stop());
   sel.onchange = () => { localStorage.setItem('smx-station', sel.value); if (!audio.paused) start(); };
   vol.oninput = () => { audio.volume = +vol.value; localStorage.setItem('smx-vol', vol.value); };
-  audio.onerror = () => { now.textContent = '⚠️ Stream error — try another station.'; };
+  loop.onclick = () => {
+    looping = !looping;
+    loop.classList.toggle('on', looping);
+    localStorage.setItem('smx-loop', looping ? '1' : '0');
+    if (!audio.paused) now.textContent = '▶ ' + label() + (looping ? '  🔁' : '');
+    else now.textContent = looping ? '🔁 Loop on — auto-reconnects' : 'Paused';
+  };
+  // When loop is on, a dropped / stalled / ended stream silently restarts itself.
+  audio.onerror = () => {
+    if (looping && wantPlaying) { now.textContent = '🔁 Reconnecting…'; setTimeout(() => { if (looping && wantPlaying) start(); }, 2000); }
+    else now.textContent = '⚠️ Stream error — try another station.';
+  };
+  audio.onended = () => { if (looping && wantPlaying) start(); };
 })();

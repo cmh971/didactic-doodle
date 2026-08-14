@@ -98,7 +98,7 @@ const MOVES = [
   { key: 'run', label: 'Run Away', emoji: '🏃', style: 3, act: (f, a) => { heal(a, 12); return `🏃 ${a.name} ran away and caught their breath _(+12 hp)_`; } },
   { key: 'block', label: 'Block', emoji: '🛡️', style: 3, act: (f, a) => { heal(a, 8); return `🛡️ ${a.name} braced and recovered _(+8 hp)_`; } },
   { key: 'medkit', label: 'Med Kit', emoji: '➕', style: 3, act: (f, a) => { heal(a, 25); return `➕ ${a.name} popped a med kit _(+25 hp)_`; } },
-  { key: 'rage', label: 'Rage', emoji: '😤', style: 4, act: (f, a) => { a.rage = 3; return `😤 ${a.name} is **ENRAGED** — next 3 hits deal 1.5×!`; } },
+  { key: 'rage', label: 'Rage', emoji: '😤', style: 4, act: (f, a) => { a.rage = 3; return `😤 ${a.name} is **ENRAGED OH-NO** — next 3 hits deal 1.5×!`; } },
   { key: 'laser', label: 'Laser', emoji: '⚡', style: 4, act: (f, a) => hit(f, a, 25, 45, 'lasered') },
   { key: '737', label: 'Throw 737', emoji: '✈️', style: 4, act: (f, a) => aoe(f, a, 40, 70, 1, '✈️ THREW A BOEING 737 at') },
   { key: 'meteor', label: 'Meteor', emoji: '☄️', style: 4, act: (f, a) => aoe(f, a, 30, 55, 3, '☄️ called a meteor down on') },

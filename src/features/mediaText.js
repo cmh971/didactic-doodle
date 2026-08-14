@@ -8,7 +8,7 @@
 import { EmbedBuilder, AttachmentBuilder } from 'discord.js';
 import { statSync } from 'node:fs';
 import { extractAudioFromUrl, resolveTrack, listAudio } from './audio.js';
-import { playFileInChannel, leaveVoice } from './voice.js';
+import { playFileInChannel, leaveVoice, setLoop } from './voice.js';
 import { searchTrack, spotifyEnabled } from './spotify.js';
 
 const MAX_UPLOAD = 24 * 1024 * 1024;
@@ -65,8 +65,18 @@ export async function handleMediaText(message) {
         await message.reply('❌ Attach a file, or name a saved track: `!media play <name>`.').catch(() => {}); return true;
       }
       playFileInChannel(channel, path);
-      await message.reply(`🔊 Now playing **${label}** in **${channel.name}**. Use \`!media stop\` to stop.`).catch(() => {});
+      await message.reply(`🔊 Now playing **${label}** in **${channel.name}**. \`!media loop\` to repeat · \`!media stop\` to stop.`).catch(() => {});
     } catch (err) { await message.reply(`⚠️ Couldn’t play that: ${err.message}`).catch(() => {}); }
+    return true;
+  }
+
+  // ---- loop the current track on/off ----
+  if (sub === 'loop') {
+    const st = setLoop(message.guild.id); // toggle
+    if (st === null) { await message.reply('ℹ️ Nothing’s playing here — start with `!media play <name>`, then `!media loop`.').catch(() => {}); return true; }
+    await message.reply(st
+      ? '🔁 **Loop ON** — the current track replays until you `!media loop` again or `!media stop`.'
+      : '➡️ **Loop OFF** — the track will stop when it ends.').catch(() => {});
     return true;
   }
 

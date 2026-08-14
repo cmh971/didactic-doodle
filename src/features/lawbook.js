@@ -99,31 +99,4 @@ const P = [
   ['F-708', 'Tax Evasion', 'Financial', 'Felony', 36, 12000],
 ];
 
-export const PENAL_CODE = P.map(([code, title, category, cls, jail, fine]) => ({ code, title, category, cls, jail, fine }));
-
-// [name, abbr, capital, maxHighwaySpeedMph] — speed limits & capitals are real.
-const S = [
-  ['Alabama', 'AL', 'Montgomery', 70], ['Alaska', 'AK', 'Juneau', 65], ['Arizona', 'AZ', 'Phoenix', 75],
-  ['Arkansas', 'AR', 'Little Rock', 75], ['California', 'CA', 'Sacramento', 70], ['Colorado', 'CO', 'Denver', 75],
-  ['Connecticut', 'CT', 'Hartford', 65], ['Delaware', 'DE', 'Dover', 65], ['Florida', 'FL', 'Tallahassee', 70],
-  ['Georgia', 'GA', 'Atlanta', 70], ['Hawaii', 'HI', 'Honolulu', 60], ['Idaho', 'ID', 'Boise', 80],
-  ['Illinois', 'IL', 'Springfield', 70], ['Indiana', 'IN', 'Indianapolis', 70], ['Iowa', 'IA', 'Des Moines', 70],
-  ['Kansas', 'KS', 'Topeka', 75], ['Kentucky', 'KY', 'Frankfort', 70], ['Louisiana', 'LA', 'Baton Rouge', 75],
-  ['Maine', 'ME', 'Augusta', 75], ['Maryland', 'MD', 'Annapolis', 70], ['Massachusetts', 'MA', 'Boston', 65],
-  ['Michigan', 'MI', 'Lansing', 75], ['Minnesota', 'MN', 'Saint Paul', 70], ['Mississippi', 'MS', 'Jackson', 70],
-  ['Missouri', 'MO', 'Jefferson City', 70], ['Montana', 'MT', 'Helena', 80], ['Nebraska', 'NE', 'Lincoln', 75],
-  ['Nevada', 'NV', 'Carson City', 80], ['New Hampshire', 'NH', 'Concord', 70], ['New Jersey', 'NJ', 'Trenton', 65],
-  ['New Mexico', 'NM', 'Santa Fe', 75], ['New York', 'NY', 'Albany', 65], ['North Carolina', 'NC', 'Raleigh', 70],
-  ['North Dakota', 'ND', 'Bismarck', 75], ['Ohio', 'OH', 'Columbus', 70], ['Oklahoma', 'OK', 'Oklahoma City', 75],
-  ['Oregon', 'OR', 'Salem', 70], ['Pennsylvania', 'PA', 'Harrisburg', 70], ['Rhode Island', 'RI', 'Providence', 65],
-  ['South Carolina', 'SC', 'Columbia', 70], ['South Dakota', 'SD', 'Pierre', 80], ['Tennessee', 'TN', 'Nashville', 70],
-  ['Texas', 'TX', 'Austin', 85], ['Utah', 'UT', 'Salt Lake City', 80], ['Vermont', 'VT', 'Montpelier', 65],
-  ['Virginia', 'VA', 'Richmond', 70], ['Washington', 'WA', 'Olympia', 70], ['West Virginia', 'WV', 'Charleston', 70],
-  ['Wisconsin', 'WI', 'Madison', 70], ['Wyoming', 'WY', 'Cheyenne', 80],
-];
-
-export const STATES = S.map(([name, abbr, capital, limit]) => ({ name, abbr, capital, limit }));
-
-export function getLawbook() {
-  return { states: STATES, penalCode: PENAL_CODE, categories: [...new Set(PENAL_CODE.map((c) => c.category))] };
-}
+// Export the law book as a Map for easy lookup by code.

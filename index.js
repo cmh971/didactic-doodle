@@ -9,6 +9,7 @@ import { handleDM } from './src/dmHandler.js';
 import { handleGuildMessage } from './src/events/messageCreate.js';
 import { handleClaudeInbox } from './src/features/claudeInbox.js';
 import { handleSetup } from './src/setup/interactions.js';
+import { handleSpotifyButton } from './src/features/spotifyText.js';
 import { handleInfraction, handleAppeal } from './src/systems/infractions.js';
 import { handleCustomComponent } from './src/features/components.js';
 import { openRigPanel, handleRigButton, isOwner as isRigOwner } from './src/uno/rig.js';
@@ -219,6 +220,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     } else if (interaction.isMessageComponent()) {
       const cid = interaction.customId;
       if (cid.startsWith('setup:')) await handleSetup(interaction);
+      else if (cid.startsWith('sp:')) await handleSpotifyButton(interaction);
       else if (cid.startsWith('infraction:')) await handleInfraction(interaction);
       else if (cid.startsWith('appeal:')) await handleAppeal(interaction);
       else if (cid.startsWith('rig:')) await handleRigButton(interaction);

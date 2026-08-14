@@ -14,6 +14,7 @@ import { handleVerifyText } from '../features/verifyText.js';
 import { handleFightText } from '../features/fight.js';
 import { handleSetupText } from '../features/setupText.js';
 import { handleMediaText } from '../features/mediaText.js';
+import { handleSpotifyText } from '../features/spotifyText.js';
 import { handlePrefixCommand } from '../prefix/index.js';
 import { handleFunPrefix } from '../features/funPrefixText.js';
 import { handleClaudeInbox } from '../features/claudeInbox.js';
@@ -28,10 +29,13 @@ import { checkAutoresponders } from '../features/autoresponders.js';
 import { checkAntiping } from '../features/antiping.js';
 import { handleShiftText } from '../features/shifts.js';
 import { handleDeptText } from '../features/departments.js';
+import { handleTimezoneText } from '../features/loa.js';
 import { handleSessionText } from '../features/session.js';
 import { handleServerText } from '../features/serverAdmin.js';
 import { handleLuaText } from '../features/luaText.js';
 import { handleRobloxLuaCommand } from '../features/robloxLua.js';
+import { handleRacingCommand } from '../features/racingLua.js';
+import { handleRaceCommand, handleGarageCommand, handleDealershipCommand } from '../features/racingGame.js';
 import { handlePyText } from '../features/pyText.js';
 import { handleTagText } from '../features/tagText.js';
 import { handleRenderText } from '../features/renderText.js';
@@ -87,11 +91,13 @@ export async function handleGuildMessage(message) {
     if (await handleAfkCommand(message)) return;
     if (await handleShiftText(message)) return;
     if (await handleDeptText(message)) return;
+    if (await handleTimezoneText(message)) return;
     if (await handleInfractionText(message)) return;
     if (await handleVerifyText(message)) return;
     if (await handleFightText(message)) return;
     if (await handleSetupText(message)) return;
     if (await handleMediaText(message)) return;
+    if (await handleSpotifyText(message)) return;
     if (await handleSessionText(message)) return;
     if (await handleServerText(message)) return;
     if (await handleLuaText(message)) return;
@@ -121,6 +127,12 @@ export async function handleGuildMessage(message) {
     if (await handleErlcLinkCommand(message)) return;
     if (await handleFunPrefix(message)) return;
     if (await handlePrefixCommand(message)) return;
+    // Racing game (persistent garages + PvP) then the Lua pack. Racing runs LAST so
+    // it only catches its own !commands and never shadows an existing one.
+    if (await handleRaceCommand(message)) return;
+    if (await handleGarageCommand(message)) return;
+    if (await handleDealershipCommand(message)) return;
+    if (await handleRacingCommand(message)) return;
   } catch (err) {
     console.error('prefix-command error:', err.message);
   }

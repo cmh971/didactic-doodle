@@ -69,6 +69,19 @@ export const METADATA = {
   // AI assistant fields
   'ai.personality': { label: 'AI Personality / System Prompt', max: 500, style: TextInputStyle.Paragraph, required: false },
   'ai.maxTokens': { label: 'Max Tokens Per Reply', max: 5, style: TextInputStyle.Short, required: true, numeric: true },
+  'ai.systemPrompt': { label: 'AI System Prompt', max: 1000, style: TextInputStyle.Paragraph, required: false }, // New
+
+  // Economy Advanced
+  'economy.workCooldown': { label: 'Work Cooldown (seconds)', max: 6, style: TextInputStyle.Short, required: true, numeric: true }, // New
+  'economy.robPenalty': { label: 'Rob Penalty (ratio, e.g. 0.25)', max: 5, style: TextInputStyle.Short, required: true, numeric: true, float: true }, // New
+  'casino.houseEdge': { label: 'Casino House Edge (ratio, e.g. 0.05)', max: 5, style: TextInputStyle.Short, required: true, numeric: true, float: true }, // New
+
+  // Safety Advanced
+  'safety.accountAgeLimitDays': { label: 'Account Age Limit (days)', max: 4, style: TextInputStyle.Short, required: true, numeric: true }, // New
+
+  // Suggestions Emojis
+  'suggestions.upvoteEmoji': { label: 'Upvote Emoji', max: 30, style: TextInputStyle.Short, required: true }, // New
+  'suggestions.downvoteEmoji': { label: 'Downvote Emoji', max: 30, style: TextInputStyle.Short, required: true }, // New
 
   // Community fields
   'community.rulesMessageId': { label: 'Pinned Rules Message ID', max: 25, style: TextInputStyle.Short, required: false },
@@ -80,8 +93,11 @@ export const METADATA = {
   
   // Ticketing System Matrix
   'tickets.maxOpen': { label: 'Max Open Tickets Concurrent Per User', max: 2, style: TextInputStyle.Short, required: true, numeric: true },
-  'tickets.welcomeMessage': { label: 'Ticket Initialization Message', max: 500, style: TextInputStyle.Paragraph, required: true },
-  'erlcRegions.studsPerPixel': { label: 'Map Scale (studs per pixel)', max: 6, style: TextInputStyle.Short, required: true, numeric: true }
+  'tickets.welcomeMessage': { label: 'Ticket Initialization Message', max: 500, style: TextInputStyle.Paragraph, required: true }, // This is already in DEFAULT_CONFIG_SCHEMA but not METADATA
+
+  // ERLC Regions
+  'erlcRegions.studsPerPixel': { label: 'Map Scale (studs per pixel)', max: 6, style: TextInputStyle.Short, required: true, numeric: true },
+  'erlcRegions.apiKey': { label: 'ER:LC API Key', max: 100, style: TextInputStyle.Short, required: false }, // New
 };
 
 // --- CORE UTILITIES ---
@@ -515,7 +531,17 @@ export async function handleSetup(interaction) {
             new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('confirm').setLabel('Type RESET to flush configurations').setStyle(TextInputStyle.Short).setRequired(true))
           );
       } else if (METADATA[targetFieldKey]) {
+        // Standard field editor — build the input modal from METADATA. This is the
+        // common path (currency / economy / automod / identity / ai / tickets …),
+        // so leaving it empty made ~47 buttons throw showModal(undefined) → fail.
         structuralModal = buildDynamicModal(targetFieldKey, returnPageId, activeConfig, client);
+      } else if (targetFieldKey === '__resetCounting') {
+        structuralModal = new ModalBuilder()
+          .setCustomId(`setup:submitresetCounting:${returnPageId}`)
+          .setTitle('Confirm Reset Counting Game')
+          .addComponents(
+            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('confirm').setLabel('Type RESET to confirm').setStyle(TextInputStyle.Short).setRequired(true))
+          );
       } else {
         return true;
       }

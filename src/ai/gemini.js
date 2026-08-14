@@ -248,6 +248,10 @@ function normalizedTokens(text) {
 // enough (>= 4 chars) for an in-word match to be meaningful. Short entries
 // (kk, sh, xx, ass, ...) only match as a whole token, avoiding "class"/"assist".
 function tokenIsProfane(token, badList) {
+    // Innocent words that merely CONTAIN a bad substring (reputation → "puta",
+    // analysis → "anal", hello → "hell") are allow-listed, so the >= 4 in-word
+    // match below never fires on them. Exact whole-word bad words still match.
+    if (PROFANITY_ALLOWLIST.has(token)) return false;
     return badList.some((w) => token === w || (w.length >= 4 && token.includes(w)));
 }
 
@@ -327,9 +331,23 @@ const PROFANITY_ALLOWLIST = new Set([
     // "arse" / "ass"
     "parse", "sparse", "coarse", "hoarse", "arsenal", "arsenic",
     // "sex"
-    "sussex", "essex", "middlesex", "sextet",
-    // "prick" / "scrap"
-    "prickle", "prickly", "scrap", "scrapbook",
+    "sussex", "essex", "middlesex", "sextet", "sextant", "unisex",
+    // "prick" / "scrap" / "crap"
+    "prickle", "prickly", "scrap", "scrapbook", "scrappy", "scraper", "scrapyard", "scrapes",
+    // "homo"
+    "homogeneous", "homogenous", "homogenize", "homonym", "homophone", "homograph", "homeostasis",
+    // "dick" / "knob" (knob is innocent on its own)
+    "dickens", "dickinson", "knob", "knobs", "doorknob", "knobby",
+    // "puta" (es/pt) → reputation-family
+    "reputation", "reputable", "disreputable", "amputate", "amputation", "computation", "deputation", "imputation",
+    // "puto" (es) → computed-family
+    "computed", "disputed", "reputed", "imputed", "deputed", "computer",
+    // "pula" (ro) → scapula-family
+    "copula", "copulate", "scapula", "scapular",
+    // "lund" (hi) → blunder-family
+    "blunder", "blunders", "plunder", "plunders", "blunderbuss",
+    // "pinche" (es) → pincher-family; "randi" (hi) → brandi; "pica" is a real word
+    "pincher", "pinchers", "brandi", "brandine", "pica", "picas",
 ]);
 
 // Classify a single message with a confidence level:

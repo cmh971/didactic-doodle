@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import { getItem, hasItem, removeItem, addWallet } from '../../economy/store.js';
 import { eph, rint } from '../../util.js';
 import { renderLootBox } from '../../render/extras.js';
@@ -70,6 +70,17 @@ async function useTimeoutHammer(interaction, item) {
     return interaction.reply(eph(`🛡️ <@${target.id}> wears the protected role — the hammer just bounces off. Nothing happens.`));
   }
 
+  // Discord flatly refuses to time out a server **admin or the owner** — no matter
+  // how high the bot's role is (even WITH Administrator). `moderatable` also covers
+  // "target sits above the bot". Check it up front so the hammer isn't wasted and the
+  // message is honest — this is NOT a role-height problem.
+  if (!target.moderatable) {
+    const why = target.id === interaction.guild.ownerId ? 'the **server owner**'
+      : target.permissions.has(PermissionFlagsBits.Administrator) ? 'a **server admin** (Administrator perm)'
+      : 'above my role';
+    return interaction.reply(eph(`🛡️ <@${target.id}> can’t be timed out — they’re ${why}. Discord blocks timeouts on them for **everyone**, so the hammer won’t swing (you keep it).`));
+  }
+
   const me = interaction.member;
   // Consume the hammer no matter what — swinging it is the cost.
   removeItem(userId, item.id);
@@ -102,6 +113,6 @@ async function useTimeoutHammer(interaction, item) {
       `🔨 <@${userId}> swung the **${item.name}** — <@${target.id}> is timed out for **${minutes} min**! ${TOKEN}`,
     );
   } catch (e) {
-    return interaction.reply(eph(`❌ Couldn't time them out (is my bot role high enough?): ${e.message}`));
+    return interaction.reply(eph(`❌ The hammer fizzled — Discord said: ${e.message}. (Usually that means the target is an admin/owner, or my role isn't above theirs.)`));
   }
 }

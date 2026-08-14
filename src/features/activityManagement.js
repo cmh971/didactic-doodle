@@ -8,6 +8,7 @@ import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'disc
 import { getDb } from '../db/index.js';
 import { getCfg, setNested } from '../setup/store.js';
 import { erlc } from './erlc.js';
+import { parseWindow, ts, humanDur } from './loa.js';
 
 const db = getDb();
 db.exec(`CREATE TABLE IF NOT EXISTS loas (
@@ -24,9 +25,10 @@ db.exec(`CREATE TABLE IF NOT EXISTS modcall_stats (
 const q = {
   add: db.prepare('INSERT INTO loas(guild_id,user_id,reason,start_at,end_at,status) VALUES (?,?,?,?,?,?)'),
   get: db.prepare('SELECT * FROM loas WHERE id=?'),
-  activeForUser: db.prepare("SELECT * FROM loas WHERE guild_id=? AND user_id=? AND status IN ('pending','active') ORDER BY id DESC LIMIT 1"),
-  activeList: db.prepare("SELECT * FROM loas WHERE guild_id=? AND status='active' ORDER BY end_at"),
+  activeForUser: db.prepare("SELECT * FROM loas WHERE guild_id=? AND user_id=? AND status IN ('pending','active','scheduled') ORDER BY id DESC LIMIT 1"),
+  activeList: db.prepare("SELECT * FROM loas WHERE guild_id=? AND status IN ('active','scheduled') ORDER BY start_at"),
   expired: db.prepare("SELECT * FROM loas WHERE status='active' AND end_at<=?"),
+  toActivate: db.prepare("SELECT * FROM loas WHERE status='scheduled' AND start_at<=?"),
   setStatus: db.prepare('UPDATE loas SET status=?, approved_by=? WHERE id=?'),
   setActive: db.prepare('UPDATE loas SET status=?, approved_by=?, orig_nick=? WHERE id=?'),
   end: db.prepare("UPDATE loas SET status='ended' WHERE id=?"),
@@ -115,8 +117,8 @@ export async function handleActivityText(message) {
   if (sub === 'list') {
     const rows = q.activeList.all(message.guild.id);
     if (!rows.length) return message.reply('📋 No active LOAs.').catch(() => {});
-    const e = new EmbedBuilder().setColor(0xf59e0b).setTitle('📋 Active LOAs')
-      .setDescription(rows.map((r) => `• <@${r.user_id}> — until <t:${Math.floor(r.end_at / 1000)}:R> — ${r.reason || '_no reason_'}`).join('\n').slice(0, 4000));
+    const e = new EmbedBuilder().setColor(0xf59e0b).setTitle('📋 LOAs — active & scheduled')
+      .setDescription(rows.map((r) => `• ${r.status === 'scheduled' ? '🗓️' : '🟢'} <@${r.user_id}> — ${ts(r.start_at, 'R')} → ${ts(r.end_at, 'R')} — ${r.reason || '_no reason_'}`).join('\n').slice(0, 4000));
     return message.reply({ embeds: [e] }).catch(() => {});
   }
 
@@ -128,27 +130,50 @@ export async function handleActivityText(message) {
   }
 
   if (sub === 'request') {
-    if (q.activeForUser.get(message.guild.id, message.author.id)) return message.reply('⚠️ You already have a pending/active LOA. Use `.loa end` first.').catch(() => {});
-    const dur = parseDuration(args[0]);
-    if (!dur) return message.reply('Usage: `.loa request <duration> <reason>` — e.g. `.loa request 3d family stuff` (units: m/h/d/w).').catch(() => {});
+    if (q.activeForUser.get(message.guild.id, message.author.id)) return message.reply('⚠️ You already have a pending/scheduled/active LOA. Use `.loa end` first.').catch(() => {});
+    const reqRaw = args.join(' ').trim();
     const maxMs = (cfg.maxDays || 30) * 86400000;
-    if (dur > maxMs) return message.reply(`⚠️ That exceeds the max LOA length of **${cfg.maxDays || 30} days**.`).catch(() => {});
-    const reason = args.slice(1).join(' ') || 'No reason given';
-    const start = Date.now(); const end = start + dur;
+    let start, end, reason, tzLabel = null;
+
+    if (reqRaw.includes('|')) {
+      // Advance mode: set a start AND end date/time, interpreted in your timezone
+      // (saved via !timezone, or an optional 4th field just for this request).
+      const [startStr, endStr, reasonStr, tz] = reqRaw.split('|').map((x) => x.trim());
+      if (!startStr || !endStr) return message.reply('Usage: `.loa request <start> | <end> | <reason> | [timezone]`\nExample: `.loa request 2026-08-20 2:30pm | 2026-08-27 9am | Vacation | EST`').catch(() => {});
+      const win = parseWindow(startStr, endStr, tz, message.author.id);
+      if (win.error) return message.reply(`❌ ${win.error}`).catch(() => {});
+      ({ startAt: start, endAt: end, label: tzLabel } = win);
+      reason = reasonStr || 'No reason given';
+      if (end < Date.now()) return message.reply('❌ That LOA window is entirely in the past.').catch(() => {});
+    } else {
+      // Classic duration mode: starts now.
+      const dur = parseDuration(args[0]);
+      if (!dur) return message.reply('Usage:\n• `.loa request <duration> <reason>` — e.g. `.loa request 3d family` (m/h/d/w)\n• `.loa request <start> | <end> | <reason> | [tz]` — request in advance').catch(() => {});
+      reason = args.slice(1).join(' ') || 'No reason given';
+      start = Date.now(); end = start + dur;
+    }
+    if (end - start > maxMs) return message.reply(`⚠️ That exceeds the max LOA length of **${cfg.maxDays || 30} days**.`).catch(() => {});
+
     const info = q.add.run(message.guild.id, message.author.id, reason.slice(0, 500), start, end, 'pending');
     const id = info.lastInsertRowid;
-
+    const future = start > Date.now() + 60000;
     const logCh = cfg.logChannel && message.guild.channels.cache.get(cfg.logChannel);
     const embed = new EmbedBuilder().setColor(0xf59e0b).setTitle('📝 LOA Request')
-      .setDescription(`**Staff:** <@${message.author.id}>\n**Duration:** ${fmtDur(dur)} (ends <t:${Math.floor(end / 1000)}:F>)\n**Reason:** ${reason}`)
-      .setFooter({ text: `LOA #${id} • anyone with access here can approve/deny` });
+      .setDescription(`**Staff:** <@${message.author.id}>`)
+      .addFields(
+        { name: '🟢 Starts', value: `${ts(start, 'F')}\n${ts(start, 'R')}`, inline: true },
+        { name: '🔴 Ends', value: `${ts(end, 'F')}\n${ts(end, 'R')}`, inline: true },
+        { name: '⏳ Duration', value: humanDur(end - start), inline: true },
+        { name: '📝 Reason', value: reason.slice(0, 1024) },
+      )
+      .setFooter({ text: `LOA #${id}${tzLabel ? ` • entered in ${tzLabel}` : ''}${future ? ' • scheduled in advance' : ''} • approve/deny below` });
     const rowBtns = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(`loa:approve:${id}`).setLabel('Approve').setEmoji('✅').setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId(`loa:deny:${id}`).setLabel('Deny').setEmoji('⛔').setStyle(ButtonStyle.Danger),
     );
     if (logCh?.isTextBased?.()) await logCh.send({ embeds: [embed], components: [rowBtns] }).catch(() => {});
-    else return message.reply('⚠️ No LOA Logs Channel is set. Ask an admin to set one in `/setup`.').catch(() => {});
-    return message.reply(`✅ LOA request #${id} submitted for approval.`).catch(() => {});
+    else return message.reply('⚠️ No LOA Logs Channel is set. Ask an admin to set one with `.loa channel` or in `/setup`.').catch(() => {});
+    return message.reply(`✅ LOA request #${id} submitted for approval${future ? ` — it’ll start ${ts(start, 'R')}` : ''}.`).catch(() => {});
   }
 
   return message.reply('LOA commands: `.loa request <dur> <reason>` · `.loa list` · `.loa end`').catch(() => {});
@@ -161,8 +186,16 @@ export async function handleLoaButton(interaction) {
   const row = q.get.get(Number(idStr));
   if (!row || row.status !== 'pending') { await interaction.reply({ content: '⚠️ This request was already handled or expired.', flags: 64 }).catch(() => {}); return true; }
   if (action === 'approve') {
-    await activateLoa(interaction.guild, row, interaction.user.id);
-    await interaction.update({ components: [], embeds: [EmbedBuilder.from(interaction.message.embeds[0]).setColor(0x22c55e).setTitle('✅ LOA Approved').setFooter({ text: `Approved by ${interaction.user.tag}` })] }).catch(() => {});
+    if (row.start_at > Date.now() + 60000) {
+      // Future-dated LOA — approve now, but the engine assigns the role/nick when it starts.
+      q.setStatus.run('scheduled', interaction.user.id, row.id);
+      const member = await interaction.guild.members.fetch(row.user_id).catch(() => null);
+      await member?.send(`✅ Your LOA was **approved** — it starts <t:${Math.floor(row.start_at / 1000)}:R> and ends <t:${Math.floor(row.end_at / 1000)}:R>.`).catch(() => {});
+      await interaction.update({ components: [], embeds: [EmbedBuilder.from(interaction.message.embeds[0]).setColor(0x3b82f6).setTitle('🗓️ LOA Approved — Scheduled').setFooter({ text: `Approved by ${interaction.user.tag} • starts on schedule` })] }).catch(() => {});
+    } else {
+      await activateLoa(interaction.guild, row, interaction.user.id);
+      await interaction.update({ components: [], embeds: [EmbedBuilder.from(interaction.message.embeds[0]).setColor(0x22c55e).setTitle('✅ LOA Approved').setFooter({ text: `Approved by ${interaction.user.tag}` })] }).catch(() => {});
+    }
   } else if (action === 'deny') {
     q.setStatus.run('denied', interaction.user.id, row.id);
     const member = await interaction.guild.members.fetch(row.user_id).catch(() => null);
@@ -176,8 +209,12 @@ export async function handleLoaButton(interaction) {
 let started = false;
 export function startActivityEngine(client) {
   if (started) return; started = true;
-  // expire active LOAs
+  // start scheduled (future-dated) LOAs + expire finished ones
   setInterval(async () => {
+    for (const row of q.toActivate.all(Date.now())) {
+      const guild = client.guilds.cache.get(row.guild_id);
+      if (guild) await activateLoa(guild, row, row.approved_by).catch(() => {});
+    }
     for (const row of q.expired.all(Date.now())) {
       const guild = client.guilds.cache.get(row.guild_id);
       if (guild) await deactivateLoa(guild, row, 'LOA expired').catch(() => {});
